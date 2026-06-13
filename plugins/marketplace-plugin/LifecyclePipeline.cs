@@ -100,9 +100,13 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
             bus.Send(new ReloadPlugin(info.PluginId, itemDir));
         }
 
-        // 5-7. Stage just this item, summarize the change (Claude) for the message, commit only this item,
-        // tag the version, and push (best-effort). Serialized across pipelines so each commit and tag captures
-        // exactly its own item. Nothing-to-commit is normal for a no-op save, not a failure.
+        // 5-7. Commit only a real change, and only with a version bump. Serialized across pipelines so each
+        // commit and tag captures exactly its own item. Three outcomes:
+        //   - a real source change     -> ensure a bump (a surface delta already moved Major/Minor; otherwise
+        //                                 apply a Build bump), then commit + tag the new version;
+        //   - a first-sighting baseline (surface.json recorded for a newly-seen item, no source change) ->
+        //                                 commit the baseline without a bump (the one allowed no-bump commit);
+        //   - nothing real changed      -> commit nothing, so a no-op recompile never churns a version-only commit.
         bus.Send(new MarketplaceProgress(operationId, "committing", info.Name));
         var relativePath = Path.GetRelativePath(workingCopy, itemDir).Replace('\\', '/');
         string summary;
@@ -115,9 +119,37 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
                 return;
             }
 
+            // The item diff excludes PLUGIN.md / surface.json / project files, so it is non-empty only for a
+            // real source change - never for the pipeline's own version/surface writes.
             var diff = GitSource.stagedItemDiff(workingCopy, relativePath);
-            var diffText = diff.IsOk ? diff.ResultValue : "";
-            var message = SummarizeChange(diffText, info.Name);
+            var sourceDiff = diff.IsOk ? diff.ResultValue : "";
+            var hasSourceChange = !string.IsNullOrWhiteSpace(sourceDiff);
+
+            if (!hasSourceChange && !update.Baseline)
+            {
+                // No source change and nothing to baseline: never make a version-only commit.
+                GitSource.unstage(workingCopy, relativePath);
+                bus.Send(new MarketplaceCompleted(operationId, $"{info.Name}: no changes to commit"));
+                return;
+            }
+
+            // Every committed code change carries a bump: keep the surface-driven bump if there was one,
+            // otherwise apply a Build bump. A pure baseline (no source change) commits without a bump.
+            var effective = update;
+            if (hasSourceChange && !update.Bumped)
+            {
+                effective = LifecycleMetadata.bumpBuild(itemDir);
+                var restaged = GitSource.stage(workingCopy, relativePath);
+                if (restaged.IsError)
+                {
+                    bus.Send(new MarketplaceFailed(operationId, $"{info.Name}: staging failed ({restaged.ErrorValue})"));
+                    return;
+                }
+            }
+
+            var message = hasSourceChange
+                ? SummarizeChange(sourceDiff, info.Name)
+                : Lifecycle.baselineCommitMessage(info.Name);
 
             var commit = GitSource.commitStaged(workingCopy, relativePath, message);
             if (commit.IsError)
@@ -128,12 +160,12 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
             }
 
             var pushNote = PushIfAllowed(workingCopy);
-            if (update.Bumped)
-                TagVersion(workingCopy, info.Name, update.Version);
+            if (effective.Bumped)
+                TagVersion(workingCopy, info.Name, effective.Version);
 
             summary = isShared
-                ? $"{info.Name} updated to v{update.Version}; restart required{pushNote}"
-                : $"{info.Name} reloaded at v{update.Version}{pushNote}";
+                ? $"{info.Name} updated to v{effective.Version}; restart required{pushNote}"
+                : $"{info.Name} reloaded at v{effective.Version}{pushNote}";
         }
         bus.Send(new MarketplaceCompleted(operationId, summary));
     }
