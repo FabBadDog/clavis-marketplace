@@ -1,7 +1,7 @@
 ---
 name: configuration
 pluginId: Configuration
-version: 1.0.137
+version: 1.0.138
 essential: true
 apiVersion: 1.0.0
 description: Sectioned YAML config and state stores under ~/.clavis.
