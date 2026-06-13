@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clavis · Agent Settings (mock)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ---- Clavis "default" theme tokens (from ~/.clavis/themes/default.yaml) ---- */
+:root{
+  --black:#000000; --white:#FFFFFF;
+  --text:#E8E8EC; --text-dim:#9A9AA4; --body:#C8C8D0;
+  --line:#5A5A66; --surface:#0E0E14;
+  --primary:#9FD5F0;   /* state: active / focus / link */
+  --secondary:#ADA6F2; /* identity: keys / hashes / kind labels */
+  --green:#7BD49B; --red:#E47E7E; --yellow:#E4C47E;
+  --human:'Rajdhani',sans-serif;
+  --agent:'Inter',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;border-radius:0;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--black);color:var(--text);
+  font-family:var(--agent);font-size:14px;line-height:1.45;
+  display:flex;flex-direction:column;height:100vh;overflow:hidden;
+}
+.dot{border-radius:50%}            /* status dots are circles (Ellipse), never boxes */
+::selection{background:rgba(159,213,240,.22)}
+
+/* ---- top bar ---- */
+.topbar{
+  flex:0 0 auto;border-bottom:1px solid var(--line);
+  padding:14px 22px 12px;display:flex;flex-direction:column;gap:10px;
+  background:linear-gradient(180deg,var(--surface),var(--black));
+}
+.topbar-row{display:flex;align-items:center;gap:16px}
+.crumb{font-family:var(--human);font-weight:600;letter-spacing:2px;
+  font-size:20px;text-transform:uppercase;color:var(--text);white-space:nowrap}
+.crumb .sep{color:var(--line);margin:0 10px;font-weight:500}
+.crumb .leaf{color:var(--primary)}
+.provider{
+  display:flex;align-items:center;gap:8px;border:1px solid var(--line);
+  padding:5px 11px;font-family:var(--human);font-size:13px;letter-spacing:.5px;color:var(--body);
+}
+.provider .dot{width:8px;height:8px;background:var(--green);box-shadow:0 0 8px var(--green)}
+.provider b{color:var(--text);font-weight:600}
+.facade-note{
+  font-size:12.5px;color:var(--text-dim);max-width:none;
+}
+.facade-note code{font-family:var(--mono);color:var(--secondary);font-size:12px}
+.search-wrap{position:relative;flex:1;min-width:220px}
+.search{
+  width:100%;background:var(--black);border:1px solid var(--line);color:var(--text);
+  font-family:var(--mono);font-size:13px;padding:9px 32px 9px 32px;outline:none;
+}
+.search:focus{border-color:var(--primary)}
+.search-wrap .ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  width:13px;height:13px;border:1.6px solid var(--text-dim);border-radius:50%}
+.search-wrap .ico:after{content:"";position:absolute;width:6px;height:1.6px;background:var(--text-dim);
+  right:-5px;bottom:-1px;transform:rotate(45deg)}
+.search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;display:none;line-height:1}
+.search-clear:hover{color:var(--text)}
+
+/* ---- body split ---- */
+.split{flex:1 1 auto;display:flex;min-height:0}
+.nav{
+  flex:0 0 232px;border-right:1px solid var(--line);overflow-y:auto;padding:14px 0;
+  background:var(--surface);
+}
+.nav h4{font-family:var(--human);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--text-dim);padding:6px 20px;font-weight:500}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:8px 20px;cursor:pointer;color:var(--body);
+  border-left:2px solid transparent;font-family:var(--human);font-size:14.5px;letter-spacing:.4px;
+}
+.nav-item:hover{background:rgba(159,213,240,.05);color:var(--text)}
+.nav-item.active{border-left-color:var(--primary);color:var(--text);background:rgba(159,213,240,.07)}
+.nav-item .count{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+.nav-item.active .count{color:var(--primary)}
+.nav-tools{padding:12px 20px;border-top:1px solid var(--line);margin-top:8px}
+.checkrow{display:flex;align-items:center;gap:9px;cursor:pointer;color:var(--body);font-size:13px}
+.checkrow input{appearance:none;width:14px;height:14px;border:1px solid var(--line);background:var(--black);cursor:pointer;position:relative}
+.checkrow input:checked{border-color:var(--primary)}
+.checkrow input:checked:after{content:"";position:absolute;inset:2px;background:var(--primary)}
+
+.main{flex:1 1 auto;overflow-y:auto;padding:8px 30px 120px;scroll-behavior:smooth}
+.result-line{font-family:var(--mono);font-size:12px;color:var(--text-dim);padding:14px 2px 4px}
+.result-line b{color:var(--primary);font-weight:500}
+
+/* ---- group ---- */
+.group{padding-top:18px}
+.group-head{
+  display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);
+  padding-bottom:8px;margin-bottom:6px;position:sticky;top:0;background:var(--black);z-index:2;
+}
+.group-head h2{font-family:var(--human);font-size:15px;font-weight:600;letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--text)}
+.group-head .sub{font-size:12px;color:var(--text-dim)}
+
+/* ---- setting card ---- */
+.card{
+  display:grid;grid-template-columns:1fr 280px;gap:18px 26px;
+  padding:16px 14px;border-bottom:1px solid rgba(90,90,102,.35);align-items:start;
+  border-left:2px solid transparent;transition:background .2s,border-color .2s;
+}
+.card:hover{background:rgba(255,255,255,.012)}
+.card.modified{border-left-color:var(--yellow);background:rgba(228,196,126,.04)}
+.card.saved{border-left-color:var(--primary)}
+.card-info{min-width:0}
+.name-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.name{font-family:var(--agent);font-weight:600;font-size:15px;color:var(--text)}
+.key{font-family:var(--mono);font-size:12px;color:var(--secondary);word-break:break-all}
+.meta-row{display:flex;align-items:center;gap:8px;margin:5px 0 7px;flex-wrap:wrap}
+.badge{
+  font-family:var(--human);font-size:11px;letter-spacing:.6px;text-transform:uppercase;
+  padding:2px 7px;border:1px solid var(--line);color:var(--text-dim);white-space:nowrap;
+}
+.badge.type{color:var(--secondary);border-color:rgba(173,166,242,.4)}
+.badge.src-env{color:var(--yellow);border-color:rgba(228,196,126,.4)}
+.badge.src-json{color:var(--body)}
+.badge.src-both{color:var(--primary);border-color:rgba(159,213,240,.4)}
+.badge.deprecated{color:var(--red);border-color:rgba(228,126,126,.4)}
+.desc{font-size:13px;color:var(--body);max-width:62ch}
+.default{font-family:var(--mono);font-size:11.5px;color:var(--text-dim);margin-top:5px}
+.default b{color:var(--body);font-weight:400}
+
+/* ---- control column ---- */
+.control{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.control .live{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;height:14px}
+.control .live .dot{width:7px;height:7px}
+.live.is-live .dot{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+.live.is-live{color:var(--yellow)}
+.live.is-saved .dot{background:var(--primary);box-shadow:0 0 6px var(--primary)}
+.live.is-saved{color:var(--primary)}
+.live.is-session .dot{background:var(--yellow)}
+.live.is-session{color:var(--text-dim)}
+
+input.in,select.in,textarea.in{
+  width:100%;background:var(--black);border:1px solid var(--line);color:var(--text);
+  font-family:var(--mono);font-size:13px;padding:8px 9px;outline:none;
+}
+input.in:focus,select.in:focus,textarea.in:focus{border-color:var(--primary)}
+select.in{cursor:pointer;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text-dim) 50%),linear-gradient(135deg,var(--text-dim) 50%,transparent 50%);
+  background-position:calc(100% - 16px) 51%,calc(100% - 11px) 51%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:28px}
+.num-wrap{display:flex;align-items:stretch}
+.num-wrap input{flex:1}
+.num-wrap .unit{display:flex;align-items:center;padding:0 10px;border:1px solid var(--line);border-left:none;
+  font-family:var(--mono);font-size:11px;color:var(--text-dim);white-space:nowrap}
+.range-hint{font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+
+/* secret */
+.secret-wrap{display:flex;align-items:stretch}
+.secret-wrap input{flex:1}
+.icon-btn{background:var(--black);border:1px solid var(--line);border-left:none;color:var(--text-dim);
+  cursor:pointer;padding:0 11px;font-family:var(--mono);font-size:11px;letter-spacing:.5px}
+.icon-btn:hover{color:var(--text);border-color:var(--primary)}
+
+/* toggle (square track + square knob — no rounded corners) */
+.toggle{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.track{width:42px;height:22px;border:1px solid var(--line);background:var(--black);position:relative;flex:0 0 auto;transition:border-color .2s,background .2s}
+.knob{position:absolute;top:2px;left:2px;width:16px;height:16px;background:var(--text-dim);transition:left .18s,background .18s}
+.toggle[aria-checked="true"] .track{border-color:var(--primary);background:rgba(159,213,240,.12)}
+.toggle[aria-checked="true"] .knob{left:22px;background:var(--primary)}
+.toggle .state{font-family:var(--mono);font-size:12px;color:var(--text-dim);min-width:24px}
+.toggle[aria-checked="true"] .state{color:var(--primary)}
+
+/* list / chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);
+  padding:3px 6px 3px 8px;font-family:var(--mono);font-size:11.5px;color:var(--body);max-width:100%}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip button{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px;line-height:1}
+.chip button:hover{color:var(--red)}
+.chip.empty{border-style:dashed;color:var(--text-dim)}
+.add-row{display:flex;margin-top:6px}
+.add-row input{flex:1}
+.add-row button{background:var(--black);border:1px solid var(--line);border-left:none;color:var(--primary);
+  cursor:pointer;padding:0 12px;font-family:var(--human);letter-spacing:.5px}
+.add-row button:hover{background:rgba(159,213,240,.08)}
+
+/* map / structured */
+.map-box{border:1px solid var(--line);background:rgba(255,255,255,.015)}
+.map-summary{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;cursor:pointer}
+.map-summary .cnt{font-family:var(--mono);font-size:12px;color:var(--body)}
+.map-summary .cnt b{color:var(--secondary);font-weight:500}
+.map-summary .chev{color:var(--text-dim);transition:transform .2s;font-family:var(--mono)}
+.map-box.open .chev{transform:rotate(90deg);color:var(--primary)}
+.map-entries{display:none;border-top:1px solid var(--line);padding:6px 10px 10px}
+.map-box.open .map-entries{display:block}
+.map-entry{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-top:6px}
+.map-entry input{font-size:12px;padding:6px 8px}
+.map-entry .k{color:var(--secondary)}
+.map-entry button{background:none;border:1px solid var(--line);color:var(--text-dim);cursor:pointer;padding:0 9px}
+.map-entry button:hover{color:var(--red);border-color:var(--red)}
+.map-add{margin-top:8px;background:var(--black);border:1px dashed var(--line);color:var(--primary);
+  cursor:pointer;padding:6px;width:100%;font-family:var(--human);letter-spacing:.5px}
+.map-add:hover{background:rgba(159,213,240,.06)}
+
+/* ---- footer action bar ---- */
+.footer{
+  position:fixed;left:232px;right:0;bottom:0;border-top:1px solid var(--line);
+  background:linear-gradient(0deg,var(--surface),rgba(14,14,20,.96));
+  padding:13px 30px;display:flex;align-items:center;gap:18px;backdrop-filter:blur(3px);
+}
+.footer .status{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--body)}
+.footer .status .dot{width:9px;height:9px;background:var(--yellow);box-shadow:0 0 8px var(--yellow)}
+.footer .status.clean .dot{background:var(--line);box-shadow:none}
+.footer .status .n{font-family:var(--mono);color:var(--yellow);font-weight:500}
+.footer .hint{font-size:12px;color:var(--text-dim);max-width:none}
+.footer .spacer{flex:1}
+.btn{font-family:var(--human);font-size:14px;letter-spacing:.8px;text-transform:uppercase;
+  border:1px solid var(--line);background:var(--black);color:var(--body);padding:9px 20px;cursor:pointer}
+.btn:hover{color:var(--text);border-color:var(--text-dim)}
+.btn.primary{border-color:var(--primary);color:var(--primary)}
+.btn.primary:hover{background:rgba(159,213,240,.1)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn:disabled:hover{color:var(--body);border-color:var(--line);background:var(--black)}
+
+/* toast */
+.toast{position:fixed;bottom:78px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--surface);border:1px solid var(--line);padding:11px 18px;font-size:13px;color:var(--text);
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:20;display:flex;align-items:center;gap:10px}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast .dot{width:8px;height:8px}
+.toast.ok .dot{background:var(--primary)}
+.toast.warn .dot{background:var(--yellow)}
+
+.hidden{display:none!important}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text-dim);font-family:var(--mono);padding-top:4px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend .sw{width:9px;height:9px;display:inline-block}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-row">
+    <div class="crumb">Clavis<span class="sep">›</span><span class="leaf">Settings</span></div>
+    <div class="provider" title="The active agent provider. It supplies this whole settings catalog through the agent-gateway facade.">
+      <span class="dot"></span>Agent:&nbsp;<b>Claude&nbsp;Code</b>
+    </div>
+    <div class="search-wrap">
+      <span class="ico"></span>
+      <input id="search" class="search" type="text" placeholder="Search settings  ·  name, key, or description…" autocomplete="off" />
+      <button id="searchClear" class="search-clear" title="Clear">×</button>
+    </div>
+  </div>
+  <div class="topbar-row">
+    <div class="facade-note">
+      Settings + their types are supplied by the active agent through the <b style="color:var(--body)">agent-gateway</b> facade
+      (provider-neutral catalog &amp; change messages, e.g. <code>GetAgentSettings</code> / <code>SetAgentSetting</code>). Swap the
+      agent and the gateway supplies a different catalog — this panel never names a provider.
+    </div>
+  </div>
+  <div class="legend">
+    <span><i class="sw" style="border:1px solid var(--secondary)"></i> type</span>
+    <span><i class="sw" style="border:1px solid var(--body)"></i> settings.json</span>
+    <span><i class="sw" style="border:1px solid var(--yellow)"></i> env var</span>
+    <span><i class="sw" style="border:1px solid var(--primary)"></i> json&nbsp;or&nbsp;env</span>
+    <span><i class="sw dot" style="background:var(--yellow)"></i> changed · applied live, unsaved</span>
+    <span><i class="sw dot" style="background:var(--primary)"></i> saved to disk</span>
+  </div>
+</header>
+
+<div class="split">
+  <aside class="nav" id="nav"></aside>
+  <main class="main" id="main">
+    <div class="result-line hidden" id="resultLine"></div>
+    <div id="groups"></div>
+  </main>
+</div>
+
+<footer class="footer">
+  <div class="status clean" id="status">
+    <span class="dot"></span>
+    <span id="statusText">No changes</span>
+  </div>
+  <div class="hint">Edits apply to the running agent <b style="color:var(--body)">immediately</b>. <b style="color:var(--body)">Save</b> writes them to disk; <b style="color:var(--body)">Cancel</b> keeps them for this session only (not persisted).</div>
+  <div class="spacer"></div>
+  <button class="btn" id="cancelBtn" disabled>Cancel</button>
+  <button class="btn primary" id="saveBtn" disabled>Save to disk</button>
+</footer>
+
+<div class="toast" id="toast"><span class="dot"></span><span id="toastText"></span></div>
+
+<script>
+/* ============================================================================
+   SETTINGS CATALOG (mock data)
+   In the real plugin this arrives over the agent-gateway facade as a settings
+   catalog message. Each item carries a *type descriptor* — the UI renders a control
+   purely from `type.kind`, so it is provider-agnostic and stays correct for any future agent.
+   type.kind:  text | secret | path | url | number | enum | bool | list | map
+   source:     json (settings.json) | env (environment variable) | both
+============================================================================ */
+const CATALOG = [
+ { id:"model", title:"Model & Reasoning", sub:"Which model answers, and how hard it thinks", items:[
+   {key:"model", name:"Default model", src:"both", type:{kind:"enum", options:["(auto)","opus","sonnet","haiku","fable"]}, def:"(auto)", val:"opus",
+    desc:"The model Claude Code uses by default. The ANTHROPIC_MODEL environment variable overrides this when set."},
+   {key:"fallbackModel", name:"Fallback models", src:"json", type:{kind:"list", max:3}, def:"none", val:["sonnet"],
+    desc:"Models to try, in order, if the primary model is unavailable. Up to three entries."},
+   {key:"availableModels", name:"Model allow-list", src:"json", type:{kind:"list"}, def:"all", val:[],
+    desc:"Restrict which models appear in the model picker. Empty means every model is offered."},
+   {key:"effortLevel", name:"Reasoning effort", src:"both", type:{kind:"enum", options:["auto","low","medium","high","xhigh","max"]}, def:"auto", val:"auto",
+    desc:"How much reasoning depth the model spends per turn. Higher levels think longer and cost more; auto adapts to the task."},
+   {key:"alwaysThinkingEnabled", name:"Extended thinking by default", src:"json", type:{kind:"bool"}, def:false, val:false,
+    desc:"Turn on extended thinking for every turn without asking. Set MAX_THINKING_TOKENS to 0 to force it off."},
+   {key:"MAX_THINKING_TOKENS", name:"Max thinking tokens", src:"env", type:{kind:"number", min:0, unit:"tokens"}, def:"model default", val:"",
+    desc:"Caps the tokens spent on extended thinking. A value of 0 disables extended thinking entirely."},
+   {key:"showThinkingSummaries", name:"Show thinking summaries", src:"json", type:{kind:"bool"}, def:false, val:false,
+    desc:"Display short summaries of the model's extended thinking in interactive sessions."},
+ ]},
+
+ { id:"auth", title:"Authentication & API", sub:"Credentials, endpoints and login", items:[
+   {key:"ANTHROPIC_API_KEY", name:"Anthropic API key", src:"env", type:{kind:"secret"}, def:"none", val:"sk-ant-api03-9f2c5e7a1b",
+    desc:"API key for Anthropic requests. When present it is used instead of a Claude subscription login."},
+   {key:"ANTHROPIC_AUTH_TOKEN", name:"Custom auth token", src:"env", type:{kind:"secret"}, def:"none", val:"",
+    desc:"A bearer token sent as the Authorization header, for gateways that issue their own tokens."},
+   {key:"ANTHROPIC_BASE_URL", name:"API base URL", src:"env", type:{kind:"url"}, def:"Anthropic API", val:"",
+    desc:"Point Claude Code at a proxy or gateway endpoint instead of the public Anthropic API."},
+   {key:"apiKeyHelper", name:"API key helper script", src:"json", type:{kind:"path"}, def:"none", val:"",
+    desc:"A script that prints an API key on demand. Refresh cadence is set by CLAUDE_CODE_API_KEY_HELPER_TTL_MS."},
+   {key:"forceLoginMethod", name:"Force login method", src:"json", type:{kind:"enum", options:["(any)","claudeai","console"]}, def:"(any)", val:"(any)",
+    desc:"Restrict sign-in to Claude.ai only or the Anthropic Console only, rather than offering both."},
+   {key:"ANTHROPIC_MODEL", name:"Model override (env)", src:"env", type:{kind:"text"}, def:"none", val:"",
+    desc:"Overrides the default model from the environment. Takes precedence over the model setting above."},
+ ]},
+
+ { id:"permissions", title:"Permissions & Access", sub:"What the agent may do without asking", items:[
+   {key:"permissions.defaultMode", name:"Default permission mode", src:"json", type:{kind:"enum", options:["default","acceptEdits","plan","auto","dontAsk","bypassPermissions"]}, def:"default", val:"default",
+    desc:"How prompts are handled out of the box: prompt for each action (default), auto-accept edits, read-only plan, safety-checked auto, deny unless pre-approved, or skip all prompts."},
+   {key:"permissions.allow", name:"Allow rules", src:"json", type:{kind:"list"}, def:"none", val:["Read","Bash(git status)","Bash(git log:*)"],
+    desc:"Tools and resources the agent may use without prompting, written as permission rules."},
+   {key:"permissions.ask", name:"Ask rules", src:"json", type:{kind:"list"}, def:"none", val:[],
+    desc:"Tools and resources that always prompt for approval before running."},
+   {key:"permissions.deny", name:"Deny rules", src:"json", type:{kind:"list"}, def:"none", val:["Bash(rm -rf:*)"],
+    desc:"Tools and resources the agent may never use. Deny always wins over allow."},
+   {key:"permissions.additionalDirectories", name:"Additional directories", src:"json", type:{kind:"list"}, def:"none", val:[],
+    desc:"Extra directories the agent may read and edit beyond the current workspace."},
+   {key:"permissions.disableBypassPermissionsMode", name:"Block bypass mode", src:"json", type:{kind:"enum", options:["(off)","disable"]}, def:"(off)", val:"(off)",
+    desc:"Set to disable to prevent anyone from turning on the prompt-skipping bypass permissions mode."},
+ ]},
+
+ { id:"hooks", title:"Hooks & Automation", sub:"Scripts that run at lifecycle events", items:[
+   {key:"hooks", name:"Hooks", src:"json", type:{kind:"map", keyName:"event", valName:"command"}, def:"none",
+    val:{"PreToolUse":"./guard.ps1","PostToolUse":"./format.ps1","Stop":"./sweep-perms.ps1","SessionStart":"./greet.ps1"},
+    desc:"Shell commands run at lifecycle events (PreToolUse, PostToolUse, Stop, SessionStart, …). Each event can match specific tools and run one or more hooks."},
+   {key:"disableAllHooks", name:"Disable all hooks", src:"json", type:{kind:"bool"}, def:false, val:false,
+    desc:"Turn off every hook and the custom status line at once, without removing their configuration."},
+ ]},
+
+ { id:"mcp", title:"MCP Servers", sub:"External tool servers", items:[
+   {key:"mcpServers", name:"MCP servers", src:"json", type:{kind:"map", keyName:"name", valName:"command"}, def:"none",
+    val:{"whatsapp":"node main.js","email":"node email-mcp","keepass":"pwsh broker.ps1","azure-mcp":"npx azure-mcp"},
+    desc:"Model Context Protocol servers that extend the agent with external tools. Supports stdio, HTTP, WebSocket and SSE transports."},
+   {key:"enableAllProjectMcpServers", name:"Trust project MCP servers", src:"json", type:{kind:"bool"}, def:false, val:false,
+    desc:"Auto-approve every MCP server defined in a project's .mcp.json instead of prompting per server."},
+   {key:"enabledMcpjsonServers", name:"Enabled .mcp.json servers", src:"json", type:{kind:"list"}, def:"none", val:[],
+    desc:"Allow-list of named servers from .mcp.json that may load. Empty leaves the global policy in charge."},
+   {key:"disabledMcpjsonServers", name:"Disabled .mcp.json servers", src:"json", type:{kind:"list"}, def:"none", val:[],
+    desc:"Block-list of named servers from .mcp.json that must never load."},
+ ]},
+
+ { id:"statusline", title:"Status Line", sub:"The custom status bar", items:[
+   {key:"statusLine.type", name:"Status line type", src:"json", type:{kind:"enum", options:["command"]}, def:"command", val:"command",
+    desc:"How the status line is produced. Currently only a command-based provider is supported."},
+   {key:"statusLine.command", name:"Status line command", src:"json", type:{kind:"path"}, def:"none", val:"~/.claude/ccstatusline.js",
+    desc:"The script that renders the status bar. It receives the session data as JSON on standard input."},
+   {key:"statusLine.padding", name:"Status line padding", src:"json", type:{kind:"number", min:0, unit:"chars"}, def:0, val:0,
+    desc:"Extra horizontal spacing, in characters, around the status line content."},
+   {key:"statusLine.refreshInterval", name:"Refresh interval", src:"json", type:{kind:"number", min:1, unit:"sec"}, def:"on change", val:"",
+    desc:"Re-run the command every N seconds so time-based data stays current while you are idle. Minimum 1."},
+   {key:"statusLine.hideVimModeIndicator", name:"Hide vim mode indicator", src:"json", type:{kind:"bool"}, def:false, val:false,
+    desc:"Suppress the built-in -- INSERT -- text when your status line already renders the vim mode."},
+ ]},
+
+ { id:"env", title:"Environment & Timeouts", sub:"Injected variables, shells and limits", items:[
+   {key:"env", name:"Injected environment variables", src:"json", type:{kind:"map", keyName:"name", valName:"value"}, def:"none",
+    val:{"DOTNET_CLI_TELEMETRY_OPTOUT":"1","EDITOR":"code --wait","TZ":"Europe/Berlin"},
+    desc:"Environment variables injected into every session and the subprocesses it spawns."},
+   {key:"BASH_DEFAULT_TIMEOUT_MS", name:"Default shell timeout", src:"env", type:{kind:"number", min:0, unit:"ms"}, def:120000, val:"",
+    desc:"How long a shell command may run before it is timed out, unless a longer timeout is requested."},
+   {key:"BASH_MAX_TIMEOUT_MS", name:"Maximum shell timeout", src:"env", type:{kind:"number", min:0, unit:"ms"}, def:600000, val:"",
+    desc:"The ceiling for any shell command timeout, even when a longer one is requested."},
+   {key:"API_TIMEOUT_MS", name:"API request timeout", src:"env", type:{kind:"number", min:0, unit:"ms"}, def:600000, val:"",
+    desc:"How long to wait for a model API response before giving up. Defaults to ten minutes."},
+   {key:"CLAUDE_CODE_USE_POWERSHELL_TOOL", name:"Use PowerShell for ! commands", src:"env", type:{kind:"bool"}, def:false, val:true,
+    desc:"Run inline ! shell commands through PowerShell instead of Bash."},
+   {key:"CLAUDE_CODE_DISABLE_1M_CONTEXT", name:"Disable 1M context", src:"env", type:{kind:"bool"}, def:false, val:false,
+    desc:"Turn off the extended one-million-token context window even on models that support it."},
+ ]},
+
+ { id:"network", title:"Network & Proxy", sub:"Proxies and certificates", items:[
+   {key:"HTTP_PROXY", name:"HTTP proxy", src:"env", type:{kind:"url"}, def:"none", val:"",
+    desc:"Proxy endpoint for plain HTTP traffic."},
+   {key:"HTTPS_PROXY", name:"HTTPS proxy", src:"env", type:{kind:"url"}, def:"none", val:"",
+    desc:"Proxy endpoint for HTTPS traffic, including model API calls."},
+   {key:"NO_PROXY", name:"Proxy bypass list", src:"env", type:{kind:"text"}, def:"none", val:"",
+    desc:"Comma-separated domains that should bypass the proxy."},
+   {key:"CLAUDE_CODE_CERT_STORE", name:"Certificate sources", src:"env", type:{kind:"enum", options:["bundled,system","bundled","system"]}, def:"bundled,system", val:"bundled,system",
+    desc:"Which certificate authority sources to trust: the bundled set, the system store, or both."},
+ ]},
+
+ { id:"features", title:"Feature Toggles", sub:"Turn built-in capabilities on or off", items:[
+   {key:"CLAUDE_CODE_DISABLE_AUTO_MEMORY", name:"Disable auto memory", src:"env", type:{kind:"bool"}, def:false, val:false,
+    desc:"Stop the agent from persisting learnings across sessions."},
+   {key:"CLAUDE_CODE_DISABLE_WORKFLOWS", name:"Disable workflows", src:"env", type:{kind:"bool"}, def:false, val:false,
+    desc:"Disable dynamic multi-agent workflows."},
+   {key:"CLAUDE_CODE_DISABLE_AGENT_VIEW", name:"Disable agent view", src:"env", type:{kind:"bool"}, def:false, val:false,
+    desc:"Turn off background agents and the agent view panel."},
+   {key:"CLAUDE_CODE_DISABLE_FAST_MODE", name:"Disable fast mode", src:"env", type:{kind:"bool"}, def:false, val:false,
+    desc:"Disable the faster-output fast mode entirely."},
+   {key:"CLAUDE_CODE_DISABLE_CRON", name:"Disable scheduled tasks", src:"env", type:{kind:"bool"}, def:false, val:false,
+    desc:"Prevent scheduled (cron) agents from running."},
+   {key:"CLAUDE_CODE_ENABLE_TASKS", name:"Enable task tools", src:"env", type:{kind:"bool"}, def:true, val:true,
+    desc:"Allow the agent to use the background task tools."},
+ ]},
+
+ { id:"git", title:"Git & Attribution", sub:"How commits and PRs are written", items:[
+   {key:"attribution", name:"Attribution", src:"json", type:{kind:"map", keyName:"target", valName:"text"}, def:"defaults",
+    val:{"commit":"(none)","pr":"(none)"},
+    desc:"Customize the footer added to commit messages and the template used for pull-request descriptions."},
+   {key:"includeCoAuthoredBy", name:"Add Co-Authored-By", src:"json", type:{kind:"bool"}, def:true, val:false, deprecated:true,
+    desc:"Append a Co-Authored-By trailer to commits the agent makes. Superseded by the attribution setting."},
+   {key:"includeGitInstructions", name:"Built-in git instructions", src:"json", type:{kind:"bool"}, def:true, val:true,
+    desc:"Include the built-in git workflow guidance in the system prompt."},
+   {key:"prUrlTemplate", name:"PR URL template", src:"json", type:{kind:"text"}, def:"none", val:"",
+    desc:"Template for PR badge links, with {host}, {owner}, {repo}, {number} and {url} substitutions."},
+ ]},
+
+ { id:"files", title:"Files & Sessions", sub:"Storage, cleanup and the default shell", items:[
+   {key:"respectGitignore", name:"Respect .gitignore", src:"json", type:{kind:"bool"}, def:true, val:true,
+    desc:"Whether the @ file picker hides files matched by .gitignore."},
+   {key:"plansDirectory", name:"Plans directory", src:"json", type:{kind:"path"}, def:"~/.claude/plans", val:"~/.claude/plans",
+    desc:"Where plan files are written. Accepts an absolute path or one starting with ~/."},
+   {key:"autoMemoryEnabled", name:"Auto memory", src:"json", type:{kind:"bool"}, def:true, val:true,
+    desc:"Let the agent learn and persist context automatically between sessions."},
+   {key:"cleanupPeriodDays", name:"Session retention", src:"json", type:{kind:"number", min:1, unit:"days"}, def:30, val:30,
+    desc:"Delete session transcripts older than this many days at startup."},
+   {key:"defaultShell", name:"Default shell", src:"json", type:{kind:"enum", options:["bash","powershell"]}, def:"bash", val:"powershell",
+    desc:"Which shell runs inline ! commands."},
+   {key:"claudeMdExcludes", name:"CLAUDE.md excludes", src:"json", type:{kind:"list"}, def:"none", val:[],
+    desc:"Glob patterns of CLAUDE.md memory files to skip when loading context."},
+ ]},
+
+ { id:"interface", title:"Interface & Notifications", sub:"Look, input mode and alerts", items:[
+   {key:"theme", name:"UI theme", src:"json", type:{kind:"enum", options:["dark","light"]}, def:"dark", val:"dark",
+    desc:"The light or dark colour scheme for the interface."},
+   {key:"editorMode", name:"Editor key bindings", src:"json", type:{kind:"enum", options:["normal","vim"]}, def:"normal", val:"normal",
+    desc:"Use standard key bindings or vim-style modal editing in the prompt."},
+   {key:"language", name:"Response language", src:"json", type:{kind:"text"}, def:"auto", val:"",
+    desc:"Preferred language for the agent's responses, e.g. spanish or japanese."},
+   {key:"prefersReducedMotion", name:"Reduce motion", src:"json", type:{kind:"bool"}, def:false, val:false,
+    desc:"Minimise UI animations for comfort or accessibility."},
+   {key:"preferredNotifChannel", name:"Notification channel", src:"json", type:{kind:"enum", options:["auto","terminal_bell","iterm2","kitty","ghostty","notifications_disabled"]}, def:"auto", val:"auto",
+    desc:"How the agent notifies you when it needs attention or finishes."},
+   {key:"showTurnDuration", name:"Show turn duration", src:"json", type:{kind:"bool"}, def:true, val:true,
+    desc:"Display how long each turn took, e.g. \"Cooked for 1m 6s\"."},
+   {key:"autoScrollEnabled", name:"Auto-scroll output", src:"json", type:{kind:"bool"}, def:true, val:true,
+    desc:"Follow output to the bottom automatically while the agent works."},
+ ]},
+
+ { id:"updates", title:"Updates & Versioning", sub:"Release channel and version floor", items:[
+   {key:"autoUpdatesChannel", name:"Update channel", src:"json", type:{kind:"enum", options:["latest","stable"]}, def:"latest", val:"latest",
+    desc:"Choose immediate updates (latest) or a one-week-delayed channel that skips known regressions (stable)."},
+   {key:"minimumVersion", name:"Minimum version", src:"json", type:{kind:"text"}, def:"none", val:"",
+    desc:"Block auto-updates from going below this semver version, preventing downgrades."},
+   {key:"DISABLE_AUTOUPDATER", name:"Disable auto-updater", src:"env", type:{kind:"bool"}, def:false, val:false,
+    desc:"Turn off automatic updates entirely."},
+ ]},
+
+ { id:"privacy", title:"Telemetry & Privacy", sub:"What leaves your machine", items:[
+   {key:"DISABLE_TELEMETRY", name:"Disable telemetry", src:"env", type:{kind:"bool"}, def:false, val:false,
+    desc:"Stop usage telemetry from being collected and sent."},
+   {key:"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", name:"Block non-essential traffic", src:"env", type:{kind:"bool"}, def:false, val:false,
+    desc:"Suppress all network calls that are not required to answer your prompts."},
+   {key:"feedbackSurveyRate", name:"Feedback survey rate", src:"json", type:{kind:"number", min:0, max:1, step:0.05, unit:"prob"}, def:"default", val:"",
+    desc:"Probability (0 to 1) that a session-quality survey appears. Set to 0 to never see one."},
+ ]},
+
+ { id:"skills", title:"Skills & Agents", sub:"Bundled capabilities and subagents", items:[
+   {key:"disableBundledSkills", name:"Disable bundled skills", src:"json", type:{kind:"bool"}, def:false, val:false,
+    desc:"Turn off the skills and workflows shipped with Claude Code."},
+   {key:"disableSkillShellExecution", name:"Disable skill shell execution", src:"json", type:{kind:"bool"}, def:false, val:false,
+    desc:"Forbid inline shell execution from within skill markdown."},
+   {key:"maxSkillDescriptionChars", name:"Max skill description length", src:"json", type:{kind:"number", min:0, unit:"chars"}, def:1536, val:1536,
+    desc:"Per-skill character cap applied to the skill listing the model sees."},
+   {key:"skillListingBudgetFraction", name:"Skill listing budget", src:"json", type:{kind:"number", min:0, max:1, step:0.01, unit:"frac"}, def:0.01, val:0.01,
+    desc:"Fraction of the context window reserved for listing available skills."},
+   {key:"disableAgentView", name:"Disable agent view", src:"json", type:{kind:"bool"}, def:false, val:false,
+    desc:"Turn off background agents and the agent view panel."},
+ ]},
+];
+
+/* ---------- type → badge label ---------- */
+function typeBadge(t){
+  switch(t.kind){
+    case "text": return "text";
+    case "secret": return "secret";
+    case "path": return "path";
+    case "url": return "url";
+    case "bool": return "on / off";
+    case "enum": return "choice · " + t.options.length;
+    case "list": return "list" + (t.max?` · max ${t.max}`:"");
+    case "map": return "map";
+    case "number":{
+      let r="number";
+      if(t.min!=null && t.max!=null) r=`number ${t.min}–${t.max}`;
+      else if(t.min!=null) r=`number ≥ ${t.min}`;
+      return r + (t.unit?` ${t.unit}`:"");
+    }
+  }
+  return t.kind;
+}
+const SRC_LABEL = {json:"settings.json", env:"env var", both:"json or env"};
+
+/* ---------- state ---------- */
+const state = {}; // key -> {item, baseline, current, status:'clean'|'modified'|'saved'|'session'}
+CATALOG.forEach(g=>g.items.forEach(it=>{
+  state[it.key] = {item:it, baseline:clone(it.val), current:clone(it.val), status:'clean'};
+}));
+function clone(v){return JSON.parse(JSON.stringify(v));}
+function eq(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+
+/* ---------- render nav ---------- */
+const nav = document.getElementById('nav');
+nav.innerHTML = '<h4>Groups</h4>';
+CATALOG.forEach(g=>{
+  const el=document.createElement('div');
+  el.className='nav-item'; el.dataset.group=g.id;
+  el.innerHTML=`<span>${g.title}</span><span class="count">${g.items.length}</span>`;
+  el.onclick=()=>{document.getElementById('grp-'+g.id).scrollIntoView({block:'start'});};
+  nav.appendChild(el);
+});
+const tools=document.createElement('div'); tools.className='nav-tools';
+tools.innerHTML=`<label class="checkrow"><input type="checkbox" id="modOnly"><span>Show changed only</span></label>`;
+nav.appendChild(tools);
+
+/* ---------- render groups + cards ---------- */
+const groupsEl=document.getElementById('groups');
+CATALOG.forEach(g=>{
+  const sec=document.createElement('section');
+  sec.className='group'; sec.id='grp-'+g.id; sec.dataset.group=g.id;
+  sec.innerHTML=`<div class="group-head"><h2>${g.title}</h2><span class="sub">${g.sub}</span></div>`;
+  g.items.forEach(it=>sec.appendChild(renderCard(it)));
+  groupsEl.appendChild(sec);
+});
+
+function renderCard(it){
+  const st=state[it.key];
+  const card=document.createElement('div');
+  card.className='card'; card.dataset.key=it.key;
+  card.dataset.search=(it.name+' '+it.key+' '+it.desc).toLowerCase();
+
+  const badges=[`<span class="badge type" title="value type">${typeBadge(it.type)}</span>`,
+    `<span class="badge src-${it.src}" title="where this lives">${SRC_LABEL[it.src]}</span>`];
+  if(it.deprecated) badges.push(`<span class="badge deprecated">deprecated</span>`);
+
+  card.innerHTML=`
+    <div class="card-info">
+      <div class="name-row"><span class="name">${it.name}</span><span class="key">${it.key}</span></div>
+      <div class="meta-row">${badges.join('')}</div>
+      <div class="desc">${it.desc}</div>
+      <div class="default">default: <b>${fmtDefault(it)}</b></div>
+    </div>
+    <div class="control"></div>`;
+  const ctl=card.querySelector('.control');
+  ctl.appendChild(renderControl(it));
+  const live=document.createElement('div'); live.className='live'; live.dataset.key=it.key;
+  live.innerHTML='<span class="dot"></span><span class="txt"></span>';
+  ctl.appendChild(live);
+  return card;
+}
+function fmtDefault(it){
+  let d=it.def;
+  if(Array.isArray(d)) return d.length?d.join(', '):'[]';
+  if(typeof d==='boolean') return d?'on':'off';
+  if(d===''||d==null) return 'unset';
+  return String(d);
+}
+
+/* ---------- controls (rendered purely from type.kind) ---------- */
+function renderControl(it){
+  const t=it.type, st=state[it.key];
+  const set=(v)=>onChange(it.key,v);
+
+  if(t.kind==='bool'){
+    const tg=document.createElement('div'); tg.className='toggle'; tg.tabIndex=0;
+    tg.setAttribute('role','switch'); tg.setAttribute('aria-checked',String(!!st.current));
+    tg.innerHTML=`<div class="track"><div class="knob"></div></div><span class="state">${st.current?'on':'off'}</span>`;
+    const flip=()=>{const v=!(tg.getAttribute('aria-checked')==='true');tg.setAttribute('aria-checked',String(v));tg.querySelector('.state').textContent=v?'on':'off';set(v);};
+    tg.onclick=flip; tg.onkeydown=e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();flip();}};
+    return tg;
+  }
+  if(t.kind==='enum'){
+    const sel=document.createElement('select'); sel.className='in';
+    t.options.forEach(o=>{const op=document.createElement('option');op.value=o;op.textContent=o;if(o===st.current)op.selected=true;sel.appendChild(op);});
+    sel.onchange=()=>set(sel.value); return sel;
+  }
+  if(t.kind==='number'){
+    const w=document.createElement('div'); w.className='num-wrap';
+    const inp=document.createElement('input'); inp.className='in'; inp.type='number';
+    if(t.min!=null)inp.min=t.min; if(t.max!=null)inp.max=t.max; if(t.step!=null)inp.step=t.step;
+    inp.placeholder=String(it.def); inp.value=st.current; inp.oninput=()=>set(inp.value===''?'':Number(inp.value));
+    w.appendChild(inp);
+    if(t.unit){const u=document.createElement('span');u.className='unit';u.textContent=t.unit;w.appendChild(u);}
+    const wrap=document.createElement('div');wrap.style.display='flex';wrap.style.flexDirection='column';wrap.style.gap='5px';
+    wrap.appendChild(w);
+    const hint=document.createElement('div');hint.className='range-hint';
+    hint.textContent = (t.min!=null&&t.max!=null)?`range ${t.min}–${t.max}`:(t.min!=null?`min ${t.min}`:'any number');
+    wrap.appendChild(hint); return wrap;
+  }
+  if(t.kind==='secret'){
+    const w=document.createElement('div'); w.className='secret-wrap';
+    const inp=document.createElement('input'); inp.className='in'; inp.type='password';
+    inp.value=st.current; inp.placeholder='not set'; inp.oninput=()=>set(inp.value);
+    const b=document.createElement('button'); b.className='icon-btn'; b.textContent='show';
+    b.onclick=()=>{const s=inp.type==='password';inp.type=s?'text':'password';b.textContent=s?'hide':'show';};
+    w.appendChild(inp); w.appendChild(b); return w;
+  }
+  if(t.kind==='path'){
+    const w=document.createElement('div'); w.className='secret-wrap';
+    const inp=document.createElement('input'); inp.className='in'; inp.type='text';
+    inp.value=st.current; inp.placeholder=String(it.def); inp.oninput=()=>set(inp.value);
+    const b=document.createElement('button'); b.className='icon-btn'; b.textContent='browse';
+    w.appendChild(inp); w.appendChild(b); return w;
+  }
+  if(t.kind==='list') return renderList(it);
+  if(t.kind==='map') return renderMap(it);
+
+  // text / url
+  const inp=document.createElement('input'); inp.className='in'; inp.type='text';
+  inp.value=st.current; inp.placeholder = it.def==='none'||it.def==='auto'?'unset':String(it.def);
+  inp.oninput=()=>set(inp.value); return inp;
+}
+
+function renderList(it){
+  const st=state[it.key];
+  const wrap=document.createElement('div');
+  const chips=document.createElement('div'); chips.className='chips';
+  function paint(){
+    chips.innerHTML='';
+    if(!st.current.length){const e=document.createElement('span');e.className='chip empty';e.textContent='empty';chips.appendChild(e);}
+    st.current.forEach((v,i)=>{
+      const c=document.createElement('span');c.className='chip';
+      c.innerHTML=`<span title="${v}">${v}</span>`;
+      const x=document.createElement('button');x.textContent='×';x.onclick=()=>{st.current.splice(i,1);commit();paint();};
+      c.appendChild(x);chips.appendChild(c);
+    });
+  }
+  const add=document.createElement('div'); add.className='add-row';
+  const inp=document.createElement('input'); inp.className='in'; inp.placeholder='add value… ↵';
+  const btn=document.createElement('button'); btn.textContent='add';
+  const doAdd=()=>{const v=inp.value.trim();if(!v)return;if(it.type.max&&st.current.length>=it.type.max)return;st.current.push(v);inp.value='';commit();paint();};
+  btn.onclick=doAdd; inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();doAdd();}};
+  add.appendChild(inp); add.appendChild(btn);
+  function commit(){onChange(it.key, st.current, true);}
+  wrap.appendChild(chips); wrap.appendChild(add); paint(); return wrap;
+}
+
+function renderMap(it){
+  const st=state[it.key];
+  const box=document.createElement('div'); box.className='map-box';
+  const sum=document.createElement('div'); sum.className='map-summary';
+  const cnt=()=>Object.keys(st.current).length;
+  sum.innerHTML=`<span class="cnt"><b>${cnt()}</b> ${cnt()===1?'entry':'entries'}</span><span class="chev">›</span>`;
+  const ent=document.createElement('div'); ent.className='map-entries';
+  sum.onclick=()=>box.classList.toggle('open');
+  function commit(){onChange(it.key, st.current, true);sum.querySelector('.cnt').innerHTML=`<b>${cnt()}</b> ${cnt()===1?'entry':'entries'}`;}
+  function paint(){
+    ent.innerHTML='';
+    Object.entries(st.current).forEach(([k,v])=>{
+      const row=document.createElement('div');row.className='map-entry';
+      const ki=document.createElement('input');ki.className='in k';ki.value=k;ki.readOnly=true;
+      const vi=document.createElement('input');vi.className='in';vi.value=v;vi.oninput=()=>{st.current[k]=vi.value;commit();};
+      const x=document.createElement('button');x.textContent='×';x.onclick=()=>{delete st.current[k];commit();paint();};
+      row.appendChild(ki);row.appendChild(vi);row.appendChild(x);ent.appendChild(row);
+    });
+    const addBtn=document.createElement('button');addBtn.className='map-add';addBtn.textContent='+ add entry';
+    addBtn.onclick=()=>{let n=1,k='new'+n;while(st.current[k]){n++;k='new'+n;}st.current[k]='';commit();paint();box.classList.add('open');};
+    ent.appendChild(addBtn);
+  }
+  box.appendChild(sum); box.appendChild(ent); paint(); return box;
+}
+
+/* ---------- change handling: apply live immediately ---------- */
+function onChange(key,val){
+  const st=state[key];
+  st.current = clone(val);
+  st.status = eq(st.current, st.baseline) ? 'clean' : 'modified';
+  refreshRow(key);
+  refreshFooter();
+}
+function refreshRow(key){
+  const st=state[key];
+  const card=document.querySelector(`.card[data-key="${cssEsc(key)}"]`);
+  const live=document.querySelector(`.live[data-key="${cssEsc(key)}"]`);
+  card.classList.remove('modified','saved');
+  live.className='live'; const txt=live.querySelector('.txt');
+  if(st.status==='modified'){card.classList.add('modified');live.classList.add('is-live');txt.textContent='applied live · unsaved';}
+  else if(st.status==='saved'){card.classList.add('saved');live.classList.add('is-saved');txt.textContent='saved';}
+  else if(st.status==='session'){live.classList.add('is-session');txt.textContent='session only';}
+  else txt.textContent='';
+}
+function cssEsc(s){return s.replace(/\./g,'\\.');}
+
+/* ---------- footer ---------- */
+const statusEl=document.getElementById('status'), statusText=document.getElementById('statusText');
+const saveBtn=document.getElementById('saveBtn'), cancelBtn=document.getElementById('cancelBtn');
+function modifiedKeys(){return Object.keys(state).filter(k=>state[k].status==='modified');}
+function refreshFooter(){
+  const n=modifiedKeys().length;
+  saveBtn.disabled=n===0; cancelBtn.disabled=n===0;
+  if(n===0){statusEl.classList.add('clean');statusText.textContent='No unsaved changes';}
+  else{statusEl.classList.remove('clean');
+    statusText.innerHTML=`<span class="n">${n}</span> change${n>1?'s':''} applied to the running agent · not yet written to disk`;}
+}
+saveBtn.onclick=()=>{
+  const keys=modifiedKeys();
+  keys.forEach(k=>{state[k].baseline=clone(state[k].current);state[k].status='saved';refreshRow(k);});
+  refreshFooter(); toast('ok',`Saved ${keys.length} setting${keys.length>1?'s':''} to settings.json`);
+};
+cancelBtn.onclick=()=>{
+  // Per spec: cancelling does NOT revert — the change already took effect.
+  // It simply won't be persisted (kept for this session only).
+  const keys=modifiedKeys();
+  keys.forEach(k=>{state[k].status='session';refreshRow(k);});
+  refreshFooter(); toast('warn',`Kept ${keys.length} change${keys.length>1?'s':''} for this session — not written to disk`);
+};
+refreshFooter();
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(kind,msg){
+  const el=document.getElementById('toast');
+  el.className='toast '+kind+' show'; document.getElementById('toastText').textContent=msg;
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2600);
+}
+
+/* ---------- search ---------- */
+const search=document.getElementById('search'), searchClear=document.getElementById('searchClear');
+const resultLine=document.getElementById('resultLine');
+const modOnly=document.getElementById('modOnly');
+function applyFilter(){
+  const q=search.value.trim().toLowerCase();
+  const only=modOnly.checked;
+  searchClear.style.display=q?'block':'none';
+  let shown=0,total=0;
+  CATALOG.forEach(g=>{
+    const sec=document.getElementById('grp-'+g.id);
+    let groupShown=0;
+    sec.querySelectorAll('.card').forEach(card=>{
+      total++;
+      const key=card.dataset.key;
+      const matchQ=!q || card.dataset.search.includes(q);
+      const matchMod=!only || state[key].status==='modified';
+      const vis=matchQ&&matchMod;
+      card.classList.toggle('hidden',!vis);
+      if(vis){shown++;groupShown++;}
+    });
+    sec.classList.toggle('hidden',groupShown===0);
+  });
+  if(q||only){resultLine.classList.remove('hidden');
+    resultLine.innerHTML=`showing <b>${shown}</b> of ${total} settings${q?` matching “${escapeHtml(search.value.trim())}”`:''}${only?' · changed only':''}`;}
+  else resultLine.classList.add('hidden');
+}
+function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+search.oninput=applyFilter;
+searchClear.onclick=()=>{search.value='';applyFilter();search.focus();};
+modOnly.onchange=applyFilter;
+search.onkeydown=e=>{if(e.key==='Escape'){search.value='';applyFilter();}};
+
+/* ---------- active group highlight on scroll ---------- */
+const mainEl=document.getElementById('main');
+const navItems=[...document.querySelectorAll('.nav-item')];
+function syncNav(){
+  const top=mainEl.scrollTop, cut=top+120; let active=CATALOG[0].id;
+  CATALOG.forEach(g=>{const s=document.getElementById('grp-'+g.id);if(!s.classList.contains('hidden')&&s.offsetTop<=cut)active=g.id;});
+  navItems.forEach(n=>n.classList.toggle('active',n.dataset.group===active));
+}
+mainEl.addEventListener('scroll',syncNav); syncNav();
+</script>
+</body>
+</html>
