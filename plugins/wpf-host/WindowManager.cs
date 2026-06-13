@@ -419,6 +419,16 @@ internal sealed class WindowManager : IDisposable
             Motion.fallInWindow(host.Window);
         }
 
+        // The primary is now shown, so it is a valid owner: link any secondary restored before the reveal,
+        // which could not be owned while the primary was still hidden.
+        foreach (var host in OrderedWindows())
+        {
+            if (!host.IsPrimary && host.Window.Owner is null)
+            {
+                host.Window.Owner = primary.Window;
+            }
+        }
+
         primary.Window.Activate();
         primary.Focus();
         _bus.LogInfo("WpfHost", "primary window shown");
@@ -612,7 +622,9 @@ internal sealed class WindowManager : IDisposable
     {
         var host = new WindowHost(_bus, _config, _keymap, () => _permissionPending, windowId, isPrimary: false);
         host.Window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        host.Window.Owner = GetPrimary()?.Window;
+        // Owner can only be set once the primary has been shown; during a pre-reveal restore it is still
+        // hidden (WPF would throw), so the owner link is deferred to Reveal in that case.
+        LinkToPrimaryOwner(host.Window);
         host.Window.Closing += (_, _) =>
         {
             // A window's slide-ins are not in its docking layout, so retire them explicitly: drop their
@@ -629,6 +641,18 @@ internal sealed class WindowManager : IDisposable
         };
         Register(host);
         return host;
+    }
+
+    // Make the primary window own a secondary, so the pair minimize/restore together and the secondary
+    // centres on the primary. WPF rejects an owner that has not been shown, so this is a no-op while the
+    // primary is still hidden (a pre-reveal restore); Reveal links any such secondary once the primary is up.
+    private void LinkToPrimaryOwner(Window secondary)
+    {
+        var primary = GetPrimary()?.Window;
+        if (primary is not null && primary.IsVisible && !ReferenceEquals(secondary, primary))
+        {
+            secondary.Owner = primary;
+        }
     }
 
     private void CloseSecondaryWindow(Guid windowId)
