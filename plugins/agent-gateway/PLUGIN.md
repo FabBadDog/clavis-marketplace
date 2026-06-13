@@ -1,7 +1,7 @@
 ---
 name: agent-gateway
 pluginId: AgentGateway
-version: 1.1.136
+version: 1.1.137
 apiVersion: 1.0.0
 description: In-process MCP server over a named pipe for the agent.
 dependencies:
