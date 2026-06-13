@@ -125,16 +125,18 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
             var sourceDiff = diff.IsOk ? diff.ResultValue : "";
             var hasSourceChange = !string.IsNullOrWhiteSpace(sourceDiff);
 
-            if (!hasSourceChange && !update.Baseline)
+            if (!hasSourceChange && !update.Baseline && !update.Bumped)
             {
-                // No source change and nothing to baseline: never make a version-only commit.
+                // Nothing real changed - no source edit, no surface delta, no first baseline to record.
+                // Never make a version-only commit.
                 GitSource.unstage(workingCopy, relativePath);
                 bus.Send(new MarketplaceCompleted(operationId, $"{info.Name}: no changes to commit"));
                 return;
             }
 
             // Every committed code change carries a bump: keep the surface-driven bump if there was one,
-            // otherwise apply a Build bump. A pure baseline (no source change) commits without a bump.
+            // otherwise apply a Build bump. A first-sighting baseline (no source change, no surface delta)
+            // commits without a bump.
             var effective = update;
             if (hasSourceChange && !update.Bumped)
             {
@@ -147,9 +149,13 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
                 }
             }
 
+            // A source edit describes itself; a surface-only catch-up (a stale surface.json reconciled with
+            // no source edit) reads as a plain update; a first-sighting baseline records the surface.
             var message = hasSourceChange
                 ? SummarizeChange(sourceDiff, info.Name)
-                : Lifecycle.baselineCommitMessage(info.Name);
+                : update.Baseline
+                    ? Lifecycle.baselineCommitMessage(info.Name)
+                    : Lifecycle.fallbackCommitMessage(info.Name);
 
             var commit = GitSource.commitStaged(workingCopy, relativePath, message);
             if (commit.IsError)
