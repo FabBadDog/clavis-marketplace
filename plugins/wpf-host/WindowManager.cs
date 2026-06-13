@@ -701,6 +701,32 @@ internal sealed class WindowManager : IDisposable
 
         host.Window.LocationChanged += (_, _) => ScheduleSave();
         host.Window.StateChanged += (_, _) => ScheduleSave();
+
+        // Magnetic snapping: while this window is dragged, pull its edges to the other windows and the
+        // monitor work areas. The neighbour rectangles are read fresh on each move, so they always
+        // reflect the live layout.
+        WindowSnapBehavior.Attach(host.Window, () => OtherWindowRects(host));
+    }
+
+    // The physical-pixel rectangles of every window except the given one, so a dragged window can snap to
+    // its neighbours. Hidden and minimized windows yield null and are skipped.
+    private IReadOnlyList<ScreenRectangle> OtherWindowRects(WindowHost self)
+    {
+        var rects = new List<ScreenRectangle>();
+        foreach (var host in _windows.Values)
+        {
+            if (ReferenceEquals(host, self))
+            {
+                continue;
+            }
+
+            if (WindowSnapBehavior.RectOf(host.Window) is { } rect)
+            {
+                rects.Add(rect);
+            }
+        }
+
+        return rects;
     }
 
     private void RestoreLayout(WindowHost host, PersistedWindow entry)

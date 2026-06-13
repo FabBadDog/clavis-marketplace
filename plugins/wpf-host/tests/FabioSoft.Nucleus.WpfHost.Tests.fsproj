@@ -16,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MaximizedWindowBoundsTests.fs" />
+    <Compile Include="WindowSnapTests.fs" />
     <Compile Include="FocusRingTests.fs" />
     <Compile Include="WpfHostPluginTests.fs" />
     <Compile Include="WorkspaceStoreTests.fs" />
