@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>1.0.62</Version>
+    <Version>1.0.63</Version>
     <RootNamespace>FabioSoft.Nucleus.Plugins.MarketplacePlugin</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
