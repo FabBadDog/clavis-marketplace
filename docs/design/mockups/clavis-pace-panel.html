@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CLAVIS — Limits Panel (proposed)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0A0C;--surface:#08080A;--card:#0D0D10;--line:#222228;--faint:#19191F;
+  --text:#C8C8D0;--bright:#E8E8EC;--dim:#8A8A94;--mute:#55555E;
+  --clavis:#7FB5D8;--under:#6FD49B;--over:#D49A6A;--hot:#D47070;--human:#5ED4C4;
+  --id-blue:#9FD5F0;--id-gold:#D4B36A;--id-teal:#5ED4C4;--id-lav:#C9A0DC;
+  --rajdhani:'Rajdhani',sans-serif;--inter:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--inter);font-weight:300;padding:54px 48px 120px}
+h1{font-family:var(--rajdhani);font-size:15px;letter-spacing:6px;text-transform:uppercase;color:#9AA;margin-bottom:6px;font-weight:600}
+p.lead{font-size:11.5px;color:#888;max-width:760px;margin-bottom:8px;line-height:1.85}
+p.lead b{color:var(--clavis);font-weight:400}
+svg{display:block;overflow:visible}
+svg text{font-family:var(--mono);fill:var(--text)}
+.lab{font-family:var(--rajdhani);font-weight:600;letter-spacing:1.5px;text-transform:uppercase;fill:var(--dim)}
+.wrap{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start;margin-top:26px}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.breathe{animation:pulse 2.4s ease-in-out infinite}
+
+/* slide-in panel (matches the real dockable panel chrome) */
+.panel{width:300px;background:var(--card);border:1px solid var(--line)}
+.ph{display:flex;align-items:center;height:30px;padding:0 14px;border-bottom:1px solid var(--line);gap:8px}
+.ph .t{font-family:var(--rajdhani);font-size:9.5px;letter-spacing:2.5px;text-transform:uppercase;color:var(--bright)}
+.ph .sp{flex:1}
+.ph .prov{font-family:var(--mono);font-size:8px;color:var(--mute);letter-spacing:1px}
+.pb{padding:16px 16px 18px}
+.divider{height:1px;background:var(--faint);margin:18px 0 4px}
+
+.readout{margin-top:8px}
+.rrow{display:grid;grid-template-columns:12px 1fr auto;gap:9px;align-items:center;padding:7px 0;border-top:1px solid var(--faint)}
+.rrow .sw{width:9px;height:9px;border-radius:50%}
+.rrow .wn{font-family:var(--rajdhani);font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text)}
+.rrow .wm{font-family:var(--mono);font-size:8.5px;color:var(--dim);margin-top:2px}
+.rrow .wd{font-family:var(--mono);font-size:12px;text-align:right}
+
+.note{font-size:10.5px;color:#7A7A82;max-width:300px;line-height:1.75}
+.note b{color:var(--clavis);font-weight:400}
+.note .k{color:var(--under)}.note .x{color:var(--hot)}
+</style>
+</head>
+<body>
+
+<h1>Limits Panel — proposed</h1>
+<p class="lead">The status-bar glyph stays exactly as it is. This is the <b>detail panel</b> only: axis labels added, no background tint, no deviation lines and no per-dot marks. The dots are plain window colours; the sign is read from the colour-coded <span style="color:var(--under)">surplus</span> / <span style="color:var(--hot)">overspend</span> labels — on the plane corners and repeated per window in the list. The <b>wall-only runway</b> sits beneath the plane.</p>
+
+<div class="wrap">
+  <div class="panel">
+    <div class="ph">
+      <span class="breathe" style="width:5px;height:5px;background:var(--clavis);border-radius:50%;display:inline-block"></span>
+      <span class="t">Usage Limits</span><span class="sp"></span><span class="prov">via claude</span>
+    </div>
+    <div class="pb">
+      <div id="plane" style="display:flex;justify-content:center"></div>
+      <div class="divider"></div>
+      <div id="runway" style="display:flex;justify-content:center;margin-top:10px"></div>
+      <div id="readout" class="readout"></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <p style="margin-bottom:12px"><b>How to read it</b></p>
+    <p style="margin-bottom:12px">Dot to the <b>upper-left</b> of the diagonal → spent less than the time gone → <span class="k">surplus</span>.</p>
+    <p style="margin-bottom:12px">Dot to the <b>lower-right</b> → spent more than the time gone → <span class="x">overspend</span>.</p>
+    <p style="margin-bottom:12px">The dot keeps its <b>window colour</b> (blue = 5-hour, gold = weekly); the sign lives entirely in the red/green <span class="k">surplus</span> / <span class="x">overspend</span> wording.</p>
+    <p>The <b>runway</b> below is in real tokens: the dashed line is the first ceiling you hit — here the <b>weekly</b> window at 100k, even though the 5-hour slot still shows 200k.</p>
+  </div>
+</div>
+
+<script>
+const ID=['var(--id-blue)','var(--id-gold)'];
+const fmtK=v=>v>=1000?(v/1000).toFixed(v%1000?1:0)+'M':Math.round(v)+'k';
+function mk(name,used,total,timeFrac,resetIn){
+  const spent=used/total;
+  return {name,used,total,spent,timeFrac,delta:Math.round((spent-timeFrac)*100),resetIn,remaining:total-used,over:spent>timeFrac};
+}
+// units are "k tokens": 5-hour barely touched (surplus), weekly burning hot (overspend)
+const W=[ mk('5-Hour',20,220,0.20,'4h'), mk('Weekly',900,1000,0.60,'4d') ];
+
+function check(cx,cy){return `<path d="M ${cx-3} ${cy} L ${cx-0.8} ${cy+2.4} L ${cx+3.4} ${cy-3}" fill="none" stroke="var(--under)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`;}
+function cross(cx,cy){return `<path d="M ${cx-2.6} ${cy-2.6} L ${cx+2.6} ${cy+2.6} M ${cx+2.6} ${cy-2.6} L ${cx-2.6} ${cy+2.6}" stroke="var(--hot)" stroke-width="1.6" stroke-linecap="round"/>`;}
+
+/* ---- limits plane: usage X, time Y-up, even-burn diagonal, labels ---- */
+function plane(){
+  const m=22, b=20, plot=184, x0=m, y0=8, y1=y0+plot;
+  let g=`<rect x="${x0}" y="${y0}" width="${plot}" height="${plot}" fill="none" stroke="var(--faint)"/>`;
+  g+=`<line x1="${x0}" y1="${y1}" x2="${x0+plot}" y2="${y0}" stroke="var(--mute)" stroke-width="1" stroke-dasharray="3 3"/>`;
+  // axis labels
+  g+=`<text class="lab" x="${x0+plot/2}" y="${y1+b-4}" text-anchor="middle" font-size="9">usage →</text>`;
+  g+=`<text class="lab" x="${x0-14}" y="${y0+plot/2}" text-anchor="middle" font-size="9" transform="rotate(-90 ${x0-14} ${y0+plot/2})">time →</text>`;
+  // corner labels
+  g+=`<text x="${x0+6}" y="${y0+12}" font-size="7.5" class="lab" style="fill:var(--under)">surplus</text>`;
+  g+=`<text x="${x0+plot-6}" y="${y1-6}" text-anchor="end" font-size="7.5" class="lab" style="fill:var(--hot)">overspend</text>`;
+  // dots (identity colour only — the side of the diagonal carries the meaning)
+  W.forEach((w,i)=>{
+    const cx=x0+w.spent*plot, cy=y0+(1-w.timeFrac)*plot;
+    g+=`<circle cx="${cx}" cy="${cy}" r="5" fill="${ID[i]}" stroke="var(--bg)" stroke-width="1"/>`;
+  });
+  return `<svg viewBox="0 0 ${x0+plot+8} ${y1+b}" width="232">${g}</svg>`;
+}
+
+/* ---- wall-only runway (variant B): real tokens, dashed ceiling at the min ---- */
+function runway(){
+  const Wd=224,p=2,barH=20,gap=18,top=14;
+  const maxRem=Math.max(...W.map(w=>w.remaining)), scale=(Wd-2*p)/maxRem;
+  const minRem=Math.min(...W.map(w=>w.remaining));
+  const bind=W.reduce((a,b)=>b.remaining<a.remaining?b:a), wallX=p+minRem*scale;
+  const H=top+W.length*(barH+gap)+16;
+  let g='';
+  W.forEach((w,i)=>{
+    const y=top+i*(barH+gap), len=w.remaining*scale;
+    g+=`<rect x="${p}" y="${y}" width="${len}" height="${barH}" fill="${ID[i]}"/>`;
+    g+=`<text x="${p+4}" y="${y-3}" font-size="8" class="lab" fill="${ID[i]}">${w.name}</text>`;
+    g+=`<text x="${p+len+(len>Wd*0.6?-5:5)}" y="${y+barH/2+3}" text-anchor="${len>Wd*0.6?'end':'start'}" font-size="8.5" fill="var(--text)">${fmtK(w.remaining)} left · ${w.resetIn}</text>`;
+  });
+  const wallTop=top-6, wallBot=top+W.length*(barH+gap)-gap+6;
+  g+=`<line x1="${wallX}" y1="${wallTop}" x2="${wallX}" y2="${wallBot}" stroke="var(--hot)" stroke-width="1.4" stroke-dasharray="3 2"/>`;
+  g+=`<text x="${wallX}" y="${wallBot+13}" text-anchor="middle" font-size="8.5" fill="var(--hot)" class="lab">effective ${fmtK(minRem)} · capped by ${bind.name}</text>`;
+  return `<svg viewBox="0 0 ${Wd+4} ${H}" width="232">${g}</svg>`;
+}
+
+function readout(){
+  return W.map((w,i)=>{
+    const col=w.over?'var(--hot)':'var(--under)', sign=(w.delta>=0?'+':'−')+Math.abs(w.delta);
+    return `<div class="rrow">
+      <span class="sw" style="background:${ID[i]}"></span>
+      <div><div class="wn">${w.name}</div><div class="wm">${Math.round(w.spent*100)}% spent · resets ${w.resetIn}</div></div>
+      <div class="wd" style="color:${col}">${sign}%</div></div>`;}).join('');
+}
+
+document.getElementById('plane').innerHTML=plane();
+document.getElementById('runway').innerHTML=runway();
+document.getElementById('readout').innerHTML=readout();
+</script>
+</body>
+</html>

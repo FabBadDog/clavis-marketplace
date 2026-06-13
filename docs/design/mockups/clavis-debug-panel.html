@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CLAVIS — Debug Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;1,400&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@300;400&family=Rajdhani:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0A0C;--surface:#070709;--line:#17171A;--faint:#1E1E22;
+  --text:#A8A8B0;--bright:#DADADE;--dim:#4A4A52;
+  --clavis:#7FB5D8;--human:#5ED4C4;--error:#D47070;--warn:#D4B870;
+  --input:#9B7ED4;--event:#7FB5D8;--parse-err:#D47070;
+  --rajdhani:'Rajdhani',sans-serif;
+  --inter:'Inter',sans-serif;
+  --garamond:'EB Garamond',serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--inter);font-weight:300;padding:60px 48px 120px;min-height:100vh}
+h1{font-family:var(--rajdhani);font-size:14px;letter-spacing:5px;text-transform:uppercase;color:#666;margin-bottom:4px;font-weight:500}
+p.lead{font-size:11.5px;color:#555;max-width:820px;margin-bottom:48px;line-height:1.7}
+h2{font-family:var(--rajdhani);font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#555;margin:56px 0 6px;font-weight:500}
+p.desc{font-size:11px;color:#444;max-width:820px;margin-bottom:28px;line-height:1.6}
+
+/* ====== Shared window chrome ====== */
+.win{
+  width:820px;background:#000;position:relative;
+  box-shadow:0 40px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.03);
+  margin-bottom:40px;
+}
+.win-title{
+  display:flex;align-items:center;
+  height:28px;padding:0 10px 0 14px;
+  border-bottom:1px solid var(--line);
+  color:var(--dim);
+}
+.win-name{font-family:var(--rajdhani);font-size:9px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase}
+.win-meta{font-family:var(--inter);font-size:9px;font-weight:400;letter-spacing:.3px;margin-left:10px;opacity:.5}
+.sp{flex:1}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}
+.win-dot{width:5px;height:5px;margin-left:8px;background:var(--clavis);animation:pulse 1.8s ease-in-out infinite}
+.win-close{display:flex;align-items:center;justify-content:center;width:22px;height:22px;cursor:pointer;opacity:.3;transition:opacity .12s}
+.win-close:hover{opacity:.8}
+.x{position:relative;width:8px;height:8px}
+.x::before,.x::after{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:currentColor}
+.x::before{transform:rotate(45deg)}
+.x::after{transform:rotate(-45deg)}
+
+/* ====== VARIANT A — Timeline stream ====== */
+
+.v-a .stream{padding:6px 0}
+
+.v-a .entry{
+  display:grid;
+  grid-template-columns:70px 20px 1fr;
+  align-items:start;
+  padding:3px 20px;
+  transition:background .1s;
+}
+.v-a .entry:hover{background:rgba(255,255,255,.015)}
+
+.v-a .ts{
+  font-family:var(--mono);font-size:9.5px;font-weight:400;
+  color:var(--dim);text-align:right;padding-top:1px;
+  opacity:.7;
+}
+
+.v-a .rail{
+  display:flex;flex-direction:column;align-items:center;
+  position:relative;min-height:100%;
+}
+.v-a .rail-dot{
+  width:5px;height:5px;border-radius:50%;
+  margin-top:5px;flex-shrink:0;z-index:1;
+}
+.v-a .rail-line{
+  width:1px;flex:1;min-height:8px;
+  background:var(--faint);
+}
+
+/* Category colors */
+.v-a .entry.cat-event .rail-dot{background:var(--event)}
+.v-a .entry.cat-input .rail-dot{background:var(--input)}
+.v-a .entry.cat-error .rail-dot{background:var(--parse-err)}
+
+.v-a .payload{min-width:0;padding-top:1px}
+
+.v-a .tag{
+  font-family:var(--rajdhani);font-size:8.5px;font-weight:500;
+  letter-spacing:1.8px;text-transform:uppercase;
+  display:inline-block;margin-right:8px;
+}
+.v-a .entry.cat-event .tag{color:var(--event);opacity:.8}
+.v-a .entry.cat-input .tag{color:var(--input);opacity:.8}
+.v-a .entry.cat-error .tag{color:var(--parse-err);opacity:.8}
+
+.v-a .detail{
+  font-family:var(--mono);font-size:10px;font-weight:300;
+  color:var(--dim);letter-spacing:.2px;
+}
+.v-a .detail .val{color:var(--text);opacity:.8}
+.v-a .detail .err-msg{color:var(--parse-err);opacity:.7}
+
+/* Filter bar */
+.v-a .filters{
+  display:flex;align-items:center;gap:12px;
+  padding:6px 20px;border-bottom:1px solid var(--line);
+}
+.v-a .filter-chip{
+  font-family:var(--rajdhani);font-size:8.5px;font-weight:500;
+  letter-spacing:1.8px;text-transform:uppercase;
+  padding:2px 8px;cursor:pointer;
+  border:1px solid transparent;
+  transition:all .15s;opacity:.4;
+}
+.v-a .filter-chip:hover{opacity:.7}
+.v-a .filter-chip.active{opacity:1;border-color:currentColor;border-radius:1px}
+.v-a .filter-chip.c-event{color:var(--event)}
+.v-a .filter-chip.c-input{color:var(--input)}
+.v-a .filter-chip.c-error{color:var(--parse-err)}
+.v-a .filter-chip.c-all{color:var(--text)}
+
+.v-a .counter{
+  font-family:var(--mono);font-size:8.5px;color:var(--dim);
+  margin-left:auto;opacity:.5;
+}
+
+/* ====== VARIANT B — Categorized columns ====== */
+
+.v-b .columns{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:0;
+  min-height:360px;
+}
+.v-b .col{
+  border-right:1px solid var(--line);
+  padding:0;
+}
+.v-b .col:last-child{border-right:none}
+
+.v-b .col-head{
+  font-family:var(--rajdhani);font-size:8.5px;font-weight:500;
+  letter-spacing:2px;text-transform:uppercase;
+  padding:8px 14px;
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:8px;
+}
+.v-b .col-head .dot{width:4px;height:4px;border-radius:50%}
+.v-b .col-head .count{font-family:var(--mono);font-size:8px;color:var(--dim);margin-left:auto;opacity:.6}
+
+.v-b .col.c-event .col-head{color:var(--event)}
+.v-b .col.c-event .col-head .dot{background:var(--event)}
+.v-b .col.c-input .col-head{color:var(--input)}
+.v-b .col.c-input .col-head .dot{background:var(--input)}
+.v-b .col.c-error .col-head{color:var(--parse-err)}
+.v-b .col.c-error .col-head .dot{background:var(--parse-err)}
+
+.v-b .item{
+  padding:6px 14px;
+  border-bottom:1px solid rgba(255,255,255,.02);
+  transition:background .1s;
+}
+.v-b .item:hover{background:rgba(255,255,255,.015)}
+
+.v-b .item-ts{
+  font-family:var(--mono);font-size:8.5px;color:var(--dim);opacity:.5;
+  margin-bottom:2px;
+}
+.v-b .item-type{
+  font-family:var(--rajdhani);font-size:9px;font-weight:500;
+  letter-spacing:1.5px;text-transform:uppercase;
+  margin-bottom:2px;
+}
+.v-b .col.c-event .item-type{color:var(--event);opacity:.7}
+.v-b .col.c-input .item-type{color:var(--input);opacity:.7}
+.v-b .col.c-error .item-type{color:var(--parse-err);opacity:.7}
+
+.v-b .item-detail{
+  font-family:var(--mono);font-size:9.5px;font-weight:300;
+  color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* ====== VARIANT C — Compact log with expandable rows ====== */
+
+.v-c .log{padding:0}
+
+.v-c .log-row{
+  display:grid;
+  grid-template-columns:58px 16px 72px 1fr;
+  align-items:center;
+  padding:3px 16px;
+  font-family:var(--mono);font-size:9.5px;
+  border-bottom:1px solid rgba(255,255,255,.015);
+  cursor:default;
+  transition:background .1s;
+}
+.v-c .log-row:hover{background:rgba(255,255,255,.02)}
+
+.v-c .log-ts{color:var(--dim);opacity:.6;text-align:right;font-size:9px}
+
+.v-c .log-cat{
+  font-family:var(--rajdhani);font-size:7.5px;font-weight:500;
+  letter-spacing:1.2px;text-transform:uppercase;
+  text-align:center;
+}
+.v-c .log-cat.c-event{color:var(--event);opacity:.6}
+.v-c .log-cat.c-input{color:var(--input);opacity:.6}
+.v-c .log-cat.c-error{color:var(--parse-err);opacity:.6}
+
+.v-c .log-type{
+  font-family:var(--inter);font-size:10px;font-weight:400;
+  color:var(--text);opacity:.7;
+}
+
+.v-c .log-detail{
+  color:var(--dim);font-weight:300;font-size:9.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.v-c .log-detail .accent{color:var(--text);opacity:.7}
+.v-c .log-detail .err{color:var(--parse-err);opacity:.6}
+
+/* Expanded detail */
+.v-c .log-expand{
+  display:none;
+  grid-column:1/-1;
+  padding:8px 16px 12px 90px;
+  font-family:var(--mono);font-size:9.5px;
+  color:var(--dim);line-height:1.7;
+  background:rgba(255,255,255,.01);
+  border-bottom:1px solid rgba(255,255,255,.03);
+}
+.v-c .log-row.expanded + .log-expand{display:block}
+.v-c .log-expand .field{display:flex;gap:8px}
+.v-c .log-expand .field-name{color:var(--dim);opacity:.5;min-width:80px;text-align:right}
+.v-c .log-expand .field-val{color:var(--text);opacity:.7}
+
+/* Header bar */
+.v-c .log-header{
+  display:grid;
+  grid-template-columns:58px 16px 72px 1fr;
+  padding:6px 16px;
+  border-bottom:1px solid var(--line);
+  font-family:var(--rajdhani);font-size:8px;font-weight:500;
+  letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--dim);opacity:.5;
+}
+
+/* Statusbar */
+.statusbar{
+  display:flex;align-items:center;gap:14px;
+  padding:5px 16px;border-top:1px solid var(--faint);
+  font-family:var(--inter);font-size:8.5px;color:var(--dim);
+  letter-spacing:.5px;opacity:.6;
+}
+.statusbar .dot{width:3px;height:3px;border-radius:50%;display:inline-block}
+.statusbar .dot.d-event{background:var(--event)}
+.statusbar .dot.d-input{background:var(--input)}
+.statusbar .dot.d-error{background:var(--parse-err)}
+.statusbar .sep{opacity:.3}
+</style>
+</head>
+<body>
+
+<h1>CLAVIS — Debug Panel</h1>
+<p class="lead">Three design variants for a real-time debug stream showing StreamEvents, ParsingErrors, and SessionInputs with timestamps. Each row is categorized by origin and color-coded. The panel should live as a toggleable overlay or docked panel.</p>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     VARIANT A — Timeline stream
+     Unified chronological stream with a vertical rail.
+     Dots color-coded by category. Filter chips at top.
+     ════════════════════════════════════════════════════════════ -->
+
+<h2>Variant A — Timeline Stream</h2>
+<p class="desc">Single chronological stream. Color-coded rail dots mark category. Filter chips toggle visibility. Minimal — every pixel serves the debugging task.</p>
+
+<div class="win v-a">
+  <div class="win-title">
+    <span class="win-name">Debug</span>
+    <span class="win-meta">stream · 47 events</span>
+    <span class="sp"></span>
+    <span class="win-close"><span class="x"></span></span>
+  </div>
+
+  <div class="filters">
+    <div class="filter-chip c-all active">All</div>
+    <div class="filter-chip c-event">Events</div>
+    <div class="filter-chip c-input">Input</div>
+    <div class="filter-chip c-error">Errors</div>
+    <div class="counter">47 entries</div>
+  </div>
+
+  <div class="stream">
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:01</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">Init <span class="val">session_abc123</span> · <span class="val">opus 4.6</span></span>
+      </div>
+    </div>
+
+    <div class="entry cat-input">
+      <div class="ts">14:02:03</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Input</span>
+        <span class="detail">Prompt <span class="val">"Implement the NdjsonParser module..."</span></span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:04</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">Thinking <span class="val">"Reading existing types for alignment"</span></span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:05</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">ToolUse <span class="val">Read</span> · src/FabioSoft.Claude/Types.fs</span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:06</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">ToolResult <span class="val">Read</span> · 142 lines</span>
+      </div>
+    </div>
+
+    <div class="entry cat-error">
+      <div class="ts">14:02:06</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Parse Error</span>
+        <span class="detail"><span class="err-msg">UnknownMessageType</span> <span class="val">"content_block_delta"</span></span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:07</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">TextDelta <span class="val">"I'll create the parser module..."</span></span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:08</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">HookStart <span class="val">PreToolUse</span> · hook_1a2b</span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:09</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">PermissionRequest <span class="val">Write</span> · src/FabioSoft.Claude/NdjsonParser.fs</span>
+      </div>
+    </div>
+
+    <div class="entry cat-input">
+      <div class="ts">14:02:11</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Input</span>
+        <span class="detail">PermissionResponse <span class="val">req_4f8a</span> · Allow</span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:12</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">Usage <span class="val">input: 2,418</span> · <span class="val">output: 847</span></span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:13</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">Assistant <span class="val">isFinal: true</span></span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:13</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">ApiCallRetry</span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:14</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">Compacting</span>
+      </div>
+    </div>
+
+    <div class="entry cat-input">
+      <div class="ts">14:02:15</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Input</span>
+        <span class="detail">Interrupt</span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:15</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">Aborted</span>
+      </div>
+    </div>
+
+    <div class="entry cat-error">
+      <div class="ts">14:02:16</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Parse Error</span>
+        <span class="detail"><span class="err-msg">JsonError</span> <span class="val">Unexpected character at position 14</span></span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:17</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">LogMessage <span class="val">"Warning: token limit approaching"</span></span>
+      </div>
+    </div>
+
+    <div class="entry cat-event">
+      <div class="ts">14:02:18</div>
+      <div class="rail"><div class="rail-dot"></div><div class="rail-line"></div></div>
+      <div class="payload">
+        <span class="tag">Event</span>
+        <span class="detail">SessionEnded <span class="val">exit: 0</span></span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="statusbar">
+    <span class="dot d-event"></span> 14 events
+    <span class="sep">|</span>
+    <span class="dot d-input"></span> 3 inputs
+    <span class="sep">|</span>
+    <span class="dot d-error"></span> 2 errors
+    <span class="sep">|</span>
+    elapsed 17s
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     VARIANT B — Categorized columns
+     Three columns side by side, each scrolling independently.
+     Good for comparing event timing across categories.
+     ════════════════════════════════════════════════════════════ -->
+
+<h2>Variant B — Categorized Columns</h2>
+<p class="desc">Three synchronized columns — events, inputs, errors. Each scrolls independently. Good for seeing the volume distribution at a glance and correlating across categories by timestamp.</p>
+
+<div class="win v-b">
+  <div class="win-title">
+    <span class="win-name">Debug</span>
+    <span class="win-meta">categorized · 47 events</span>
+    <span class="sp"></span>
+    <span class="win-close"><span class="x"></span></span>
+  </div>
+
+  <div class="columns">
+
+    <!-- Events column -->
+    <div class="col c-event">
+      <div class="col-head">
+        <span class="dot"></span> Stream Events
+        <span class="count">14</span>
+      </div>
+
+      <div class="item">
+        <div class="item-ts">14:02:01.000</div>
+        <div class="item-type">Init</div>
+        <div class="item-detail">session_abc123 · opus 4.6</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:04.120</div>
+        <div class="item-type">Thinking</div>
+        <div class="item-detail">"Reading existing types for alignment"</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:05.340</div>
+        <div class="item-type">ToolUse</div>
+        <div class="item-detail">Read · src/FabioSoft.Claude/Types.fs</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:06.012</div>
+        <div class="item-type">ToolResult</div>
+        <div class="item-detail">Read · 142 lines</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:07.250</div>
+        <div class="item-type">TextDelta</div>
+        <div class="item-detail">"I'll create the parser module..."</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:08.100</div>
+        <div class="item-type">HookStart</div>
+        <div class="item-detail">PreToolUse · hook_1a2b</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:09.400</div>
+        <div class="item-type">PermissionRequest</div>
+        <div class="item-detail">Write · NdjsonParser.fs</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:12.000</div>
+        <div class="item-type">Usage</div>
+        <div class="item-detail">in: 2,418 · out: 847</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:13.050</div>
+        <div class="item-type">Assistant</div>
+        <div class="item-detail">isFinal: true</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:14.200</div>
+        <div class="item-type">Compacting</div>
+        <div class="item-detail"></div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:15.800</div>
+        <div class="item-type">Aborted</div>
+        <div class="item-detail"></div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:17.000</div>
+        <div class="item-type">LogMessage</div>
+        <div class="item-detail">"Warning: token limit approaching"</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:18.100</div>
+        <div class="item-type">SessionEnded</div>
+        <div class="item-detail">exit: 0</div>
+      </div>
+    </div>
+
+    <!-- Input column -->
+    <div class="col c-input">
+      <div class="col-head">
+        <span class="dot"></span> Session Input
+        <span class="count">3</span>
+      </div>
+
+      <div class="item">
+        <div class="item-ts">14:02:03.400</div>
+        <div class="item-type">Prompt</div>
+        <div class="item-detail">"Implement the NdjsonParser module..."</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:11.200</div>
+        <div class="item-type">PermissionResponse</div>
+        <div class="item-detail">req_4f8a · Allow</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:15.000</div>
+        <div class="item-type">Interrupt</div>
+        <div class="item-detail"></div>
+      </div>
+    </div>
+
+    <!-- Error column -->
+    <div class="col c-error">
+      <div class="col-head">
+        <span class="dot"></span> Parse Errors
+        <span class="count">2</span>
+      </div>
+
+      <div class="item">
+        <div class="item-ts">14:02:06.500</div>
+        <div class="item-type">UnknownMessageType</div>
+        <div class="item-detail">"content_block_delta"</div>
+      </div>
+      <div class="item">
+        <div class="item-ts">14:02:16.300</div>
+        <div class="item-type">JsonError</div>
+        <div class="item-detail">Unexpected character at position 14</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="statusbar">
+    <span class="dot d-event"></span> 14 events
+    <span class="sep">|</span>
+    <span class="dot d-input"></span> 3 inputs
+    <span class="sep">|</span>
+    <span class="dot d-error"></span> 2 errors
+    <span class="sep">|</span>
+    elapsed 17s
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     VARIANT C — Compact log table
+     Dense monospace rows like a structured log viewer.
+     Click to expand full payload. Maximum information density.
+     ════════════════════════════════════════════════════════════ -->
+
+<h2>Variant C — Compact Log</h2>
+<p class="desc">Dense structured log. Each row is one line: timestamp, category badge, event type, detail summary. Click to expand and see all fields. Maximum information density with minimal visual weight.</p>
+
+<div class="win v-c">
+  <div class="win-title">
+    <span class="win-name">Debug</span>
+    <span class="win-meta">log · 47 entries</span>
+    <span class="sp"></span>
+    <span class="win-close"><span class="x"></span></span>
+  </div>
+
+  <div class="log-header">
+    <span style="text-align:right">Time</span>
+    <span></span>
+    <span>Type</span>
+    <span>Detail</span>
+  </div>
+
+  <div class="log">
+
+    <div class="log-row">
+      <span class="log-ts">14:02:01</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">Init</span>
+      <span class="log-detail"><span class="accent">session_abc123</span> · opus 4.6</span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:03</span>
+      <span class="log-cat c-input">in</span>
+      <span class="log-type">Prompt</span>
+      <span class="log-detail">"Implement the NdjsonParser module with Result types..."</span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:04</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">Thinking</span>
+      <span class="log-detail">"Reading existing types for alignment"</span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:05</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">ToolUse</span>
+      <span class="log-detail"><span class="accent">Read</span> · src/FabioSoft.Claude/Types.fs</span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:06</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">ToolResult</span>
+      <span class="log-detail"><span class="accent">Read</span> · 142 lines</span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:06</span>
+      <span class="log-cat c-error">err</span>
+      <span class="log-type">UnknownMsg</span>
+      <span class="log-detail"><span class="err">"content_block_delta"</span></span>
+    </div>
+
+    <!-- Expanded example -->
+    <div class="log-expand" style="display:block">
+      <div class="field"><span class="field-name">type</span><span class="field-val">UnknownMessageType</span></div>
+      <div class="field"><span class="field-name">value</span><span class="field-val">"content_block_delta"</span></div>
+      <div class="field"><span class="field-name">raw</span><span class="field-val">{"type":"content_block_delta","index":0,"delta":{"type":"text_delta"}}</span></div>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:07</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">TextDelta</span>
+      <span class="log-detail">"I'll create the parser module. Let me read..."</span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:08</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">HookStart</span>
+      <span class="log-detail"><span class="accent">PreToolUse</span> · hook_1a2b</span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:09</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">Permission</span>
+      <span class="log-detail"><span class="accent">Write</span> · src/FabioSoft.Claude/NdjsonParser.fs</span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:11</span>
+      <span class="log-cat c-input">in</span>
+      <span class="log-type">PermResp</span>
+      <span class="log-detail"><span class="accent">req_4f8a</span> · Allow</span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:12</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">Usage</span>
+      <span class="log-detail">in: <span class="accent">2,418</span> · out: <span class="accent">847</span></span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:13</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">Assistant</span>
+      <span class="log-detail">isFinal: <span class="accent">true</span></span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:13</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">ApiRetry</span>
+      <span class="log-detail"></span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:14</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">Compacting</span>
+      <span class="log-detail"></span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:15</span>
+      <span class="log-cat c-input">in</span>
+      <span class="log-type">Interrupt</span>
+      <span class="log-detail"></span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:15</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">Aborted</span>
+      <span class="log-detail"></span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:16</span>
+      <span class="log-cat c-error">err</span>
+      <span class="log-type">JsonError</span>
+      <span class="log-detail"><span class="err">Unexpected character at position 14</span></span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:17</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">LogMessage</span>
+      <span class="log-detail">"Warning: token limit approaching"</span>
+    </div>
+
+    <div class="log-row">
+      <span class="log-ts">14:02:18</span>
+      <span class="log-cat c-event">evt</span>
+      <span class="log-type">SessionEnd</span>
+      <span class="log-detail">exit: <span class="accent">0</span></span>
+    </div>
+
+  </div>
+
+  <div class="statusbar">
+    <span class="dot d-event"></span> 14 events
+    <span class="sep">|</span>
+    <span class="dot d-input"></span> 3 inputs
+    <span class="sep">|</span>
+    <span class="dot d-error"></span> 2 errors
+    <span class="sep">|</span>
+    elapsed 17s
+  </div>
+</div>
+
+
+</body>
+</html>

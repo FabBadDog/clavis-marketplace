@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CLAVIS — Pace Plane in context</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0A0C;--surface:#08080A;--card:#0D0D10;--line:#222228;--faint:#19191F;
+  --text:#C8C8D0;--bright:#E8E8EC;--dim:#8A8A94;--mute:#55555E;
+  --clavis:#7FB5D8;--under:#6FD49B;--over:#D49A6A;--hot:#D47070;--human:#5ED4C4;
+  --rajdhani:'Rajdhani',sans-serif;--inter:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--inter);font-weight:300;padding:54px 48px 140px}
+h1{font-family:var(--rajdhani);font-size:15px;letter-spacing:6px;text-transform:uppercase;color:#9AA;margin-bottom:6px;font-weight:600}
+h2{font-family:var(--rajdhani);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--clavis);margin:46px 0 16px;font-weight:600}
+p.lead{font-size:11.5px;color:#777;max-width:920px;margin-bottom:10px;line-height:1.8}
+p.lead b{color:var(--clavis);font-weight:400}
+svg{display:block;overflow:visible}
+svg text{font-family:var(--mono);fill:var(--text)}
+.lab{font-family:var(--rajdhani);font-weight:500;letter-spacing:1.5px;text-transform:uppercase;fill:var(--dim)}
+.row{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start}
+.note{font-size:10.5px;color:#76767E;max-width:330px;line-height:1.7;margin-top:6px}
+.note b{color:var(--clavis);font-weight:400}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+.breathe{animation:pulse 2.4s ease-in-out infinite}
+
+/* fake conversation window */
+.win{width:560px;background:#000;border:1px solid var(--line);position:relative}
+.titlebar{height:30px;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid var(--line);gap:10px}
+.titlebar .nm{font-family:var(--rajdhani);font-size:9px;letter-spacing:2.5px;color:var(--dim);text-transform:uppercase}
+.titlebar .sp{flex:1}
+.titlebar .model{font-family:var(--mono);font-size:9px;color:var(--mute)}
+.chat{height:230px;padding:18px 16px;font-family:var(--mono);font-size:10px;color:var(--mute);line-height:2;background:repeating-linear-gradient(transparent,transparent 23px,#0e0e12 23px,#0e0e12 24px)}
+.chat .you{color:var(--human)}
+.chat .ai{color:var(--text)}
+.statusbar{height:26px;display:flex;align-items:center;padding:0 14px;gap:14px;border-top:1px solid var(--line);background:var(--surface)}
+.statusbar .ctx{font-family:var(--mono);font-size:8.5px;color:var(--dim)}
+.statusbar .sp{flex:1}
+.statusbar .glyph{cursor:pointer}
+.callout{font-size:10px;color:var(--over);font-family:var(--mono);margin-top:8px}
+
+/* slide-in panel */
+.panel{width:300px;background:var(--card);border:1px solid var(--line)}
+.panel .ph{display:flex;align-items:center;height:30px;padding:0 14px;border-bottom:1px solid var(--line);gap:8px}
+.panel .ph .t{font-family:var(--rajdhani);font-size:9.5px;letter-spacing:2.5px;text-transform:uppercase;color:var(--bright)}
+.panel .ph .sp{flex:1}
+.panel .ph .prov{font-family:var(--mono);font-size:8px;color:var(--mute);letter-spacing:1px}
+.panel .pb{padding:16px 16px 18px}
+.wlist{margin-top:6px}
+.wrow{display:grid;grid-template-columns:14px 1fr auto;gap:9px;align-items:center;padding:8px 0;border-top:1px solid var(--faint)}
+.wrow .sw{width:9px;height:9px}
+.wrow .wn{font-family:var(--rajdhani);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text)}
+.wrow .wm{font-family:var(--mono);font-size:8.5px;color:var(--dim);margin-top:2px}
+.wrow .wd{font-family:var(--mono);font-size:11px;text-align:right}
+</style>
+</head>
+<body>
+
+<h1>Pace Plane — fitting it in &amp; keeping it agent-agnostic</h1>
+<p class="lead">The pace plane is the one form that does not care how many windows an agent has. Both axes are <b>normalized 0..1</b> (time elapsed, budget spent), so a window of any unit (tokens, requests, messages) and any length (5h, 7d, 1d) collapses to a single point. The diagonal is "perfectly even spend". <b>Any number of dots</b> share the same chart — that is exactly the agent-agnostic property we need.</p>
+
+<h2>1 — Glanceable in the status bar, detail on demand</h2>
+<p class="lead" style="margin-bottom:22px">A <b>22 px mini-plane</b> lives in the status bar, always visible: just the diagonal and the window dots, no labels. Click it to slide in the labelled panel. Nothing in the conversation chrome needs more than a tiny square.</p>
+
+<div class="row">
+  <div>
+    <div class="win">
+      <div class="titlebar">
+        <span class="breathe" style="width:5px;height:5px;background:var(--clavis)"></span>
+        <span class="nm">Clavis</span><span class="sp"></span>
+        <span class="model">opus-4.8 · 1m</span>
+      </div>
+      <div class="chat">
+        <div class="you">› improve the limit visualization</div>
+        <div class="ai">I'll add a pace plane to the status bar…</div>
+        <div class="ai">&nbsp;</div>
+        <div class="you">› how do we keep it agent-agnostic?</div>
+        <div class="ai">The plane is normalized, so N windows just…</div>
+      </div>
+      <div class="statusbar">
+        <span class="ctx">ctx 42% · 18.2k tokens</span>
+        <span class="sp"></span>
+        <span class="ctx">5h <span style="color:var(--hot)">+20</span> · wk <span style="color:var(--clavis)">±0</span></span>
+        <span class="glyph" id="miniGlyphHost"></span>
+      </div>
+    </div>
+    <div class="callout">▲ the small square at the status-bar's right edge ↑ is the live pace plane</div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <div class="ph">
+        <span class="breathe" style="width:5px;height:5px;background:var(--clavis)"></span>
+        <span class="t">Usage Pace</span><span class="sp"></span>
+        <span class="prov">via claude</span>
+      </div>
+      <div class="pb" id="panelClaude"></div>
+    </div>
+    <div class="note">Click → slide-in panel (reuses the existing dockable slide-in surface). Full plane with the on-pace diagonal, one labelled dot per window, and a readout: percent spent, reset countdown, and the pace delta.</div>
+  </div>
+</div>
+
+<h2>2 — Same component, any agent, any number of windows</h2>
+<p class="lead" style="margin-bottom:24px">UI code never names a provider or assumes two windows — it just plots <code style="color:var(--text)">report.Windows</code>. A bridge that reports one daily cap, or three tiered windows, renders through the identical control.</p>
+
+<div class="row" id="agnosticRow"></div>
+
+<h2>3 — The agent-agnostic contract (Session group)</h2>
+<p class="lead">A new neutral event in the <code style="color:var(--text)">AgentStreamEvent</code> family. The bridge fills <code style="color:var(--text)">WindowStart</code> from the plan it knows; the UI derives <i>everything</i> (elapsed, expected, pace) purely from the numbers — no provider knowledge leaks past the bridge.</p>
+<pre style="font-family:var(--mono);font-size:10.5px;color:var(--text);background:var(--surface);border:1px solid var(--line);padding:16px 18px;line-height:1.7;max-width:780px;overflow:auto">[&lt;Sealed&gt;]
+type <span style="color:var(--clavis)">AgentLimitWindow</span>(name: string, used: float, total: float, unit: string,
+                       windowStart: DateTimeOffset, resetsAt: DateTimeOffset) =
+    member _.Name = name          <span style="color:var(--mute)">// "5-Hour", "Weekly", "Daily"…</span>
+    member _.Used = used          <span style="color:var(--mute)">// abstract budget units</span>
+    member _.Total = total
+    member _.Unit = unit          <span style="color:var(--mute)">// "tokens" | "requests" | "messages" — display only</span>
+    member _.WindowStart = windowStart
+    member _.ResetsAt = resetsAt
+
+[&lt;Sealed&gt;]
+type <span style="color:var(--clavis)">AgentUsageReport</span>(sessionId: Guid, windows: IReadOnlyList&lt;AgentLimitWindow&gt;) =
+    inherit AgentStreamEvent(sessionId)
+    member _.Windows = windows
+
+<span style="color:var(--mute)">// Derived UI-side, pure (no provider knowledge):
+//   timeFrac = (now - WindowStart) / (ResetsAt - WindowStart)
+//   spentFrac = Used / Total
+//   pace = spentFrac vs timeFrac   →  dot above diagonal = overspending</span></pre>
+
+<script>
+const NOGLOW=true;
+function polar(){}
+const pct=f=>Math.round(f*100);
+const sgn=d=>(d>=0?'+':'−')+Math.abs(Math.round(d));
+function paceColor(ratio){
+  if(ratio>1.5) return 'var(--hot)';
+  if(ratio>1.08)return 'var(--over)';
+  if(ratio<0.92)return 'var(--under)';
+  return 'var(--clavis)';
+}
+function paceWord(ratio){
+  if(ratio>1.5) return 'far over';
+  if(ratio>1.08)return 'over';
+  if(ratio<0.92)return 'under';
+  return 'on pace';
+}
+function mk(name,used,total,unit,timeFrac,resetIn){
+  const spentFrac=used/total, expected=total*timeFrac, delta=used-expected;
+  return {name,used,total,unit,timeFrac,spentFrac,delta,ratio:used/Math.max(expected,1e-6),resetIn,remaining:total-used};
+}
+
+/* mini glyph: square, dashed diagonal, dots, no labels, no glow */
+function miniPlane(windows,size){
+  const S=size,p=2;
+  let dots='';
+  windows.forEach(w=>{const x=p+w.timeFrac*(S-2*p);const y=p+(S-2*p)-w.spentFrac*(S-2*p);
+    dots+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${size>40?2.6:1.8}" fill="${paceColor(w.ratio)}"/>`;});
+  return `<svg viewBox="0 0 ${S} ${S}" width="${S}" height="${S}">
+    <rect x="${p}" y="${p}" width="${S-2*p}" height="${S-2*p}" fill="none" stroke="var(--faint)"/>
+    <line x1="${p}" y1="${S-p}" x2="${S-p}" y2="${p}" stroke="var(--mute)" stroke-dasharray="2 2"/>
+    ${dots}</svg>`;
+}
+
+/* full labelled plane */
+function fullPlane(windows){
+  const S=190,p=8;let dots='';
+  windows.forEach(w=>{const c=paceColor(w.ratio);const x=p+w.timeFrac*S;const y=p+S-w.spentFrac*S;
+    const above=w.spentFrac>=w.timeFrac;
+    dots+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" fill="${c}"/>
+           <text x="${(x+ (x>p+S*0.7?-8:8)).toFixed(1)}" y="${(y+(above?-9:14)).toFixed(1)}" text-anchor="${x>p+S*0.7?'end':'start'}" font-size="9" fill="${c}">${w.name} ${sgn(w.delta)}</text>`;});
+  return `<svg viewBox="0 0 ${S+p*2+4} ${S+p*2+12}" width="240">
+    <rect x="${p}" y="${p}" width="${S}" height="${S}" fill="none" stroke="var(--faint)"/>
+    <line x1="${p}" y1="${p+S}" x2="${p+S}" y2="${p}" stroke="var(--mute)" stroke-dasharray="3 3"/>
+    <text class="lab" x="${p+S/2}" y="${S+p+10}" text-anchor="middle" font-size="8">time elapsed →</text>
+    <text class="lab" x="${p-2}" y="${p+S/2}" text-anchor="middle" font-size="8" transform="rotate(-90 ${p-2} ${p+S/2})">budget spent →</text>
+    <text class="lab" x="${p+S-6}" y="${p+12}" text-anchor="end" font-size="7" fill="var(--over)">overspend</text>
+    <text class="lab" x="${p+8}" y="${p+S-4}" font-size="7" fill="var(--under)">surplus</text>
+    ${dots}</svg>`;
+}
+
+/* per-window readout list */
+function wlist(windows){
+  return `<div class="wlist">`+windows.map(w=>{const c=paceColor(w.ratio);return `
+    <div class="wrow">
+      <span class="sw" style="background:${c}"></span>
+      <div><div class="wn">${w.name}</div><div class="wm">${pct(w.spentFrac)}% spent · resets ${w.resetIn}</div></div>
+      <div class="wd" style="color:${c}">${sgn(w.delta)}<div class="wm" style="text-align:right;color:${c}">${paceWord(w.ratio)}</div></div>
+    </div>`;}).join('')+`</div>`;
+}
+
+/* Claude: 5h overspending hard, weekly on pace */
+const claude=[
+  mk('5-Hour',40,100,'tokens',0.20,'4h 00m'),
+  mk('Weekly',450,1000,'tokens',0.43,'4d 00h')
+];
+document.getElementById('miniGlyphHost').innerHTML=miniPlane(claude,22);
+document.getElementById('panelClaude').innerHTML=fullPlane(claude)+wlist(claude);
+
+/* agnostic gallery: 1, 2, 3 windows from "different agents" */
+const gallery=[
+  {prov:'agent-alpha', w:[ mk('Daily',7200,10000,'requests',0.35,'15h 30m') ]},
+  {prov:'claude',      w:claude},
+  {prov:'agent-omega', w:[
+    mk('Burst',55,60,'messages',0.30,'12m'),
+    mk('Hourly',180,400,'messages',0.50,'30m'),
+    mk('Monthly',9000,40000,'messages',0.60,'12d') ]}
+];
+document.getElementById('agnosticRow').innerHTML=gallery.map(g=>`
+  <div class="panel" style="width:264px">
+    <div class="ph"><span class="breathe" style="width:5px;height:5px;background:var(--clavis)"></span>
+      <span class="t">Usage Pace</span><span class="sp"></span><span class="prov">via ${g.prov}</span></div>
+    <div class="pb">${fullPlane(g.w)}${wlist(g.w)}</div>
+  </div>`).join('');
+</script>
+</body>
+</html>

@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clavis · Focus Visualization Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&family=Syne:wght@600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#000000;
+    --panel-bg:#0b0b11;
+    --panel-bg2:#0e0e15;
+    --code-bg:#14141c;
+    --frame:#4A4A52;
+    --line:#222228;
+    --faint:#2A2A30;
+    --text:#C8C8D0;
+    --text-bright:#E8E8EC;
+    --text-dim:#B0B0BA;
+    --clavis:#9FD5F0;
+    --human:#7EE4D4;
+    --input:#9B7ED4;
+    --error:#E47E7E;
+    --warn:#E4C47E;
+    --secondary:#6A6A74;
+    --clavis-rgb:159,213,240;
+  }
+
+  *{ box-sizing:border-box; border-radius:0 !important; }
+
+  html,body{ margin:0; background:var(--bg); color:var(--text); }
+  body{
+    font-family:"Inter",-apple-system,Segoe UI,sans-serif;
+    font-size:14px; line-height:1.55;
+    padding:34px 40px 90px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  h1{
+    font-family:"Syne",sans-serif; font-weight:700;
+    font-size:26px; letter-spacing:.04em; color:var(--text-bright);
+    margin:0 0 4px;
+  }
+  h1 .accent{ color:var(--clavis); }
+  .subtitle{ color:var(--text-dim); font-size:13px; margin:0 0 26px; max-width:780px; }
+
+  h2{
+    font-family:"Rajdhani",sans-serif; font-weight:600;
+    font-size:13px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--secondary); margin:40px 0 14px;
+    border-bottom:1px solid var(--line); padding-bottom:8px;
+  }
+
+  a{ color:var(--clavis); }
+  code{ font-family:"JetBrains Mono",monospace; font-size:.86em; color:var(--clavis); }
+
+  /* ---- requirements strip ---- */
+  .reqs{
+    display:grid; grid-template-columns:repeat(2,1fr); gap:8px 26px;
+    background:var(--panel-bg); border:1px solid var(--line);
+    padding:16px 20px; margin-bottom:10px; max-width:980px;
+  }
+  .reqs div{ font-size:12.5px; color:var(--text-dim); }
+  .reqs b{ color:var(--text); font-weight:500; }
+  .reqs .tick{ color:var(--human); margin-right:8px; font-family:"JetBrains Mono"; }
+
+  /* ============ CONCEPT MATRIX ============ */
+  .matrix{
+    border:1px solid var(--line);
+    background:linear-gradient(180deg,#070709,#000);
+    overflow:hidden;
+  }
+  .mhead, .mrow{
+    display:grid;
+    grid-template-columns:230px repeat(4,1fr);
+    align-items:stretch;
+  }
+  .mhead{ border-bottom:1px solid var(--line); }
+  .mhead > div{
+    padding:12px 16px;
+    font-family:"Rajdhani",sans-serif; font-weight:600;
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--secondary);
+  }
+  .mhead > div + div{ border-left:1px solid var(--line); text-align:center; }
+
+  .mrow{ border-top:1px solid var(--line); }
+  .mrow > div{ padding:22px 18px; }
+  .mrow > div + div{ border-left:1px solid var(--line); }
+
+  .cname{ background:var(--panel-bg); }
+  .cname .n{
+    font-family:"Rajdhani",sans-serif; font-weight:600; font-size:16px;
+    letter-spacing:.04em; color:var(--text-bright); margin-bottom:6px;
+  }
+  .cname .d{ font-size:11.5px; color:var(--text-dim); line-height:1.5; }
+  .cname .tag{
+    display:inline-block; margin-top:10px; font-size:9.5px; letter-spacing:.16em;
+    text-transform:uppercase; font-family:"Rajdhani"; font-weight:600;
+    color:var(--clavis); border:1px solid rgba(var(--clavis-rgb),.35);
+    padding:2px 7px;
+  }
+  .cell{ display:flex; align-items:center; justify-content:center; }
+
+  /* mini widgets shown inside cells */
+  .w-panel{ width:150px; background:var(--panel-bg2); border:1px solid var(--frame); }
+  .w-panel .ph{
+    font-family:"Rajdhani"; font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--text-dim); padding:6px 9px; border-bottom:1px solid var(--line);
+  }
+  .w-panel .pb{ padding:9px; }
+  .w-panel .pl{ height:6px; background:var(--faint); margin:5px 0; }
+  .w-panel .pl.s{ width:70%; }
+  .w-panel .pl.t{ width:45%; }
+
+  .w-chat{
+    width:160px; min-height:46px; background:var(--code-bg);
+    border:1px solid var(--line); padding:9px 11px;
+    font-size:12px; color:var(--text-dim);
+  }
+  .w-chat .caret{ color:var(--clavis); animation:blink 1.1s steps(1) infinite; }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  .w-btn{
+    font-family:"Rajdhani"; font-weight:600; font-size:11px; letter-spacing:.14em;
+    color:var(--text); background:var(--code-bg); border:1px solid var(--line);
+    padding:8px 18px;
+  }
+
+  .w-list{ width:160px; background:transparent; }
+  .w-list .li{
+    font-family:"JetBrains Mono"; font-size:11px; color:var(--text-dim);
+    padding:5px 10px; border:1px solid transparent;
+  }
+
+  /* the focusable target wrapper (so brackets/glow can overflow) */
+  .tgt{ position:relative; transition:box-shadow .12s ease, background-color .12s ease; }
+  .ptgt{ position:relative; }
+
+  /* ---------- INDICATOR CONCEPTS ---------- */
+
+  /* 1. Accent underline */
+  .ind-underline .tgt.on{ box-shadow:inset 0 -2px 0 0 var(--clavis); }
+  .ind-underline .ptgt.on{ border-color:var(--frame); }
+  .ind-underline .ptgt.on::after{
+    content:""; position:absolute; left:-1px; right:-1px; top:-1px; height:2px;
+    background:var(--clavis);
+  }
+
+  /* 2. Corner brackets (HUD) */
+  .bracket-after{
+    content:""; position:absolute; inset:-5px; pointer-events:none;
+    --c:var(--clavis); --len:11px; --th:1.5px;
+    background:
+      linear-gradient(var(--c),var(--c)) 0 0/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 0 0/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 100% 0/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 100% 0/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 0 100%/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 0 100%/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 100% 100%/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 100% 100%/var(--th) var(--len);
+    background-repeat:no-repeat;
+  }
+  .ind-bracket .tgt.on::after{ content:""; position:absolute; inset:-5px; pointer-events:none;
+    --c:var(--clavis); --len:11px; --th:1.5px;
+    background:
+      linear-gradient(var(--c),var(--c)) 0 0/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 0 0/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 100% 0/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 100% 0/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 0 100%/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 0 100%/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 100% 100%/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 100% 100%/var(--th) var(--len);
+    background-repeat:no-repeat;
+  }
+  .ind-bracket .ptgt.on::after{ content:""; position:absolute; inset:-4px; pointer-events:none;
+    --c:var(--clavis); --len:16px; --th:1.5px;
+    background:
+      linear-gradient(var(--c),var(--c)) 0 0/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 0 0/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 100% 0/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 100% 0/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 0 100%/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 0 100%/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 100% 100%/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 100% 100%/var(--th) var(--len);
+    background-repeat:no-repeat;
+  }
+
+  /* 3. Soft glow halo */
+  .ind-glow .tgt.on{
+    box-shadow:0 0 0 1px rgba(var(--clavis-rgb),.55), 0 0 16px 1px rgba(var(--clavis-rgb),.20);
+  }
+  .ind-glow .ptgt.on{
+    border-color:rgba(var(--clavis-rgb),.5);
+    box-shadow:0 0 24px 2px rgba(var(--clavis-rgb),.13);
+  }
+
+  /* 4. Left accent rail */
+  .ind-rail .tgt.on{ box-shadow:inset 3px 0 0 0 var(--clavis); background:rgba(var(--clavis-rgb),.055); }
+  .ind-rail .ptgt.on{ box-shadow:inset 3px 0 0 0 var(--clavis); border-color:var(--frame); }
+
+  /* 5. Hairline ring */
+  .ind-ring .tgt.on{ box-shadow:inset 0 0 0 1px var(--clavis); }
+  .ind-ring .ptgt.on{ border-color:rgba(var(--clavis-rgb),.7); box-shadow:inset 0 0 0 1px rgba(var(--clavis-rgb),.45); }
+
+  /* 6. Recommended hybrid: panel = brackets, controls = ring+soft glow, chat = underline+lift */
+  .ind-hybrid .tgt.on{
+    box-shadow:inset 0 0 0 1px rgba(var(--clavis-rgb),.75), 0 0 11px 0 rgba(var(--clavis-rgb),.16);
+  }
+  .ind-hybrid .tgt.chat.on{
+    box-shadow:inset 0 -2px 0 0 var(--clavis), 0 7px 16px -8px rgba(var(--clavis-rgb),.45);
+  }
+  .ind-hybrid .ptgt.on::after{ content:""; position:absolute; inset:-4px; pointer-events:none;
+    --c:var(--clavis); --len:16px; --th:1.5px;
+    background:
+      linear-gradient(var(--c),var(--c)) 0 0/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 0 0/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 100% 0/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 100% 0/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 0 100%/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 0 100%/var(--th) var(--len),
+      linear-gradient(var(--c),var(--c)) 100% 100%/var(--len) var(--th),
+      linear-gradient(var(--c),var(--c)) 100% 100%/var(--th) var(--len);
+    background-repeat:no-repeat;
+  }
+
+  /* ============ LIVE DEMO ============ */
+  .demo-controls{
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    background:var(--panel-bg); border:1px solid var(--line);
+    padding:14px 18px; margin-bottom:18px;
+  }
+  .demo-controls label{ font-family:"Rajdhani"; font-size:11px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--secondary); margin-right:2px; }
+  select, .dbtn{
+    font-family:"Rajdhani"; font-weight:600; font-size:12px; letter-spacing:.06em;
+    background:var(--code-bg); color:var(--text); border:1px solid var(--line);
+    padding:7px 14px; cursor:pointer; appearance:none;
+  }
+  select:hover, .dbtn:hover{ border-color:var(--clavis); color:var(--text-bright); }
+  .dbtn.active{ border-color:var(--clavis); color:var(--clavis); }
+  .hint{ font-size:11.5px; color:var(--secondary); margin-left:auto; font-family:"JetBrains Mono"; }
+  .hint kbd{
+    font-family:"JetBrains Mono"; font-size:10.5px; color:var(--clavis);
+    border:1px solid var(--line); padding:1px 6px; margin:0 1px; background:#000;
+  }
+
+  .stage{ display:grid; grid-template-columns:1fr 1fr; gap:26px; }
+  @media(max-width:980px){ .stage{ grid-template-columns:1fr; } }
+
+  .win{
+    position:relative; background:var(--bg); border:1px solid var(--frame);
+    min-height:330px; display:flex; flex-direction:column;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  /* inactive window is visibly dimmer */
+  .win:not(.winactive){ border-color:#34343b; }
+  .win:not(.winactive) .titlebar{ color:var(--secondary); }
+
+  .titlebar{
+    display:flex; align-items:center; gap:9px; height:30px; padding:0 12px;
+    border-bottom:1px solid var(--line);
+    font-family:"Rajdhani"; font-weight:600; font-size:11px; letter-spacing:.2em;
+    text-transform:uppercase; color:var(--text-dim);
+  }
+  .titlebar .dot{ width:6px; height:6px; background:var(--clavis); opacity:.5; }
+  .win.winactive .titlebar .dot{ opacity:1; animation:breathe 2.6s ease-in-out infinite; }
+  @keyframes breathe{ 0%,100%{ opacity:.45; } 50%{ opacity:1; } }
+  .titlebar .wlabel{ flex:1; }
+  .titlebar .wstate{ font-size:9px; letter-spacing:.16em; color:var(--secondary); }
+  .win.winactive .titlebar .wstate{ color:var(--clavis); }
+
+  .winbody{ position:relative; flex:1; padding:14px; display:flex; flex-direction:column; }
+
+  .msg{ font-size:12.5px; color:var(--text-dim); margin-bottom:7px; }
+  .msg .who{ color:var(--human); font-family:"Rajdhani"; font-weight:600; font-size:11px;
+    letter-spacing:.1em; margin-right:8px; text-transform:uppercase; }
+  .msg.agent .who{ color:var(--clavis); }
+
+  .spacer{ flex:1; }
+
+  .chatbox{
+    margin-top:10px; background:var(--code-bg); border:1px solid var(--line);
+    padding:10px 12px; color:var(--text); font-size:13px; outline:none;
+    font-family:"Inter"; resize:none; width:100%; min-height:54px;
+  }
+  .chatbox::placeholder{ color:var(--secondary); }
+
+  .btnrow{ display:flex; gap:10px; margin-top:10px; }
+  .ctl{
+    font-family:"Rajdhani"; font-weight:600; font-size:11px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--text); background:var(--code-bg);
+    border:1px solid var(--line); padding:8px 18px; cursor:pointer; outline:none;
+  }
+  .ctl.stop{ color:var(--error); }
+
+  .filterbox{
+    margin-top:auto; background:var(--code-bg); border:1px solid var(--line);
+    padding:8px 11px; color:var(--text); font-size:12px; outline:none;
+    font-family:"JetBrains Mono"; width:100%;
+  }
+  .filterbox::placeholder{ color:var(--secondary); }
+
+  /* dock surface in window B */
+  .dock{ display:flex; flex-direction:column; gap:12px; flex:1; }
+  .dpanel{ border:1px solid var(--line); background:var(--panel-bg); display:flex; flex-direction:column; }
+  .dpanel .dh{
+    display:flex; align-items:center; gap:8px;
+    font-family:"Rajdhani"; font-size:10px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--text-dim); padding:6px 10px; border-bottom:1px solid var(--line);
+  }
+  .dpanel .dh .badge{
+    margin-left:auto; font-size:8.5px; letter-spacing:.12em; padding:1px 6px;
+    border:1px solid var(--line); color:var(--secondary);
+  }
+  .dpanel .dh .badge.skip{ color:var(--warn); border-color:rgba(228,196,126,.3); }
+  .dpanel .dh .badge.ok{ color:var(--human); border-color:rgba(126,228,212,.3); }
+  .dbody{ padding:10px; }
+  .gitline{ font-family:"JetBrains Mono"; font-size:10.5px; color:var(--text-dim); padding:3px 4px; }
+  .gitline .hash{ color:var(--warn); }
+  .mdarea{
+    background:var(--code-bg); border:1px solid var(--line); padding:8px 10px;
+    color:var(--text); font-size:12px; outline:none; font-family:"JetBrains Mono";
+    width:100%; min-height:42px; resize:none;
+  }
+
+  /* permission prompt (inline, never focused) */
+  .perm{
+    margin-top:8px; padding:9px 11px; border-left:2px solid var(--warn);
+    background:rgba(228,196,126,.04);
+  }
+  .perm .reason{ font-size:10.5px; color:var(--text-dim); margin-bottom:7px; }
+  .perm .reason b{ color:var(--warn); font-weight:500; }
+  .perm .opts{ display:flex; gap:22px; }
+  .popt{ font-family:"Rajdhani"; font-weight:600; font-size:11px; letter-spacing:.12em;
+    color:var(--text-dim); padding-bottom:4px; position:relative; }
+  .popt.deny{ color:var(--error); }
+  .popt.sel::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:2px; background:var(--clavis); }
+  .popt.sel{ color:var(--text-bright); }
+  .perm .pmeta{ margin-top:8px; font-size:10px; color:var(--secondary); font-family:"JetBrains Mono"; }
+  .perm .pmeta kbd{ color:var(--clavis); border:1px solid var(--line); padding:0 5px; background:#000; }
+
+  /* slide-in panel */
+  .slidein{
+    position:absolute; top:0; left:0; bottom:0; width:62%;
+    background:rgba(5,5,10,.93); border-right:1px solid var(--clavis);
+    box-shadow:6px 0 24px -6px rgba(0,0,0,.8);
+    padding:16px; display:flex; flex-direction:column; gap:12px;
+    transform:translateX(-104%); transition:transform .2s ease; z-index:5;
+  }
+  .slidein.open{ transform:translateX(0); }
+  .slidein .sh{ font-family:"Rajdhani"; font-weight:600; font-size:11px; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--clavis); }
+  .slidein .sstate{ font-size:10px; color:var(--secondary); font-family:"JetBrains Mono"; }
+  .slidein .sl{ height:6px; background:var(--faint); }
+  .slidein .sl.s{ width:80%; } .slidein .sl.t{ width:55%; }
+
+  .statusbar{
+    margin-top:18px; padding:10px 16px; border:1px solid var(--line);
+    background:var(--panel-bg); font-family:"JetBrains Mono"; font-size:12px;
+    display:flex; gap:18px; align-items:center;
+  }
+  .statusbar .k{ color:var(--secondary); }
+  .statusbar .v{ color:var(--clavis); }
+  .statusbar .sep{ color:var(--line); }
+
+  .legend{ margin-top:14px; display:flex; flex-wrap:wrap; gap:10px 22px; font-size:11.5px; color:var(--text-dim); }
+  .legend span b{ color:var(--text); font-weight:500; }
+</style>
+</head>
+<body>
+
+  <h1><span class="accent">CLAVIS</span> · Focus Visualization Concepts</h1>
+  <p class="subtitle">
+    Six indicator concepts for window/panel and per-control focus, in the Clavis palette - elegant, minimal,
+    square corners, no dashed frame. Below the gallery is a live, keyboard-driven demo of cross-window
+    tabbing, focus skipping rules, slide-in focusability, and the arrow-driven permission prompt.
+  </p>
+
+  <div class="reqs">
+    <div><span class="tick">+</span><b>Clear window/panel focus</b> indicator</div>
+    <div><span class="tick">+</span><b>Every control</b> visualizes focus</div>
+    <div><span class="tick">+</span>Chat input has its <b>own</b> indicator</div>
+    <div><span class="tick">+</span><b>Cross-window</b> tab when a window is exhausted</div>
+    <div><span class="tick">+</span>Only <b>interactive</b> controls get focus</div>
+    <div><span class="tick">+</span>Focus is <b>never</b> in a dead/keyless state</div>
+    <div><span class="tick">+</span>Panels with no controls are <b>never</b> focused</div>
+    <div><span class="tick">+</span>Parked slide-ins not focusable; <b>open</b> ones are</div>
+    <div><span class="tick">+</span>Permission prompt <b>never tab-focused</b>, takes <kbd>←</kbd> <kbd>→</kbd></div>
+    <div><span class="tick">+</span>No dashed-line frame anywhere</div>
+  </div>
+
+  <h2>Concept gallery</h2>
+  <div class="matrix">
+    <div class="mhead">
+      <div>Concept</div>
+      <div>Window / panel</div>
+      <div>Chat input</div>
+      <div>Button</div>
+      <div>List row</div>
+    </div>
+
+    <!-- 1 underline -->
+    <div class="mrow ind-underline">
+      <div class="cname">
+        <div class="n">1 · Accent underline</div>
+        <div class="d">A 2px clavis line under the focused control; a matching accent edge on the active panel. Maximally content-first.</div>
+      </div>
+      <div class="cell"><div class="w-panel ptgt on"><div class="ph">git-log</div><div class="pb"><div class="pl s"></div><div class="pl t"></div></div></div></div>
+      <div class="cell"><div class="w-chat tgt chat on">Ask Clavis<span class="caret">|</span></div></div>
+      <div class="cell"><div class="w-btn tgt on">SEND</div></div>
+      <div class="cell"><div class="w-list"><div class="li">feat: bus replay</div><div class="li tgt on">fix: focus rail</div><div class="li">docs: readme</div></div></div>
+    </div>
+
+    <!-- 2 brackets -->
+    <div class="mrow ind-bracket">
+      <div class="cname">
+        <div class="n">2 · Corner brackets</div>
+        <div class="d">Sci-fi HUD L-ticks at the four corners. Reads as "targeted" without enclosing the element in a box. Very on-theme.</div>
+      </div>
+      <div class="cell"><div class="w-panel ptgt on"><div class="ph">git-log</div><div class="pb"><div class="pl s"></div><div class="pl t"></div></div></div></div>
+      <div class="cell"><div class="w-chat tgt chat on">Ask Clavis<span class="caret">|</span></div></div>
+      <div class="cell"><div class="w-btn tgt on">SEND</div></div>
+      <div class="cell"><div class="w-list"><div class="li">feat: bus replay</div><div class="li tgt on">fix: focus rail</div><div class="li">docs: readme</div></div></div>
+    </div>
+
+    <!-- 3 glow -->
+    <div class="mrow ind-glow">
+      <div class="cname">
+        <div class="n">3 · Soft glow halo</div>
+        <div class="d">A 1px ring plus a soft outer bloom in clavis blue. No hard frame; the focus "lights up" the control.</div>
+      </div>
+      <div class="cell"><div class="w-panel ptgt on"><div class="ph">git-log</div><div class="pb"><div class="pl s"></div><div class="pl t"></div></div></div></div>
+      <div class="cell"><div class="w-chat tgt chat on">Ask Clavis<span class="caret">|</span></div></div>
+      <div class="cell"><div class="w-btn tgt on">SEND</div></div>
+      <div class="cell"><div class="w-list"><div class="li">feat: bus replay</div><div class="li tgt on">fix: focus rail</div><div class="li">docs: readme</div></div></div>
+    </div>
+
+    <!-- 4 rail -->
+    <div class="mrow ind-rail">
+      <div class="cname">
+        <div class="n">4 · Left accent rail</div>
+        <div class="d">A 3px bar down the left edge plus a whisper of fill tint. Echoes the conversation timeline rail already in Clavis.</div>
+      </div>
+      <div class="cell"><div class="w-panel ptgt on"><div class="ph">git-log</div><div class="pb"><div class="pl s"></div><div class="pl t"></div></div></div></div>
+      <div class="cell"><div class="w-chat tgt chat on">Ask Clavis<span class="caret">|</span></div></div>
+      <div class="cell"><div class="w-btn tgt on">SEND</div></div>
+      <div class="cell"><div class="w-list"><div class="li">feat: bus replay</div><div class="li tgt on">fix: focus rail</div><div class="li">docs: readme</div></div></div>
+    </div>
+
+    <!-- 5 ring -->
+    <div class="mrow ind-ring">
+      <div class="cname">
+        <div class="n">5 · Hairline ring</div>
+        <div class="d">A crisp 1px solid clavis square ring (no dashes). The classic, restrained option for direct comparison.</div>
+      </div>
+      <div class="cell"><div class="w-panel ptgt on"><div class="ph">git-log</div><div class="pb"><div class="pl s"></div><div class="pl t"></div></div></div></div>
+      <div class="cell"><div class="w-chat tgt chat on">Ask Clavis<span class="caret">|</span></div></div>
+      <div class="cell"><div class="w-btn tgt on">SEND</div></div>
+      <div class="cell"><div class="w-list"><div class="li">feat: bus replay</div><div class="li tgt on">fix: focus rail</div><div class="li">docs: readme</div></div></div>
+    </div>
+
+    <!-- 6 hybrid -->
+    <div class="mrow ind-hybrid">
+      <div class="cname">
+        <div class="n">6 · Hybrid</div>
+        <div class="d">Brackets mark the active panel/window; a ring+soft-glow marks controls; the chat input lifts with an underline. Distinct cue per scope.</div>
+        <span class="tag">Recommended</span>
+      </div>
+      <div class="cell"><div class="w-panel ptgt on"><div class="ph">git-log</div><div class="pb"><div class="pl s"></div><div class="pl t"></div></div></div></div>
+      <div class="cell"><div class="w-chat tgt chat on">Ask Clavis<span class="caret">|</span></div></div>
+      <div class="cell"><div class="w-btn tgt on">SEND</div></div>
+      <div class="cell"><div class="w-list"><div class="li">feat: bus replay</div><div class="li tgt on">fix: focus rail</div><div class="li">docs: readme</div></div></div>
+    </div>
+  </div>
+
+  <h2>Live demo · keyboard navigation</h2>
+
+  <div class="demo-controls">
+    <label>Concept</label>
+    <select id="conceptPick">
+      <option value="ind-hybrid">6 · Hybrid (recommended)</option>
+      <option value="ind-underline">1 · Accent underline</option>
+      <option value="ind-bracket">2 · Corner brackets</option>
+      <option value="ind-glow">3 · Soft glow halo</option>
+      <option value="ind-rail">4 · Left accent rail</option>
+      <option value="ind-ring">5 · Hairline ring</option>
+    </select>
+    <button class="dbtn" id="slideBtn">Slide-in: parked</button>
+    <button class="dbtn" id="permBtn">Permission prompt: off</button>
+  </div>
+
+  <div class="stage" id="live">
+    <!-- WINDOW A -->
+    <div class="win ptgt" id="winA" data-win="A">
+      <div class="titlebar"><span class="dot"></span><span class="wlabel">Clavis · conversation</span><span class="wstate">window A</span></div>
+      <div class="winbody">
+
+        <!-- slide-in (left edge) -->
+        <div class="slidein" id="slidein">
+          <div class="sh">git-log · slide-in</div>
+          <div class="sstate" id="slideState">parked → not focusable</div>
+          <div class="sl s"></div><div class="sl t"></div>
+          <button class="ctl tgt" id="f-refresh" data-win="A" tabindex="-1">REFRESH</button>
+        </div>
+
+        <div class="msg"><span class="who">you</span>add a focus indicator</div>
+        <div class="msg agent"><span class="who">clavis</span>On it - here are some concepts.</div>
+
+        <!-- permission prompt (never tab-focused) -->
+        <div class="perm" id="perm" style="display:none;">
+          <div class="reason"><b>&#9888;</b> Claude wants to run <b>git push</b></div>
+          <div class="opts">
+            <div class="popt sel" data-i="0">ALLOW</div>
+            <div class="popt deny" data-i="1">DENY</div>
+            <div class="popt" data-i="2">ALWAYS ALLOW</div>
+          </div>
+        </div>
+
+        <div class="spacer"></div>
+
+        <textarea class="chatbox tgt chat" id="f-chat" data-win="A" tabindex="-1" placeholder="Ask Clavis anything..."></textarea>
+        <div class="btnrow">
+          <button class="ctl tgt" id="f-send" data-win="A" tabindex="-1">SEND</button>
+          <button class="ctl stop tgt" id="f-stop" data-win="A" tabindex="-1">STOP</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WINDOW B -->
+    <div class="win ptgt" id="winB" data-win="B">
+      <div class="titlebar"><span class="dot"></span><span class="wlabel">Clavis · panels</span><span class="wstate">window B</span></div>
+      <div class="winbody">
+        <div class="dock">
+
+          <!-- non-interactive panel: never focused -->
+          <div class="dpanel">
+            <div class="dh">git-log<span class="badge skip">read-only · skipped</span></div>
+            <div class="dbody">
+              <div class="gitline"><span class="hash">dd725b0</span> Register gateway projects</div>
+              <div class="gitline"><span class="hash">882843c</span> Add integration tests</div>
+            </div>
+          </div>
+
+          <!-- interactive panel -->
+          <div class="dpanel">
+            <div class="dh">markdown note<span class="badge ok">editable</span></div>
+            <div class="dbody">
+              <textarea class="mdarea tgt" id="f-md" data-win="B" tabindex="-1"># notes</textarea>
+              <div class="btnrow"><button class="ctl tgt" id="f-save" data-win="B" tabindex="-1">SAVE</button></div>
+            </div>
+          </div>
+
+        </div>
+        <input class="filterbox tgt" id="f-filter" data-win="B" tabindex="-1" placeholder="filter events..." />
+      </div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span class="k">focus:</span><span class="v" id="stFocus">chat input</span>
+    <span class="sep">|</span>
+    <span class="k">window:</span><span class="v" id="stWin">A</span>
+    <span class="sep">|</span>
+    <span class="k">order:</span><span class="v" id="stOrder"></span>
+  </div>
+
+  <div class="legend">
+    <span><b>Skipped:</b> git-log panel (no interactive controls), parked slide-in, permission prompt.</span>
+    <span><b>Cross-window:</b> tabbing past the last control of A jumps into B, then wraps back.</span>
+    <span><b>Click:</b> buttons act without taking focus; only text/edit fields take focus on click.</span>
+  </div>
+
+<script>
+(function(){
+  const live = document.getElementById('live');
+  const conceptPick = document.getElementById('conceptPick');
+  const slideBtn = document.getElementById('slideBtn');
+  const permBtn = document.getElementById('permBtn');
+  const slidein = document.getElementById('slidein');
+  const slideState = document.getElementById('slideState');
+  const perm = document.getElementById('perm');
+  const stFocus = document.getElementById('stFocus');
+  const stWin = document.getElementById('stWin');
+  const stOrder = document.getElementById('stOrder');
+  const popts = Array.from(perm.querySelectorAll('.popt'));
+
+  const labels = {
+    'f-refresh':'slide-in · refresh',
+    'f-chat':'chat input',
+    'f-send':'send',
+    'f-stop':'stop',
+    'f-md':'markdown note',
+    'f-save':'save',
+    'f-filter':'event filter'
+  };
+
+  let concept = 'ind-hybrid';
+  let slideOpen = false;
+  let permOpen = false;
+  let permSel = 0;
+  let idx = 0;
+  let order = [];
+
+  function setConcept(c){
+    concept = c;
+    live.className = 'stage ' + c;
+    render();
+  }
+
+  function computeOrder(){
+    const ids = [];
+    if(slideOpen) ids.push('f-refresh');     // open slide-in joins the order
+    ids.push('f-chat','f-send','f-stop');     // window A interactive controls
+    ids.push('f-md','f-save','f-filter');     // window B interactive controls
+    order = ids;
+    if(idx >= order.length) idx = 0;
+  }
+
+  function render(){
+    computeOrder();
+    document.querySelectorAll('.tgt.on').forEach(e=>e.classList.remove('on'));
+    document.querySelectorAll('.win.winactive').forEach(e=>e.classList.remove('winactive'));
+
+    const cur = document.getElementById(order[idx]);
+    if(cur){
+      cur.classList.add('on');
+      const win = cur.closest('.win');
+      if(win){ win.classList.add('winactive'); stWin.textContent = win.dataset.win; }
+      try{ cur.focus({preventScroll:true}); }catch(e){}
+      stFocus.textContent = labels[order[idx]] || order[idx];
+    }
+    stOrder.textContent = order.map(id => labels[id]).join('  →  ');
+  }
+
+  function move(delta){
+    computeOrder();
+    idx = (idx + delta + order.length) % order.length;
+    render();
+  }
+
+  function updatePerm(){
+    popts.forEach((p,i)=>{
+      p.classList.toggle('sel', i === permSel);
+    });
+  }
+
+  function setSlide(open){
+    slideOpen = open;
+    slidein.classList.toggle('open', open);
+    slideState.textContent = open ? 'open → focusable' : 'parked → not focusable';
+    slideBtn.textContent = open ? 'Slide-in: open' : 'Slide-in: parked';
+    slideBtn.classList.toggle('active', open);
+    if(!open && order[idx] === 'f-refresh') idx = 0;  // never strand focus on a parked panel
+    render();
+  }
+
+  function setPerm(open){
+    permOpen = open;
+    perm.style.display = open ? 'block' : 'none';
+    permBtn.textContent = open ? 'Permission prompt: on' : 'Permission prompt: off';
+    permBtn.classList.toggle('active', open);
+    if(open){ permSel = 0; updatePerm(); }
+  }
+
+  // Capture phase so the permission prompt steals arrow keys even from a focused textarea,
+  // demonstrating "while present it receives left/right regardless of where focus is".
+  live.addEventListener('keydown', function(e){
+    if(e.key === 'Tab'){
+      e.preventDefault();
+      move(e.shiftKey ? -1 : 1);
+      return;
+    }
+    if(permOpen && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')){
+      e.preventDefault();
+      permSel = (permSel + (e.key === 'ArrowRight' ? 1 : -1) + popts.length) % popts.length;
+      updatePerm();
+      return;
+    }
+    if(permOpen && e.key === 'Enter'){
+      e.preventDefault();
+      setPerm(false);
+      return;
+    }
+  }, true);
+
+  // Only "more than a button" controls (text/edit fields) take the focus ring on click.
+  const focusOnClick = ['f-chat','f-md','f-filter'];
+  focusOnClick.forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('mousedown', function(){
+      computeOrder();
+      const pos = order.indexOf(id);
+      if(pos >= 0){ idx = pos; setTimeout(render, 0); }
+    });
+  });
+
+  // Buttons act on click but never move focus - it stays on the current control.
+  ['f-refresh','f-send','f-stop','f-save'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('mousedown', e=>e.preventDefault());
+  });
+
+  popts.forEach(p=>p.addEventListener('mousedown', ()=>{ permSel = +p.dataset.i; updatePerm(); }));
+
+  conceptPick.addEventListener('change', e=>setConcept(e.target.value));
+  slideBtn.addEventListener('click', ()=>setSlide(!slideOpen));
+  permBtn.addEventListener('click', ()=>setPerm(!permOpen));
+
+  setConcept('ind-hybrid');
+  render();
+})();
+</script>
+</body>
+</html>

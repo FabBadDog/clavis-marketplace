@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CLAVIS — Pace Plane, improved</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0A0C;--surface:#08080A;--card:#0D0D10;--line:#222228;--faint:#19191F;
+  --text:#C8C8D0;--bright:#E8E8EC;--dim:#8A8A94;--mute:#55555E;
+  --clavis:#7FB5D8;        /* on-pace / neutral blue */
+  --under:#6FD49B;         /* under pace - surplus, good (green) */
+  --over:#D49A6A;          /* over pace - warning amber */
+  --hot:#D47070;           /* severe over - red */
+  --human:#5ED4C4;
+  --id-blue:#9FD5F0;--id-gold:#D4B36A;--id-teal:#5ED4C4;--id-lav:#C9A0DC;
+  --rajdhani:'Rajdhani',sans-serif;--inter:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--inter);font-weight:300;padding:54px 48px 160px}
+h1{font-family:var(--rajdhani);font-size:15px;letter-spacing:6px;text-transform:uppercase;color:#9AA;margin-bottom:6px;font-weight:600}
+h2{font-family:var(--rajdhani);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--clavis);margin:52px 0 6px;font-weight:600}
+h3{font-family:var(--rajdhani);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--bright);margin:0 0 4px;font-weight:600}
+p.lead{font-size:11.5px;color:#888;max-width:940px;margin-bottom:10px;line-height:1.85}
+p.lead b{color:var(--clavis);font-weight:400}
+code{font-family:var(--mono);color:var(--text);font-size:11px}
+svg{display:block;overflow:visible}
+svg text{font-family:var(--mono);fill:var(--text)}
+.lab{font-family:var(--rajdhani);font-weight:600;letter-spacing:1.5px;text-transform:uppercase;fill:var(--dim)}
+.row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;margin-top:18px}
+.card{background:var(--card);border:1px solid var(--line);padding:18px 18px 20px;width:268px}
+.card .cap{font-size:10px;color:#7A7A82;line-height:1.65;margin-top:12px}
+.card .cap b{color:var(--clavis);font-weight:400}
+.tag{display:inline-block;font-family:var(--rajdhani);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--mute);border:1px solid var(--faint);padding:2px 6px;margin-bottom:10px}
+.legend{display:flex;gap:20px;flex-wrap:wrap;margin:14px 0 4px;font-family:var(--rajdhani);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim)}
+.legend .sw{display:inline-flex;align-items:center;gap:7px}
+.legend .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.data{display:flex;gap:34px;flex-wrap:wrap;border:1px solid var(--line);background:var(--surface);padding:13px 20px;margin:14px 0 6px;max-width:760px}
+.data .col{display:flex;flex-direction:column;gap:3px}
+.data .k{font-family:var(--rajdhani);font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:var(--mute)}
+.data .v{font-family:var(--mono);font-size:12px;color:var(--bright)}
+.data .v small{color:var(--dim);font-size:10px}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.breathe{animation:pulse 2.4s ease-in-out infinite}
+.readout{margin-top:14px}
+.rrow{display:grid;grid-template-columns:12px 1fr auto;gap:9px;align-items:center;padding:7px 0;border-top:1px solid var(--faint)}
+.rrow .sw{width:9px;height:9px;border-radius:50%}
+.rrow .wn{font-family:var(--rajdhani);font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text)}
+.rrow .wm{font-family:var(--mono);font-size:8.5px;color:var(--dim);margin-top:2px}
+.rrow .wd{font-family:var(--mono);font-size:12px;text-align:right;display:flex;align-items:center;gap:5px;justify-content:flex-end}
+</style>
+</head>
+<body>
+
+<h1>Pace Plane — improving the read</h1>
+<p class="lead">Three things to fix: <b>(1)</b> axis labels are missing — they should just say <b>TIME</b> and <b>USAGE</b>. <b>(2)</b> a dot below the even-burn diagonal means <b>overspending</b> (used more than the time gone) and above means <b>surplus</b> — that sign should be obvious at a glance, not inferred. <b>(3)</b> windows cap each other: 100k left this week but 200k left in the 5-hour slot means you really only have <b>100k</b> before a wall — that binding limit needs to be visible. Below: a few directions for each, on one shared sample.</p>
+
+<div class="data">
+  <div class="col"><span class="k">5-hour window</span><span class="v">20k <small>/ 220k · 20% time</small></span></div>
+  <div class="col"><span class="k">weekly window</span><span class="v">900k <small>/ 1.0M · 60% time</small></span></div>
+  <div class="col"><span class="k">5h remaining</span><span class="v" style="color:var(--under)">200k <small>resets 4h</small></span></div>
+  <div class="col"><span class="k">weekly remaining</span><span class="v" style="color:var(--hot)">100k <small>resets 4d</small></span></div>
+</div>
+<p class="lead">The 5-hour slot is barely touched (well above the diagonal — a surplus); the weekly is burning hot (far below the diagonal — overspent). They make a clean over/under pair to test every idea against.</p>
+
+<!-- ============================================================ -->
+<h2>Part 1 · Axis labels + the over/under signal</h2>
+<p class="lead">Same plot in every card — <b>usage</b> grows left→right, <b>time</b> grows bottom→top, the dashed diagonal is a perfectly even burn. Each card adds the sign a different way. Dot <i>fill</i> stays the window's identity colour (so weekly vs 5-hour never gets ambiguous); the over/under signal is layered on top.</p>
+
+<div class="row" id="part1"></div>
+
+<!-- ============================================================ -->
+<h2>Part 2 · Limits capping each other</h2>
+<p class="lead">The plane normalises everything to 0..1, which is exactly why it <i>cannot</i> show that 100k &lt; 200k — absolute headroom is lost. So pair the plane with a <b>runway strip</b> that lives in the same panel: one bar per window in real token units, shortest bar wins, and a wall marks the effective ceiling. Three takes:</p>
+
+<div class="row" id="part2"></div>
+
+<!-- ============================================================ -->
+<h2>Part 3 · The recommended composition</h2>
+<p class="lead">Putting the strongest pieces together: zone-tinted plane with clean <b>TIME / USAGE</b> labels and a perpendicular deviation tick per dot, sitting above the runway strip and a per-window readout with a ▲/▼ trend glyph. This is what the detail panel would actually show.</p>
+
+<div class="row" id="part3"></div>
+
+<script>
+const ID=['var(--id-blue)','var(--id-gold)','var(--id-teal)','var(--id-lav)'];
+const fmtK=v=>v>=1000?(v/1000).toFixed(v%1000?1:0)+'M':Math.round(v)+'k'; // values are already in k
+function paceColor(r){if(r>1.5)return'var(--hot)';if(r>1.08)return'var(--over)';if(r<0.92)return'var(--under)';return'var(--clavis)';}
+function paceWord(r){if(r>1.5)return'far over';if(r>1.08)return'over';if(r<0.92)return'under';return'on pace';}
+function mk(name,used,total,timeFrac,resetIn){
+  const spent=used/total, ratio=timeFrac>0?spent/timeFrac:2, delta=Math.round((spent-timeFrac)*100);
+  return {name,used,total,spent,timeFrac,ratio,delta,resetIn,remaining:total-used};
+}
+// sample (units are "k tokens"): weekly overspent, 5-hour in surplus
+const W=[ mk('5-Hour',20,220,0.20,'4h'), mk('Weekly',900,1000,0.60,'4d') ];
+
+/* ---- shared plane scaffolding (usage X, time Y-up, even-burn diagonal) ---- */
+function frame(S,p,labels){
+  const inner=S-2*p, x0=p, y1=p+inner; // bottom-left origin
+  let g=`<rect x="${p}" y="${p}" width="${inner}" height="${inner}" fill="none" stroke="var(--faint)"/>`;
+  g+=`<line x1="${x0}" y1="${y1}" x2="${p+inner}" y2="${p}" stroke="var(--mute)" stroke-width="1" stroke-dasharray="3 3"/>`;
+  if(labels){
+    g+=`<text class="lab" x="${p+inner/2}" y="${S+13}" text-anchor="middle" font-size="8.5">usage →</text>`;
+    g+=`<text class="lab" x="${p-13}" y="${p+inner/2}" text-anchor="middle" font-size="8.5" transform="rotate(-90 ${p-13} ${p+inner/2})">time →</text>`;
+  }
+  return g;
+}
+const px=(p,inner)=>w=>p+w.spent*inner;            // usage on X
+const py=(p,inner)=>w=>p+(1-w.timeFrac)*inner;     // time up on Y
+
+/* ---------- Part 1 variants ---------- */
+function planeZones(){            // A: tinted triangles
+  const S=176,p=20,inner=S-2*p,X=px(p,inner),Y=py(p,inner);
+  const bl=`${p},${p+inner}`,br=`${p+inner},${p+inner}`,tr=`${p+inner},${p}`,tl=`${p},${p}`;
+  let g=`<polygon points="${bl} ${br} ${tr}" fill="var(--hot)" opacity="0.07"/>`;     // below = overspend
+  g+=`<polygon points="${bl} ${tl} ${tr}" fill="var(--under)" opacity="0.07"/>`;       // above = surplus
+  g+=frame(S,p,true);
+  g+=`<text x="${p+inner-5}" y="${p+inner-6}" text-anchor="end" font-size="7" fill="var(--hot)" class="lab">overspend</text>`;
+  g+=`<text x="${p+5}" y="${p+11}" font-size="7" fill="var(--under)" class="lab">surplus</text>`;
+  W.forEach((w,i)=>{g+=`<circle cx="${X(w)}" cy="${Y(w)}" r="4.5" fill="${ID[i]}" stroke="var(--bg)" stroke-width="1"/>`;});
+  return svg(S,g);
+}
+function planeTicks(){            // B: horizontal deviation tick to the diagonal
+  const S=176,p=20,inner=S-2*p,X=px(p,inner),Y=py(p,inner);
+  let g=frame(S,p,true);
+  W.forEach((w,i)=>{
+    const y=Y(w), xDot=X(w), xDiag=p+w.timeFrac*inner;       // on diagonal spent==time
+    const over=w.spent>w.timeFrac, col=over?'var(--hot)':'var(--under)';
+    g+=`<line x1="${xDiag}" y1="${y}" x2="${xDot}" y2="${y}" stroke="${col}" stroke-width="1.5"/>`;
+    g+=`<circle cx="${xDiag}" cy="${y}" r="1.6" fill="${col}"/>`;
+    g+=`<circle cx="${xDot}" cy="${y}" r="4.5" fill="${ID[i]}" stroke="var(--bg)" stroke-width="1"/>`;
+  });
+  return svg(S,g);
+}
+function planeRing(){             // C: identity ring + pace-coloured fill
+  const S=176,p=20,inner=S-2*p,X=px(p,inner),Y=py(p,inner);
+  let g=frame(S,p,true);
+  W.forEach((w,i)=>{
+    g+=`<circle cx="${X(w)}" cy="${Y(w)}" r="5.5" fill="${paceColor(w.ratio)}" stroke="${ID[i]}" stroke-width="2"/>`;
+  });
+  return svg(S,g);
+}
+function svg(S,g){return `<svg viewBox="0 0 ${S} ${S+18}" width="200">${g}</svg>`;}
+
+document.getElementById('part1').innerHTML=`
+  <div class="card"><span class="tag">A · zones</span>
+    ${planeZones()}
+    <div class="cap">Tint the two halves: <b>red below</b> the diagonal = overspend, <b>green above</b> = surplus. Dots keep their identity colour. Zero extra glyphs — the position alone now carries the sign, the colour wash just makes the territory obvious.</div></div>
+  <div class="card"><span class="tag">B · deviation tick</span>
+    ${planeTicks()}
+    <div class="cap">A short horizontal line from each dot back to the diagonal. <b>Length = how far off pace</b>, <b>colour = direction</b> (red = overspent, green = surplus). Quantifies the gap, not just the side.</div></div>
+  <div class="card"><span class="tag">C · ring + fill</span>
+    ${planeRing()}
+    <div class="cap">Outer <b>ring = which window</b> (identity), inner <b>fill = pace</b> (red→amber→blue→green). Two readings in one mark, no extra ink — works even at the 22&nbsp;px status-bar size where ticks/labels can't.</div></div>`;
+
+/* ---------- Part 2: runway strips (capping) ---------- */
+function runway(mode){
+  const Wd=230,p=2,barH=22,gap=16,top=14;
+  const maxRem=Math.max(...W.map(w=>w.remaining));
+  const scale=(Wd-2*p)/maxRem;
+  const minRem=Math.min(...W.map(w=>w.remaining));
+  const bind=W.reduce((a,b)=>b.remaining<a.remaining?b:a);
+  const wallX=p+minRem*scale;
+  const H=top+W.length*(barH+gap)+18;
+  let g='';
+  W.forEach((w,i)=>{
+    const y=top+i*(barH+gap), len=w.remaining*scale, col=ID[i];
+    // full remaining bar (dim) then the reachable part (bright) up to the wall
+    g+=`<rect x="${p}" y="${y}" width="${len}" height="${barH}" fill="${col}" opacity="0.16"/>`;
+    const reach=Math.min(len,wallX-p);
+    g+=`<rect x="${p}" y="${y}" width="${reach}" height="${barH}" fill="${col}" opacity="0.5"/>`;
+    if(mode==='hatch' && len>wallX-p){ // hatch the unreachable tail
+      g+=`<rect x="${wallX}" y="${y}" width="${len-(wallX-p)}" height="${barH}" fill="url(#h)" opacity="0.5"/>`;
+    }
+    g+=`<text x="${p+4}" y="${y-3}" font-size="8" class="lab" fill="${col}">${w.name}</text>`;
+    g+=`<text x="${p+len+(len>Wd*0.6?-4:4)}" y="${y+barH/2+3}" text-anchor="${len>Wd*0.6?'end':'start'}" font-size="8.5" fill="var(--text)">${fmtK(w.remaining)} left · ${w.resetIn}</text>`;
+  });
+  // the wall
+  const wallTop=top-6, wallBot=top+W.length*(barH+gap)-gap+6;
+  g+=`<line x1="${wallX}" y1="${wallTop}" x2="${wallX}" y2="${wallBot}" stroke="var(--hot)" stroke-width="1.5" ${mode==='dash'?'stroke-dasharray="3 2"':''}/>`;
+  g+=`<text x="${wallX}" y="${wallBot+14}" text-anchor="middle" font-size="8.5" fill="var(--hot)" class="lab">effective ${fmtK(minRem)} · capped by ${bind.name}</text>`;
+  return `<svg viewBox="0 0 ${Wd+4} ${H}" width="234"><defs>
+    <pattern id="h" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="5" stroke="var(--hot)" stroke-width="1"/></pattern></defs>${g}</svg>`;
+}
+document.getElementById('part2').innerHTML=`
+  <div class="card" style="width:286px"><span class="tag">A · wall + hatch</span>
+    ${runway('hatch')}
+    <div class="cap">Each bar is real headroom in tokens. The shortest bar (<b>weekly, 100k</b>) drops a red wall; everything past it on the longer bar is <b>hatched = unreachable</b>. "You think you have 200k, but the weekly caps you at 100k" reads instantly.</div></div>
+  <div class="card" style="width:286px"><span class="tag">B · wall only</span>
+    ${runway('dash')}
+    <div class="cap">Same wall, no hatching — lighter. The bars still show the full headroom of each window; the dashed line just says where the first ceiling is. Less emphatic about the wasted slack.</div></div>
+  <div class="card" style="width:286px"><span class="tag">on the plane</span>
+    ${planeCap()}
+    <div class="cap">If you want it <i>on</i> the plane instead: shade the usage the binding window forbids. The <b>red band on the right</b> is spend you can't reach because another window resets first — the wall, projected onto the usage axis.</div></div>`;
+
+function planeCap(){
+  const S=176,p=20,inner=S-2*p,X=px(p,inner),Y=py(p,inner);
+  // effective ceiling as a fraction of the *weekly* total (the binding window), projected on usage axis
+  const bind=W.reduce((a,b)=>b.remaining<a.remaining?b:a);
+  const ceilFrac=Math.min(1,(bind.used+Math.min(...W.map(w=>w.remaining)))/bind.total);
+  const cx=p+ceilFrac*inner;
+  let g=`<rect x="${cx}" y="${p}" width="${p+inner-cx}" height="${inner}" fill="var(--hot)" opacity="0.10"/>`;
+  g+=frame(S,p,true);
+  g+=`<line x1="${cx}" y1="${p}" x2="${cx}" y2="${p+inner}" stroke="var(--hot)" stroke-width="1.2" stroke-dasharray="3 2"/>`;
+  g+=`<text x="${cx+3}" y="${p+11}" font-size="7" fill="var(--hot)" class="lab">cap</text>`;
+  W.forEach((w,i)=>{g+=`<circle cx="${X(w)}" cy="${Y(w)}" r="4.5" fill="${ID[i]}" stroke="var(--bg)" stroke-width="1"/>`;});
+  return svg(S,g);
+}
+
+/* ---------- Part 3: recommended composition ---------- */
+function recPlane(){
+  const S=200,p=24,inner=S-2*p,X=px(p,inner),Y=py(p,inner);
+  const bl=`${p},${p+inner}`,br=`${p+inner},${p+inner}`,tr=`${p+inner},${p}`,tl=`${p},${p}`;
+  let g=`<polygon points="${bl} ${br} ${tr}" fill="var(--hot)" opacity="0.06"/>`;
+  g+=`<polygon points="${bl} ${tl} ${tr}" fill="var(--under)" opacity="0.06"/>`;
+  g+=frame(S,p,true);
+  g+=`<text x="${p+inner-5}" y="${p+inner-6}" text-anchor="end" font-size="7" fill="var(--hot)" class="lab">overspend</text>`;
+  g+=`<text x="${p+5}" y="${p+11}" font-size="7" fill="var(--under)" class="lab">surplus</text>`;
+  W.forEach((w,i)=>{
+    const y=Y(w),xDot=X(w),xDiag=p+w.timeFrac*inner,over=w.spent>w.timeFrac,col=over?'var(--hot)':'var(--under)';
+    g+=`<line x1="${xDiag}" y1="${y}" x2="${xDot}" y2="${y}" stroke="${col}" stroke-width="1.5"/>`;
+    g+=`<circle cx="${xDot}" cy="${y}" r="5" fill="${ID[i]}" stroke="var(--bg)" stroke-width="1"/>`;
+  });
+  return `<svg viewBox="0 0 ${S} ${S+18}" width="220">${g}</svg>`;
+}
+function recReadout(){
+  return `<div class="readout">`+W.map((w,i)=>{
+    const over=w.spent>w.timeFrac,col=over?'var(--hot)':'var(--under)',glyph=over?'▼':'▲';
+    const sign=(w.delta>=0?'+':'−')+Math.abs(w.delta);
+    return `<div class="rrow">
+      <span class="sw" style="background:${ID[i]}"></span>
+      <div><div class="wn">${w.name}</div><div class="wm">${Math.round(w.spent*100)}% used · ${fmtK(w.remaining)} left · resets ${w.resetIn}</div></div>
+      <div class="wd" style="color:${col}"><span>${glyph}</span><span>${sign}%</span></div></div>`;}).join('')+`</div>`;
+}
+document.getElementById('part3').innerHTML=`
+  <div class="card" style="width:300px">
+    <div class="legend">
+      <span class="sw"><span class="dot" style="background:var(--under)"></span>surplus / above</span>
+      <span class="sw"><span class="dot" style="background:var(--hot)"></span>overspend / below</span>
+    </div>
+    ${recPlane()}
+    ${runway('hatch')}
+    ${recReadout()}
+  </div>
+  <div class="card" style="width:300px;align-self:stretch">
+    <h3>Why this set</h3>
+    <div class="cap" style="margin-top:8px">
+      <b>Labels.</b> Plain <code>TIME</code> / <code>USAGE</code> on the axes — no "elapsed/spent" jargon.<br><br>
+      <b>Sign.</b> Faint zone tint answers "which side am I on?" at a glance; the deviation tick answers "by how much?". Colour is reserved for the <i>signal</i> (red/green), identity stays in the dot fill.<br><br>
+      <b>Capping.</b> The runway strip is the only thing that can show 100k&lt;200k, because it keeps real units. The wall + hatch makes the binding window the hero.<br><br>
+      <b>Readout.</b> ▲/▼ + signed % per window repeats the sign in text for the colourblind-safe / non-glance case, and the "X left" mirrors the runway.
+    </div>
+  </div>`;
+</script>
+</body>
+</html>

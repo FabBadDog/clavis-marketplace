@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAVIS — Animation Initiative</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,300;1,400&family=Satoshi:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Surface */
+  --bg:#000;--surface:#070709;--surface-2:#0A0D14;
+  --line:#17171A;--faint:#1E1E22;--xfaint:#181C24;
+  /* Text */
+  --text-bright:#DADADE;--text:#A8A8B0;--text-dim:#4A4A52;
+  --text-faint:#2A2E38;--text-xfaint:#181C24;
+  /* Accents */
+  --clavis:#7FB5D8;--human:#5ED4C4;
+  /* Status */
+  --ok:#00C853;--warn:#E0A030;--error:#E04848;--info:#8A5CF5;--gold:#C09820;
+  /* Type */
+  --font-serif:'EB Garamond',serif;
+  --font-sans:'Satoshi',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --font-display:'Rajdhani',sans-serif;
+  /* Motion tokens — the single source of truth, mirrored from CLAVIS-DESIGN-LANGUAGE.md §6 */
+  --motion-instant:80ms;
+  --motion-quick:140ms;
+  --motion-standard:250ms;
+  --motion-slow:450ms;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+  --ease-in-out:cubic-bezier(0.65,0,0.35,1);
+}
+/* Reduce-motion: flatten every duration to near-zero. Demonstrates the future WPF setting. */
+html.reduce-motion{
+  --motion-instant:1ms;--motion-quick:1ms;--motion-standard:1ms;--motion-slow:1ms;
+}
+html.reduce-motion *{animation-duration:1ms!important;animation-iteration-count:1!important}
+
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-weight:300}
+
+/* Living keyframes */
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:.85}}
+@keyframes pulseAlert{0%,100%{opacity:.4}50%{opacity:1}}
+@keyframes scan{0%{transform:translateX(-60px)}100%{transform:translateX(calc(100% + 60px))}}
+@keyframes breathe{0%{opacity:.1}100%{opacity:1}}
+@keyframes enterUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes settleDown{from{opacity:0;transform:translateY(-8px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes popIn{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+@keyframes growY{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* ==========================================
+   PAGE STRUCTURE
+   ========================================== */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:rgba(0,0,0,.86);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:22px;
+  padding:12px 60px;
+}
+.topbar .brand{
+  font-family:var(--font-display);font-size:15px;font-weight:600;
+  letter-spacing:3px;text-transform:uppercase;color:var(--text-bright);
+}
+.topbar .brand .accent{color:var(--clavis)}
+.topbar .spacer{flex:1}
+.ctl{
+  font-family:var(--font-sans);font-size:9px;font-weight:500;
+  letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--text-dim);background:transparent;
+  border:1px solid var(--faint);padding:6px 12px;cursor:pointer;
+  transition:color var(--motion-instant) ease,border-color var(--motion-instant) ease,background var(--motion-instant) ease;
+}
+.ctl:hover{color:var(--text-bright);border-color:var(--clavis)}
+.ctl.on{color:#000;background:var(--clavis);border-color:var(--clavis)}
+
+.page{max-width:1180px;margin:0 auto;padding:48px 60px 160px}
+.lead{
+  font-family:var(--font-display);font-size:26px;font-weight:600;
+  letter-spacing:3px;text-transform:uppercase;color:var(--text-bright);margin-bottom:10px;
+}
+.lead .accent{color:var(--clavis)}
+.lead-sub{font-size:11.5px;color:var(--text-dim);line-height:1.8;font-weight:300;max-width:720px;margin-bottom:14px}
+.principles{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:56px}
+.principle{
+  font-size:9px;letter-spacing:.6px;color:var(--text-dim);
+  border:1px solid var(--faint);padding:5px 10px;
+}
+.principle b{color:var(--text);font-weight:500}
+
+.section{margin-bottom:74px;border-top:1px solid var(--line);padding-top:30px}
+.section-num{font-family:var(--font-display);font-size:11px;letter-spacing:3px;color:var(--clavis);opacity:.55;font-weight:500;margin-bottom:4px}
+.section-title{font-family:var(--font-display);font-size:22px;font-weight:500;letter-spacing:1.5px;color:var(--text-bright);margin-bottom:6px}
+.section-desc{font-size:11.5px;color:var(--text-dim);line-height:1.7;font-weight:300;max-width:760px;margin-bottom:28px}
+
+/* Demo card grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.demo{background:var(--bg);padding:18px 18px 16px;display:flex;flex-direction:column;min-height:200px}
+.demo-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px}
+.demo-title{font-family:var(--font-sans);font-size:10.5px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-bright)}
+.demo-token{font-family:var(--font-mono);font-size:8.5px;color:var(--clavis);opacity:.7;white-space:nowrap}
+.demo-note{font-size:9.5px;color:var(--text-faint);line-height:1.55;margin-bottom:14px}
+.stage{
+  flex:1;position:relative;overflow:hidden;
+  background:var(--surface);border:1px solid var(--faint);
+  display:flex;align-items:center;justify-content:center;
+  min-height:120px;
+}
+.demo-foot{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.btn{
+  font-family:var(--font-sans);font-size:8.5px;font-weight:500;letter-spacing:1px;text-transform:uppercase;
+  color:var(--text-dim);background:transparent;border:1px solid var(--faint);padding:5px 10px;cursor:pointer;
+  transition:color var(--motion-instant) ease,border-color var(--motion-instant) ease;
+}
+.btn:hover{color:var(--text-bright);border-color:var(--clavis)}
+.hint{font-size:8.5px;color:var(--text-faint);align-self:center;font-style:italic}
+
+/* ==========================================
+   A — OVERLAYS
+   ========================================== */
+/* mock command palette */
+.palette{
+  position:absolute;top:14px;left:50%;width:78%;transform:translateX(-50%);
+  background:#000;border:1px solid var(--text-dim);padding:10px 12px;
+  opacity:0;pointer-events:none;
+}
+.palette.show{animation:settleDown var(--motion-quick) var(--ease-out) forwards;pointer-events:auto}
+.palette.hide{animation:settleDown var(--motion-quick) var(--ease-out) reverse forwards}
+.palette .pinput{font-family:var(--font-sans);font-size:12px;color:var(--text-bright);border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:6px}
+.palette .pinput .caret{display:inline-block;width:1px;height:13px;background:var(--human);vertical-align:-2px;animation:blink 1.1s step-end infinite}
+.palette .prow{font-size:10px;color:var(--text-dim);padding:4px 6px;transition:background var(--motion-instant) ease,color var(--motion-instant) ease}
+.palette .prow:hover{background:rgba(255,255,255,.04);color:var(--text)}
+.palette .prow.sel{background:rgba(127,181,216,.10);color:var(--text-bright);border-left:1.5px solid var(--clavis);padding-left:4.5px}
+
+/* edge slide-ins */
+.edges{position:absolute;inset:0}
+.slidein{position:absolute;background:rgba(5,5,10,.92);border:0 solid var(--clavis);display:flex;align-items:center;justify-content:center;font-size:9px;letter-spacing:1px;color:var(--text);transition:transform var(--motion-standard) var(--ease-out)}
+.slidein.left{top:0;bottom:0;left:0;width:42%;border-right-width:1px;transform:translateX(-105%)}
+.slidein.right{top:0;bottom:0;right:0;width:42%;border-left-width:1px;transform:translateX(105%)}
+.slidein.top{left:0;right:0;top:0;height:46%;border-bottom-width:1px;transform:translateY(-105%)}
+.slidein.bottom{left:0;right:0;bottom:0;height:46%;border-top-width:1px;transform:translateY(105%)}
+.slidein.open{transform:translate(0,0)}
+
+/* secondary window */
+.subwin{width:62%;background:var(--surface-2);border:1px solid var(--text-dim);opacity:0;transform:scale(.98)}
+.subwin.show{animation:winIn var(--motion-quick) var(--ease-out) forwards}
+.subwin.hide{animation:winIn var(--motion-quick) var(--ease-out) reverse forwards}
+@keyframes winIn{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
+.subwin .wbar{height:18px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 8px;font-size:7px;letter-spacing:2px;color:var(--text-dim)}
+.subwin .wbody{padding:14px;font-size:9px;color:var(--text-faint);text-align:center}
+
+/* ==========================================
+   B — CONVERSATION
+   ========================================== */
+.convo{position:absolute;inset:0;padding:10px 12px;overflow:hidden;display:flex;flex-direction:column;gap:0;align-items:stretch;justify-content:flex-start}
+.turn{display:grid;grid-template-columns:18px 1fr;gap:8px;padding:6px 0;animation:enterUp var(--motion-standard) var(--ease-out)}
+.turn .rail{display:flex;flex-direction:column;align-items:center}
+.turn .pixel{width:6px;height:6px;border-radius:50%;background:var(--clavis);animation:breathe .6s ease-in-out infinite alternate}
+.turn.done .pixel{animation:none;opacity:0}
+.turn .check{color:var(--clavis);font-size:11px;line-height:1;animation:popIn var(--motion-instant) var(--ease-out)}
+.turn .line{width:1.5px;flex:1;background:var(--clavis);opacity:.4;margin-top:3px;transform-origin:top;animation:growY var(--motion-standard) var(--ease-out)}
+.turn .body{min-width:0}
+.turn .human{font-family:var(--font-serif);font-style:italic;font-size:12px;color:var(--text-bright);margin-bottom:5px}
+.turn .status{font-size:9.5px;color:var(--text);animation:fadeIn var(--motion-quick) ease}
+.turn .resp{font-size:9.5px;color:var(--text);line-height:1.6;animation:fadeIn var(--motion-quick) ease}
+.tool{display:flex;align-items:center;gap:6px;font-size:8.5px;color:var(--text-dim);padding:2px 0;animation:enterUp var(--motion-standard) var(--ease-out)}
+.tool .tn{font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--clavis);opacity:.7}
+.tool .tt{font-family:var(--font-mono);color:var(--text-dim)}
+
+/* living indicators row */
+.live-row{display:flex;gap:26px;align-items:center;justify-content:center;width:100%}
+.live-cell{display:flex;flex-direction:column;align-items:center;gap:8px}
+.live-cell .lbl{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-faint)}
+.beam-track{position:relative;width:120px;height:2px;background:var(--xfaint);overflow:hidden}
+.beam{position:absolute;top:0;left:0;width:50px;height:2px;background:linear-gradient(90deg,transparent,var(--clavis),transparent);animation:scan 2.2s linear infinite}
+.pdot{width:6px;height:6px;border-radius:50%;background:var(--clavis);animation:pulse 1.5s ease-in-out infinite}
+.pdot.warn{background:var(--warn);animation:pulseAlert 1s ease-in-out infinite}
+.breathe-dot{width:7px;height:7px;border-radius:50%;background:var(--clavis);animation:breathe .6s ease-in-out infinite alternate}
+
+/* ==========================================
+   C — DOCKING
+   ========================================== */
+.dock{position:absolute;inset:6px;display:flex;gap:3px}
+.tile{flex:1;background:var(--surface-2);border:1px solid var(--faint);position:relative;display:flex;flex-direction:column;min-width:0;animation:tileIn var(--motion-standard) var(--ease-out)}
+@keyframes tileIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+.tile.closing{animation:tileOut var(--motion-quick) var(--ease-out) forwards}
+@keyframes tileOut{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.94)}}
+.tile .thead{height:16px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 6px;font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim)}
+.tile .tx{margin-left:auto;color:var(--text-dim);opacity:.3;cursor:pointer;font-size:10px;transition:opacity var(--motion-instant) ease}
+.tile .tx:hover{opacity:.85;color:var(--text-bright)}
+.tile .tbody{flex:1;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text-faint)}
+.splitter{width:4px;background:var(--line);cursor:col-resize;transition:background var(--motion-instant) ease}
+.splitter:hover{background:var(--clavis)}
+
+/* tab crossfade */
+.tabwrap{position:absolute;inset:6px;display:flex;flex-direction:column}
+.tabstrip{display:flex;height:18px;border-bottom:1px solid var(--line)}
+.tab{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding:0 10px;display:flex;align-items:center;color:var(--text-dim);border-bottom:1.5px solid transparent;cursor:pointer;transition:background var(--motion-instant) ease,color var(--motion-instant) ease}
+.tab:hover{background:rgba(127,181,216,.13)}
+.tab.active{color:var(--text-bright);background:var(--surface-2);border-bottom-color:var(--clavis)}
+.tabbody{flex:1;position:relative}
+.tabpane{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-faint);opacity:0;pointer-events:none;transition:opacity var(--motion-quick) ease}
+.tabpane.active{opacity:1;pointer-events:auto}
+
+/* drop hint follows cursor */
+.dropsurface{position:absolute;inset:6px;background:var(--surface-2);border:1px solid var(--faint);cursor:crosshair}
+.drophint{position:absolute;background:rgba(127,181,216,.16);border:1px solid var(--clavis);display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text-bright);pointer-events:none;opacity:0;transition:opacity var(--motion-quick) ease,left var(--motion-instant) ease,top var(--motion-instant) ease,width var(--motion-instant) ease,height var(--motion-instant) ease}
+
+/* ==========================================
+   D — CHROME
+   ========================================== */
+.chrome{position:absolute;inset:6px;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--line)}
+.titlebar{height:26px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 8px;cursor:grab}
+.titlebar:active{cursor:grabbing}
+.grip{display:grid;grid-template-columns:repeat(2,2px);grid-template-rows:repeat(3,2px);gap:1px;margin-right:8px;opacity:.15;transition:opacity var(--motion-instant) ease}
+.titlebar:hover .grip{opacity:.45}
+.grip span{width:2px;height:2px;background:var(--text)}
+.titlebar .tname{font-size:7px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text-dim)}
+.titlebar .sdot{width:5px;height:5px;border-radius:50%;background:var(--clavis);margin-left:8px;animation:pulse 1.8s ease-in-out infinite}
+.titlebar .xbtn{margin-left:auto;width:18px;height:18px;position:relative;cursor:pointer;opacity:.3;transition:opacity var(--motion-instant) ease}
+.titlebar .xbtn:hover{opacity:.85}
+.titlebar .xbtn::before,.titlebar .xbtn::after{content:'';position:absolute;left:3px;top:8px;width:12px;height:1px;background:var(--text-bright)}
+.titlebar .xbtn::before{transform:rotate(45deg)}
+.titlebar .xbtn::after{transform:rotate(-45deg)}
+.cbody{flex:1;position:relative;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text-faint)}
+.resize{position:absolute;right:1px;bottom:1px;width:14px;height:14px;cursor:nwse-resize;opacity:.2;transition:opacity var(--motion-instant) ease}
+.cbody:hover .resize{opacity:.5}
+.resize::before,.resize::after{content:'';position:absolute;right:0;bottom:0;background:var(--text);transform:rotate(45deg);transform-origin:bottom right}
+.resize::before{width:1px;height:14px;right:3px}
+.resize::after{width:1px;height:9px;right:7px}
+.statusbar{height:20px;background:var(--surface);border-top:1px solid var(--faint);display:flex;align-items:center;gap:14px;padding:0 10px}
+.stat{display:flex;align-items:center;gap:5px;font-size:7.5px;letter-spacing:.8px;color:var(--text-faint);cursor:default;transition:color var(--motion-instant) ease}
+.stat:hover{color:var(--text)}
+.stat .sq{width:4px;height:4px;border-radius:50%}
+.stat .sq.ok{background:var(--ok);animation:pulse 1.8s ease-in-out infinite}
+.stat .sq.warn{background:var(--warn);animation:pulseAlert 1s ease-in-out infinite}
+
+/* ==========================================
+   E — LISTS
+   ========================================== */
+.list{position:absolute;inset:8px;overflow:hidden;display:flex;flex-direction:column}
+.litem{position:relative;font-size:10px;color:var(--text-dim);padding:5px 10px;cursor:pointer;border-left:1.5px solid transparent;transition:background var(--motion-quick) ease,color var(--motion-quick) ease,border-color var(--motion-quick) ease}
+.litem:hover{background:rgba(255,255,255,.012);color:var(--text)}
+.litem.sel{color:var(--text-bright);background:rgba(127,181,216,.025);border-left-color:var(--clavis)}
+.litem .meta{float:right;font-family:var(--font-mono);font-size:8px;color:var(--text-faint)}
+.litem .match{color:var(--clavis);background:rgba(127,181,216,.10)}
+.litem.gone{display:none}
+.filterbox{font-family:var(--font-mono);font-size:9px;color:var(--text-bright);background:var(--surface-2);border:1px solid var(--faint);padding:4px 8px;margin-bottom:6px;outline:none}
+.filterbox:focus{border-color:var(--clavis)}
+
+/* drill-down */
+.drill{position:absolute;inset:8px;overflow:hidden}
+.drill-track{display:flex;width:200%;height:100%;transition:transform var(--motion-standard) var(--ease-in-out)}
+.drill-track.deep{transform:translateX(-50%)}
+.drill-col{width:50%;display:flex;flex-direction:column;padding-right:4px}
+.crumb{font-size:8px;letter-spacing:1px;color:var(--text-faint);margin-bottom:6px}
+.crumb .cur{color:var(--text-bright)}
+
+/* shared scrollbar look not needed; small demos */
+.dim{color:var(--text-faint);font-size:8.5px}
+.cap-strong{color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">CLA<span class="accent">V</span>IS · MOTION</div>
+  <div class="spacer" style="flex:1"></div>
+  <button class="btn" id="replayAll">▷ Replay all</button>
+  <button class="ctl" id="reduceToggle">Reduce motion: OFF</button>
+</div>
+
+<div class="page">
+  <div class="lead">ANIMATION <span class="accent">INITIATIVE</span></div>
+  <div class="lead-sub">
+    Every UI change — appear, disappear, move, resize, reorder — earns a swift, informative transition.
+    Every mouse-operable surface gets a hover effect. Timings reuse the motion tokens already defined in
+    <span class="cap-strong">CLAVIS-DESIGN-LANGUAGE.md §6</span>. This page is a living showcase: hover the
+    real elements, click <b>replay</b> to re-trigger entrances, toggle reduce-motion to feel the floor.
+  </div>
+  <div class="principles">
+    <div class="principle"><b>instant</b> 80ms · hover/focus</div>
+    <div class="principle"><b>quick</b> 140ms · opacity/color, overlays</div>
+    <div class="principle"><b>standard</b> 250ms · slides, dock, tabs</div>
+    <div class="principle"><b>ease-out</b> entrances</div>
+    <div class="principle"><b>ease-in-out</b> two-way</div>
+    <div class="principle">decorative motion that carries no information is <b>forbidden</b></div>
+  </div>
+
+  <!-- ===================== A — OVERLAYS ===================== -->
+  <div class="section">
+    <div class="section-num">A</div>
+    <div class="section-title">Overlays that appear &amp; disappear</div>
+    <div class="section-desc">Things summoned over the workspace fade and settle into place rather than blinking on. The slide-ins already ship — shown here as the reference feel.</div>
+    <div class="grid">
+
+      <div class="demo">
+        <div class="demo-head"><div class="demo-title">Command palette</div><div class="demo-token">quick · ease-out</div></div>
+        <div class="demo-note">Fade + 8px downward settle on open; reverse on close. Rows fade their hover/selected fill.</div>
+        <div class="stage">
+          <div class="palette" id="palette">
+            <div class="pinput">toggle git-log<span class="caret"></span></div>
+            <div class="prow sel">toggle git-log <span class="dim" style="float:right">⌘G</span></div>
+            <div class="prow">open events panel</div>
+            <div class="prow">new window</div>
+          </div>
+          <span class="hint" id="paletteHint">click open ↓</span>
+        </div>
+        <div class="demo-foot"><button class="btn" data-pal="open">Open</button><button class="btn" data-pal="close">Close</button></div>
+      </div>
+
+      <div class="demo">
+        <div class="demo-head"><div class="demo-title">Edge slide-ins</div><div class="demo-token">standard · ease-out</div></div>
+        <div class="demo-note">Panels park just off the chosen edge and slide in. Already implemented (SlideInHost). Toggle each edge.</div>
+        <div class="stage">
+          <div class="edges">
+            <div class="slidein left">left</div>
+            <div class="slidein right">right</div>
+            <div class="slidein top">top</div>
+            <div class="slidein bottom">bottom</div>
+          </div>
+          <span class="hint">pick an edge ↓</span>
+        </div>
+        <div class="demo-foot">
+          <button class="btn" data-edge="left">Left</button>
+          <button class="btn" data-edge="right">Right</button>
+          <button class="btn" data-edge="top">Top</button>
+          <button class="btn" data-edge="bottom">Bottom</button>
+        </div>
+      </div>
+
+      <div class="demo">
+        <div class="demo-head"><div class="demo-title">Secondary window</div><div class="demo-token">quick · ease-out</div></div>
+        <div class="demo-note">A new panel-host window fades in with a 0.98→1 scale, fades out on close.</div>
+        <div class="stage">
+          <div class="subwin" id="subwin">
+            <div class="wbar">CLAVIS · PANELS</div>
+            <div class="wbody">secondary window</div>
+          </div>
+          <span class="hint" id="subwinHint">click open ↓</span>
+        </div>
+        <div class="demo-foot"><button class="btn" data-win="open">Open</button><button class="btn" data-win="close">Close</button></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===================== B — CONVERSATION ===================== -->
+  <div class="section">
+    <div class="section-num">B</div>
+    <div class="section-title">Conversation stream</div>
+    <div class="section-desc">The highest-traffic surface. Turns and tool rows arrive with a fade + slide-up; tool bursts stagger; the streaming status crossfades into the rendered response. Living indicators mark active work.</div>
+    <div class="grid">
+
+      <div class="demo" style="grid-column:span 2">
+        <div class="demo-head"><div class="demo-title">Turn lifecycle</div><div class="demo-token">standard · ease-out · staggered</div></div>
+        <div class="demo-note">Send appends a turn (fade+slide-up). The breathing pixel runs while working, tool rows cascade in, then the status line crossfades to the response and the pixel pops to a ✓.</div>
+        <div class="stage" style="min-height:200px;align-items:flex-start;justify-content:flex-start">
+          <div class="convo" id="convo"></div>
+        </div>
+        <div class="demo-foot"><button class="btn" id="sendTurn">▷ Send prompt</button><button class="btn" id="clearConvo">Clear</button><span class="hint">watch the rail, the stagger, the crossfade</span></div>
+      </div>
+
+      <div class="demo">
+        <div class="demo-head"><div class="demo-title">Living indicators</div><div class="demo-token">linear / ease-in-out · looping</div></div>
+        <div class="demo-note">Scanning beam = a session is working. Pulse dot = live. Amber pulse (faster) = needs attention. Breathing pixel = the active turn.</div>
+        <div class="stage">
+          <div class="live-row">
+            <div class="live-cell"><div class="beam-track"><div class="beam"></div></div><div class="lbl">scan beam</div></div>
+            <div class="live-cell"><div class="pdot"></div><div class="lbl">pulse</div></div>
+            <div class="live-cell"><div class="pdot warn"></div><div class="lbl">alert</div></div>
+            <div class="live-cell"><div class="breathe-dot"></div><div class="lbl">breathe</div></div>
+          </div>
+        </div>
+        <div class="demo-foot"><span class="hint">always-on, information-bearing</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===================== C — DOCKING ===================== -->
+  <div class="section">
+    <div class="section-num">C</div>
+    <div class="section-title">Docking surface</div>
+    <div class="section-desc">Today the whole tree re-renders instantly on every dock / close / split. The biggest gap. Tiles grow in and collapse out, tab content crossfades, and the drop-hint glides between zones as the cursor moves.</div>
+    <div class="grid">
+
+      <div class="demo">
+        <div class="demo-head"><div class="demo-title">Dock / close / split</div><div class="demo-token">standard · ease-out</div></div>
+        <div class="demo-note">New tiles fade + grow from 0.94; closing tiles collapse before the reflow. Hover a splitter to brighten it.</div>
+        <div class="stage"><div class="dock" id="dock"></div></div>
+        <div class="demo-foot"><button class="btn" id="dockAdd">Dock panel</button><button class="btn" id="dockClose">Close last</button></div>
+      </div>
+
+      <div class="demo">
+        <div class="demo-head"><div class="demo-title">Tab switch</div><div class="demo-token">quick · crossfade</div></div>
+        <div class="demo-note">Switching a tab crossfades the outgoing and incoming content instead of a hard swap. Hover an inactive tab for the clavis wash.</div>
+        <div class="stage">
+          <div class="tabwrap">
+            <div class="tabstrip" id="tabstrip">
+              <div class="tab active" data-tab="0">git-log</div>
+              <div class="tab" data-tab="1">events</div>
+              <div class="tab" data-tab="2">markdown</div>
+            </div>
+            <div class="tabbody" id="tabbody">
+              <div class="tabpane active">git log · 42 commits</div>
+              <div class="tabpane">events · 1.2k entries</div>
+              <div class="tabpane">markdown note</div>
+            </div>
+          </div>
+        </div>
+        <div class="demo-foot"><span class="hint">click the tabs</span></div>
+      </div>
+
+      <div class="demo">
+        <div class="demo-head"><div class="demo-title">Drop hint</div><div class="demo-token">instant tracking</div></div>
+        <div class="demo-note">During a drag the hint shows the target zone — tab (centre), split (mid-edge), slide (outer edge) — and glides as the cursor crosses bands.</div>
+        <div class="stage">
+          <div class="dropsurface" id="dropsurface">
+            <div class="drophint" id="drophint">tab</div>
+          </div>
+          <span class="hint" id="dropHintLabel" style="pointer-events:none">move cursor over the panel</span>
+        </div>
+        <div class="demo-foot"><span class="hint">no drag needed — pointer position drives it</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===================== D — CHROME ===================== -->
+  <div class="section">
+    <div class="section-num">D</div>
+    <div class="section-title">Window chrome &amp; controls</div>
+    <div class="section-desc">Every operable corner of the frame gets an affordance: grab cursor + grip on the title bar, brightening close ×, brightening resize grip, live status dots that pulse only while their activity is live.</div>
+    <div class="grid">
+      <div class="demo" style="grid-column:span 2">
+        <div class="demo-head"><div class="demo-title">The frame</div><div class="demo-token">instant hover · pulse live</div></div>
+        <div class="demo-note">Hover the title bar (grip fades up, cursor → grab), the × (30%→85%), the bottom-right resize grip, and each status item. The blue dot pulses (working), the amber pulses faster (waiting).</div>
+        <div class="stage" style="min-height:150px">
+          <div class="chrome">
+            <div class="titlebar">
+              <div class="grip"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+              <div class="tname">CLAVIS · main</div>
+              <div class="sdot"></div>
+              <div class="xbtn"></div>
+            </div>
+            <div class="cbody">content<div class="resize"></div></div>
+            <div class="statusbar">
+              <div class="stat"><span class="sq ok"></span>session active</div>
+              <div class="stat"><span class="sq warn"></span>awaiting input</div>
+              <div class="stat">12.4k tokens</div>
+              <div class="stat">2 panels</div>
+            </div>
+          </div>
+        </div>
+        <div class="demo-foot"><span class="hint">all hover effects are live — move your mouse over the frame</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== E — LISTS ===================== -->
+  <div class="section">
+    <div class="section-num">E</div>
+    <div class="section-title">Lists &amp; selection</div>
+    <div class="section-desc">The defining list pattern across palette, events, git-log, keymap. Selection animates — the 1.5px left border and 2.5% tint glide to the new row. Hover fades on every row. Filtering reflows with accent-highlighted matches. Drill-down slides.</div>
+    <div class="grid">
+
+      <div class="demo">
+        <div class="demo-head"><div class="demo-title">Animated selection</div><div class="demo-token">quick · border + tint</div></div>
+        <div class="demo-note">Click rows (or ↑/↓ after clicking once). The left accent border and background tint fade to the new selection instead of snapping.</div>
+        <div class="stage">
+          <div class="list" id="selList" tabindex="0">
+            <div class="litem sel">CommandPalettePlugin.cs<span class="meta">2.1k</span></div>
+            <div class="litem">DockingSurface.fs<span class="meta">8.4k</span></div>
+            <div class="litem">SlideInHost.fs<span class="meta">1.3k</span></div>
+            <div class="litem">WindowManager.cs<span class="meta">3.0k</span></div>
+            <div class="litem">TurnRowTemplate.xaml<span class="meta">2.2k</span></div>
+          </div>
+        </div>
+        <div class="demo-foot"><span class="hint">click a row, then ↑/↓</span></div>
+      </div>
+
+      <div class="demo">
+        <div class="demo-head"><div class="demo-title">Filter reflow</div><div class="demo-token">quick · match highlight</div></div>
+        <div class="demo-note">Type to filter. Non-matches drop out; matching characters get the clavis highlight (try "pan", "fs", "win").</div>
+        <div class="stage" style="align-items:stretch;justify-content:flex-start">
+          <div class="list" style="position:absolute;inset:8px">
+            <input class="filterbox" id="filterBox" placeholder="filter…" />
+            <div id="filterList">
+              <div class="litem" data-name="CommandPalettePlugin.cs">CommandPalettePlugin.cs</div>
+              <div class="litem" data-name="DockingSurface.fs">DockingSurface.fs</div>
+              <div class="litem" data-name="SlideInHost.fs">SlideInHost.fs</div>
+              <div class="litem" data-name="WindowManager.cs">WindowManager.cs</div>
+              <div class="litem" data-name="EventsPanelView.cs">EventsPanelView.cs</div>
+            </div>
+          </div>
+        </div>
+        <div class="demo-foot"><span class="hint">type in the box</span></div>
+      </div>
+
+      <div class="demo">
+        <div class="demo-head"><div class="demo-title">Drill-down</div><div class="demo-token">standard · ease-in-out</div></div>
+        <div class="demo-note">Enter a parent: the list slides left, children slide in from the right. Back reverses. A breadcrumb tracks the path.</div>
+        <div class="stage">
+          <div class="drill">
+            <div class="drill-track" id="drillTrack">
+              <div class="drill-col">
+                <div class="crumb"><span class="cur">plugins</span></div>
+                <div class="litem" id="drillIn">WpfHost ›</div>
+                <div class="litem">Conversation ›</div>
+                <div class="litem">EventsPanel ›</div>
+              </div>
+              <div class="drill-col">
+                <div class="crumb">plugins › <span class="cur">WpfHost</span></div>
+                <div class="litem" id="drillBack">‹ back</div>
+                <div class="litem">WindowManager.cs</div>
+                <div class="litem">WindowHost.cs</div>
+                <div class="litem">KeymapInput.cs</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="demo-foot"><span class="hint">click "WpfHost ›" then "‹ back"</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="section" style="border-top:none">
+    <div class="section-desc dim">
+      Timings, easings and colors here are copied verbatim from the design language, so this file doubles as the
+      spec for the WPF pass — <span class="cap-strong">Storyboard / DoubleAnimation / RenderTransform</span> mappings
+      already live in CLAVIS-DESIGN-LANGUAGE.md §10. No CLAVIS source was changed to build this mock.
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- global controls ----
+const reduceBtn = document.getElementById('reduceToggle');
+reduceBtn.addEventListener('click', () => {
+  const on = document.documentElement.classList.toggle('reduce-motion');
+  reduceBtn.textContent = 'Reduce motion: ' + (on ? 'ON' : 'OFF');
+  reduceBtn.classList.toggle('on', on);
+});
+
+// re-trigger a CSS animation by reflow
+function replay(el){ el.style.animation='none'; void el.offsetWidth; el.style.animation=''; }
+
+// ---- A: palette ----
+const palette = document.getElementById('palette');
+const paletteHint = document.getElementById('paletteHint');
+function palOpen(){ palette.classList.remove('hide'); replay(palette); palette.classList.add('show'); paletteHint.style.display='none'; }
+function palClose(){ palette.classList.remove('show'); palette.classList.add('hide'); }
+document.querySelectorAll('[data-pal]').forEach(b=>b.addEventListener('click',()=> b.dataset.pal==='open'?palOpen():palClose()));
+
+// ---- A: edges ----
+document.querySelectorAll('[data-edge]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelector('.slidein.'+b.dataset.edge).classList.toggle('open');
+}));
+
+// ---- A: secondary window ----
+const subwin=document.getElementById('subwin'); const subwinHint=document.getElementById('subwinHint');
+document.querySelectorAll('[data-win]').forEach(b=>b.addEventListener('click',()=>{
+  if(b.dataset.win==='open'){ subwin.classList.remove('hide'); replay(subwin); subwin.classList.add('show'); subwinHint.style.display='none'; }
+  else { subwin.classList.remove('show'); subwin.classList.add('hide'); }
+}));
+
+// ---- B: conversation ----
+const convo=document.getElementById('convo');
+let turnTimers=[];
+function clearConvo(){ turnTimers.forEach(clearTimeout); turnTimers=[]; convo.innerHTML=''; }
+function sendTurn(){
+  clearConvo();
+  const turn=document.createElement('div');
+  turn.className='turn';
+  turn.innerHTML=`
+    <div class="rail"><div class="pixel"></div><div class="line"></div></div>
+    <div class="body">
+      <div class="human">refactor the docking surface</div>
+      <div class="tools"></div>
+      <div class="status">working…</div>
+    </div>`;
+  convo.appendChild(turn);
+  const tools=turn.querySelector('.tools');
+  const status=turn.querySelector('.status');
+  const toolDefs=[['READ','DockingSurface.fs'],['GREP','renderLeaf'],['EDIT','DockingSurface.fs']];
+  toolDefs.forEach((t,i)=>{
+    turnTimers.push(setTimeout(()=>{
+      const row=document.createElement('div');
+      row.className='tool';
+      row.innerHTML=`<span class="tn">${t[0]}</span><span class="tt">${t[1]}</span>`;
+      tools.appendChild(row);
+    }, 350 + i*220)); // staggered
+  });
+  // finish: crossfade status -> response, pixel -> check
+  turnTimers.push(setTimeout(()=>{
+    status.remove();
+    const resp=document.createElement('div');
+    resp.className='resp';
+    resp.textContent='Done. Tiles now grow in and collapse out, and tab content crossfades.';
+    turn.querySelector('.body').appendChild(resp);
+    turn.classList.add('done');
+    const rail=turn.querySelector('.rail');
+    const chk=document.createElement('div'); chk.className='check'; chk.textContent='✓';
+    rail.insertBefore(chk, rail.firstChild);
+  }, 350 + toolDefs.length*220 + 500));
+}
+document.getElementById('sendTurn').addEventListener('click', sendTurn);
+document.getElementById('clearConvo').addEventListener('click', clearConvo);
+sendTurn();
+
+// ---- C: docking ----
+const dock=document.getElementById('dock');
+let tileN=0;
+function tileEl(){
+  const t=document.createElement('div'); t.className='tile';
+  tileN++;
+  t.innerHTML=`<div class="thead">panel ${tileN}<span class="tx">×</span></div><div class="tbody">tile ${tileN}</div>`;
+  t.querySelector('.tx').addEventListener('click',()=>closeTile(t));
+  return t;
+}
+function rebuildSplitters(){
+  // remove old splitters, re-insert between tiles
+  [...dock.querySelectorAll('.splitter')].forEach(s=>s.remove());
+  const tiles=[...dock.querySelectorAll('.tile')];
+  tiles.forEach((t,i)=>{ if(i>0){ const s=document.createElement('div'); s.className='splitter'; dock.insertBefore(s,t);} });
+}
+function dockAdd(){ if(dock.querySelectorAll('.tile').length>=4) return; dock.appendChild(tileEl()); rebuildSplitters(); }
+function closeTile(t){ t.classList.add('closing'); setTimeout(()=>{ t.remove(); rebuildSplitters(); },150); }
+function dockCloseLast(){ const tiles=dock.querySelectorAll('.tile'); if(tiles.length) closeTile(tiles[tiles.length-1]); }
+document.getElementById('dockAdd').addEventListener('click', dockAdd);
+document.getElementById('dockClose').addEventListener('click', dockCloseLast);
+dockAdd(); dockAdd();
+
+// ---- C: tabs ----
+const tabstrip=document.getElementById('tabstrip'); const tabbody=document.getElementById('tabbody');
+tabstrip.addEventListener('click',e=>{
+  const tab=e.target.closest('.tab'); if(!tab) return;
+  const i=+tab.dataset.tab;
+  tabstrip.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', +t.dataset.tab===i));
+  tabbody.querySelectorAll('.tabpane').forEach((p,pi)=>p.classList.toggle('active', pi===i));
+});
+
+// ---- C: drop hint ----
+const dropsurface=document.getElementById('dropsurface');
+const drophint=document.getElementById('drophint');
+const dropHintLabel=document.getElementById('dropHintLabel');
+dropsurface.addEventListener('mousemove',e=>{
+  const r=dropsurface.getBoundingClientRect();
+  const x=(e.clientX-r.left)/r.width, y=(e.clientY-r.top)/r.height;
+  const slide=0.10, split=0.25;
+  let L=0,T=0,W=r.width,H=r.height,label='tab';
+  if(x<slide){L=0;W=r.width*0.18;H=r.height;label='slide ←';}
+  else if(x>1-slide){L=r.width*0.82;W=r.width*0.18;H=r.height;label='slide →';}
+  else if(y<slide){W=r.width;H=r.height*0.18;label='slide ↑';}
+  else if(y>1-slide){T=r.height*0.82;W=r.width;H=r.height*0.18;label='slide ↓';}
+  else if(x<split){W=r.width/2;label='split ←';}
+  else if(x>1-split){L=r.width/2;W=r.width/2;label='split →';}
+  else if(y<split){H=r.height/2;label='split ↑';}
+  else if(y>1-split){T=r.height/2;H=r.height/2;label='split ↓';}
+  drophint.style.left=L+'px'; drophint.style.top=T+'px';
+  drophint.style.width=W+'px'; drophint.style.height=H+'px';
+  drophint.textContent=label; drophint.style.opacity='1';
+  dropHintLabel.style.opacity='0';
+});
+dropsurface.addEventListener('mouseleave',()=>{ drophint.style.opacity='0'; dropHintLabel.style.opacity='1'; });
+
+// ---- E: animated selection (click + arrows) ----
+const selList=document.getElementById('selList');
+function select(item){ selList.querySelectorAll('.litem').forEach(i=>i.classList.remove('sel')); item.classList.add('sel'); }
+selList.addEventListener('click',e=>{ const it=e.target.closest('.litem'); if(it) select(it); });
+selList.addEventListener('keydown',e=>{
+  const items=[...selList.querySelectorAll('.litem')];
+  let i=items.findIndex(x=>x.classList.contains('sel'));
+  if(e.key==='ArrowDown'){ i=Math.min(items.length-1,i+1); select(items[i]); e.preventDefault(); }
+  if(e.key==='ArrowUp'){ i=Math.max(0,i-1); select(items[i]); e.preventDefault(); }
+});
+
+// ---- E: filter ----
+const filterBox=document.getElementById('filterBox');
+const filterList=document.getElementById('filterList');
+filterBox.addEventListener('input',()=>{
+  const q=filterBox.value.toLowerCase();
+  filterList.querySelectorAll('.litem').forEach(it=>{
+    const name=it.dataset.name; const lower=name.toLowerCase();
+    if(q && !lower.includes(q)){ it.classList.add('gone'); return; }
+    it.classList.remove('gone');
+    if(!q){ it.innerHTML=name; return; }
+    const at=lower.indexOf(q);
+    it.innerHTML = name.slice(0,at)+'<span class="match">'+name.slice(at,at+q.length)+'</span>'+name.slice(at+q.length);
+  });
+});
+
+// ---- E: drill-down ----
+const drillTrack=document.getElementById('drillTrack');
+document.getElementById('drillIn').addEventListener('click',()=>drillTrack.classList.add('deep'));
+document.getElementById('drillBack').addEventListener('click',()=>drillTrack.classList.remove('deep'));
+
+// ---- replay all entrances ----
+document.getElementById('replayAll').addEventListener('click',()=>{
+  palOpen();
+  document.querySelectorAll('.slidein').forEach(s=>s.classList.add('open'));
+  setTimeout(()=>document.querySelectorAll('.slidein').forEach(s=>s.classList.remove('open')),1400);
+  subwin.classList.remove('hide'); replay(subwin); subwin.classList.add('show'); subwinHint.style.display='none';
+  sendTurn();
+  setTimeout(palClose,1600);
+});
+</script>
+</body>
+</html>

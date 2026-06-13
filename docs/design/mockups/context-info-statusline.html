@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CLAVIS — Context Info, Status Line &amp; Contextual Chrome</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0A10;--surface:#08080A;--card:#0D0D12;--card2:#101016;--line:#222228;--faint:#19191F;--frame:#4A4A52;
+  --text:#C8C8D0;--bright:#F0F0F0;--dim:#B0B0BA;--mute:#55555E;--mute2:#3A3A42;
+  --clavis:#9FD5F0;          /* ClavisBrush accent */
+  --clavis-dim:#5E7E8E;
+  --under:#6FD49B;           /* surplus / good / under pace */
+  --over:#D49A6A;            /* warning amber */
+  --hot:#D47070;             /* severe / red */
+  --human:#5ED4C4;
+  --yellow:#FDE199;--green:#DCEFD6;--blue:#CCECF9;--pink:#F5CEC5; /* layer2 accents */
+  --rajdhani:'Rajdhani',sans-serif;
+  --inter:'Inter',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--inter);font-weight:300;padding:48px 44px 160px;min-height:100vh;line-height:1.5}
+
+/* ---- typography ---- */
+h1{font-family:var(--rajdhani);font-size:20px;letter-spacing:7px;text-transform:uppercase;color:var(--bright);font-weight:700;margin-bottom:8px}
+h1 small{display:block;font-size:11px;letter-spacing:3px;color:var(--clavis);font-weight:500;margin-top:6px}
+p.lead{font-size:12px;color:#8A8A94;max-width:1000px;margin-bottom:10px;line-height:1.85}
+p.lead b{color:var(--clavis);font-weight:400}
+
+h2{font-family:var(--rajdhani);font-size:13px;letter-spacing:4px;text-transform:uppercase;color:var(--bright);font-weight:600;
+   margin:64px 0 4px;padding-bottom:10px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px}
+h2 .n{font-family:var(--mono);font-size:11px;color:var(--clavis);font-weight:400}
+h2 .sub{font-family:var(--inter);font-size:10.5px;letter-spacing:0;text-transform:none;color:var(--mute);font-weight:300;margin-left:auto}
+h3{font-family:var(--rajdhani);font-size:10.5px;letter-spacing:2.5px;text-transform:uppercase;color:var(--dim);font-weight:600;margin:0 0 10px}
+.note{font-size:10.5px;color:#76767E;line-height:1.7;margin:8px 0 0;max-width:880px}
+.note b{color:var(--clavis);font-weight:400}
+.tag{display:inline-block;font-family:var(--rajdhani);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;
+     padding:2px 7px;border:1px solid var(--frame);color:var(--dim);margin-left:8px;vertical-align:middle}
+.tag.new{border-color:var(--over);color:var(--over)}
+.tag.ok{border-color:var(--under);color:var(--under)}
+.tag.rec{border-color:var(--clavis);color:var(--clavis)}
+
+.lbl{font-family:var(--rajdhani);font-size:8.5px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
+.num{font-family:var(--mono)}
+code{font-family:var(--mono);font-size:11px;color:var(--clavis);background:#11111a;padding:1px 5px;border:1px solid var(--faint)}
+
+/* ---- layout helpers ---- */
+.row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+
+.card{border:1px solid var(--line);background:var(--card);position:relative;display:flex;flex-direction:column}
+.card-head{display:flex;align-items:baseline;gap:10px;padding:11px 15px 9px;border-bottom:1px solid var(--faint)}
+.card-num{font-family:var(--mono);font-size:9.5px;color:var(--clavis)}
+.card-title{font-family:var(--rajdhani);font-size:10.5px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--bright)}
+.card-body{padding:16px;flex:1}
+.card-desc{padding:0 15px 13px;font-size:10px;line-height:1.65;color:#76767E}
+.card-desc b{color:var(--clavis);font-weight:400}
+.pill{font-family:var(--rajdhani);font-size:7.5px;letter-spacing:1.4px;text-transform:uppercase;border:1px solid var(--frame);color:var(--mute);padding:1px 6px;margin-left:auto}
+
+/* ---- shared atoms: chips / dots ---- */
+.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;color:var(--text);
+      padding:3px 9px;border:1px solid var(--line);background:#0c0c12;white-space:nowrap}
+.chip .k{font-family:var(--rajdhani);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mute)}
+.chip.accent{border-color:var(--clavis-dim)}
+.chip.accent .v{color:var(--clavis)}
+.chip .ic{font-size:11px;opacity:.7}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--clavis);flex:none}
+.dot.g{background:var(--under)} .dot.a{background:var(--over)} .dot.r{background:var(--hot)} .dot.m{background:var(--mute)}
+.breathe{animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+
+svg{display:block;overflow:visible}
+svg text{font-family:var(--mono);fill:var(--text)}
+svg .lab{font-family:var(--rajdhani);font-weight:500;letter-spacing:1px;text-transform:uppercase;fill:var(--dim)}
+
+/* ---- window-frame mock (top bar demos) ---- */
+.win{border:1px solid var(--frame);background:var(--bg);width:100%;max-width:560px}
+.win.active{border-color:var(--clavis-dim)}
+.titlebar{height:30px;display:flex;align-items:center;background:#0c0c11;border-bottom:1px solid var(--faint);position:relative}
+.titlebar .zone{display:flex;align-items:center;gap:10px;height:100%}
+.titlebar .left{padding-left:14px;flex:1;min-width:0}
+.titlebar .center{position:absolute;left:50%;transform:translateX(-50%)}
+.titlebar .right{padding-right:6px;gap:8px}
+.tb-close{width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--mute);cursor:pointer}
+.tb-close:hover{color:var(--hot);background:#1a0d0d}
+.tb-txt{font-family:var(--rajdhani);font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-mono{font-family:var(--mono);font-size:10px;color:var(--text)}
+.tb-dim{color:var(--mute)}
+.win-body{height:96px;display:flex;align-items:center;justify-content:center;color:var(--mute2);font-family:var(--rajdhani);
+          letter-spacing:3px;text-transform:uppercase;font-size:10px;background:repeating-linear-gradient(135deg,#0a0a10,#0a0a10 9px,#0c0c12 9px,#0c0c12 18px)}
+.statusbar{height:24px;display:flex;align-items:center;background:#0b0b10;border-top:1px solid var(--faint);font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+.crossed{position:relative;opacity:.5}
+.crossed::after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,transparent 45%,var(--hot) 47%,var(--hot) 53%,transparent 55%)}
+
+/* legacy chrome reference (the "before") */
+.grip{display:inline-grid;grid-template-columns:repeat(2,2px);gap:2px;opacity:.3}
+.grip i{width:2px;height:2px;background:var(--dim);display:block}
+
+/* ---- status line zones ---- */
+.sl{display:flex;align-items:center;height:26px;background:#0b0b10;border:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--dim);padding:0 12px;gap:0}
+.sl .z{display:flex;align-items:center;gap:14px;height:100%}
+.sl .z.l{flex:1;justify-content:flex-start}
+.sl .z.c{flex:1;justify-content:center}
+.sl .z.r{flex:1;justify-content:flex-end}
+.sl .seg{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.sl .seg .ic{opacity:.65}
+.sl .v{color:var(--text)}
+.sl .vb{color:var(--bright)}
+.sl .div{width:1px;height:11px;background:var(--mute2)}
+
+/* ---- progress bar styles ---- */
+.bar{width:100%}
+.bar.thin{height:3px;background:#16161c}
+.bar.thin>i{display:block;height:100%;background:var(--clavis)}
+.bar.thick{height:9px;background:#16161c;border:1px solid var(--faint)}
+.bar.thick>i{display:block;height:100%;background:linear-gradient(90deg,var(--clavis-dim),var(--clavis))}
+.seg-bar{display:flex;gap:2px}
+.seg-bar i{flex:1;height:8px;background:#1a1a22}
+.seg-bar i.on{background:var(--clavis)}
+.seg-bar i.warn{background:var(--over)}
+
+/* ---- intellisense dropdown ---- */
+.ide{border:1px solid var(--frame);background:#0c0c12;max-width:520px;font-family:var(--mono)}
+.ide .input{padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--text)}
+.ide .input .caret{color:var(--clavis);animation:blink 1s steps(1) infinite}
+.ide .input .typed{color:var(--bright)}
+@keyframes blink{50%{opacity:0}}
+.ac{max-height:340px;overflow:auto}
+.ac .it{display:flex;align-items:center;gap:10px;padding:5px 12px;font-size:11px;cursor:default;border-left:2px solid transparent}
+.ac .it:hover,.ac .it.sel{background:#15151d;border-left-color:var(--clavis)}
+.ac .it .kind{font-family:var(--rajdhani);font-size:7.5px;letter-spacing:1px;text-transform:uppercase;color:var(--bg);background:var(--clavis-dim);padding:1px 5px;flex:none;width:34px;text-align:center}
+.ac .it .kind.fn{background:var(--over)} .ac .it .kind.cmp{background:var(--under)}
+.ac .it .nm{color:var(--bright);flex:none}
+.ac .it .nm b{color:var(--clavis);font-weight:500}
+.ac .it .desc{color:var(--mute);font-size:10px;margin-left:auto;text-align:right;font-family:var(--inter)}
+
+/* ---- placeholder catalog table ---- */
+.cat{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10.5px}
+.cat th{font-family:var(--rajdhani);font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:var(--mute);text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+.cat td{padding:5px 10px;border-bottom:1px solid var(--faint);vertical-align:top}
+.cat td.ph{color:var(--clavis);white-space:nowrap}
+.cat td.ex{color:var(--text)}
+.cat td.ds{color:var(--mute);font-family:var(--inter);font-size:10px}
+.cat td.av .dot{vertical-align:middle}
+.cat tr:hover td{background:#0e0e14}
+.ns{font-family:var(--rajdhani);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--bright);font-weight:600;
+    padding:14px 10px 6px;display:flex;align-items:center;gap:10px}
+.ns .ic{font-size:13px}
+.ns .cnt{font-family:var(--mono);font-size:9px;color:var(--mute);letter-spacing:0}
+
+/* ---- chat panel mock ---- */
+.chat{border:1px solid var(--line);background:var(--surface);max-width:680px}
+.chat-hd{height:30px;display:flex;align-items:center;padding:0 14px;background:#0c0c11;border-bottom:1px solid var(--faint);gap:10px}
+.envrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--faint);background:#0a0a0f}
+.envrow.collapsed{padding:7px 14px}
+.turn{padding:14px}
+.turn .req{color:var(--bright);font-size:12.5px;font-family:var(--inter);margin-bottom:10px}
+.turn .resp{color:var(--text);font-size:11.5px;line-height:1.7;max-width:560px}
+.rail-wrap{display:flex}
+.rail{width:50px;border-right:1px solid var(--faint);background:#0a0a0f;display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px 0;flex:none}
+.rail .mini{display:flex;flex-direction:column;align-items:center;gap:3px}
+.rail .mini .lbl{font-size:6.5px;letter-spacing:1px}
+.rail .mini .val{font-family:var(--mono);font-size:9px;color:var(--text)}
+.sep{display:flex;align-items:center;gap:12px;padding:8px 14px;color:var(--mute);font-family:var(--mono);font-size:9px}
+.sep .ln{flex:1;height:1px;background:var(--faint)}
+
+.hoverbox{position:relative;display:inline-block}
+.hoverbox .pop{display:none;position:absolute;top:120%;left:0;z-index:10;background:#0c0c12;border:1px solid var(--frame);padding:10px 12px;min-width:200px}
+.hoverbox:hover .pop{display:block}
+
+.inputbar{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--faint);background:#0a0a0f}
+.inputbar .field{flex:1;color:var(--mute);font-family:var(--inter);font-size:11px}
+.inputbar .send{width:24px;height:24px;border:1px solid var(--clavis-dim);color:var(--clavis);display:flex;align-items:center;justify-content:center;font-size:12px}
+
+.kbd{font-family:var(--mono);font-size:9px;border:1px solid var(--frame);padding:1px 5px;color:var(--dim)}
+.divider{height:1px;background:var(--faint);margin:0}
+ul.sug{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-top:6px}
+ul.sug li{display:flex;gap:8px;align-items:flex-start;font-size:10.5px;color:var(--text);border:1px solid var(--faint);background:var(--card);padding:8px 11px}
+ul.sug li .ph{font-family:var(--mono);color:var(--clavis);font-size:10px}
+ul.sug li .d{color:var(--mute);font-size:9.5px;display:block;margin-top:2px;font-family:var(--inter)}
+</style>
+</head>
+<body>
+
+<h1>CLAVIS
+  <small>Context info · configurable status line · contextual window chrome — design exploration</small>
+</h1>
+<p class="lead">
+Broad exploration of how to surface the live agent/environment. Every placeholder is <b>namespaced</b>
+(<code>git.branch</code>, <code>agent.effort</code>) and reusable in <b>both</b> the status line and markdown panels,
+with <b>IntelliSense</b>. The wrong hard-coded context % is replaced by real usage; the top bar drops the grip handle,
+the "CLAVIS" text and the idle/ready/thinking status, and becomes <b>contextual per hosting panel</b>. Rich, but never overloaded —
+graphical + minimal representations throughout. Same sample state everywhere so forms compare directly.
+</p>
+
+<!-- sample state banner -->
+<div class="row" style="border:1px solid var(--line);background:var(--surface);padding:12px 18px;gap:26px;max-width:1100px;margin-top:14px">
+  <div><div class="lbl">cwd</div><div class="num" style="color:var(--bright);font-size:11px">~/Repos/FS/clavis</div></div>
+  <div><div class="lbl">git</div><div class="num" style="color:var(--bright);font-size:11px">feature/context-info <span style="color:var(--over)">+3 ~2</span> <span style="color:var(--under)">↑1</span></div></div>
+  <div><div class="lbl">model · effort · mode</div><div class="num" style="color:var(--bright);font-size:11px">opus-4.8 · <span style="color:var(--clavis)">high</span> · <span style="color:var(--under)">plan</span></div></div>
+  <div><div class="lbl">context</div><div class="num" style="color:var(--bright);font-size:11px">128k / 200k <span style="color:var(--over)">64%</span></div></div>
+  <div><div class="lbl">sys</div><div class="num" style="color:var(--bright);font-size:11px">cpu 23% · ram 61%</div></div>
+  <div><div class="lbl">clavis</div><div class="num" style="color:var(--bright);font-size:11px">v0.4.1</div></div>
+</div>
+
+<!-- ============================================================ 1. PLACEHOLDER MODEL ============= -->
+<h2><span class="n">01</span> Placeholder model &amp; syntax <span class="sub">how every value is named &amp; embedded</span></h2>
+<p class="note">
+Templates are plain text/markdown with <code>{namespace.key}</code> tokens. Three token shapes:
+<b>value</b> <code>{git.branch}</code>, <b>parameterised value</b> <code>{time.now:HH:mm}</code>,
+and <b>component</b> <code>{bar:agent.contextPercent}</code> / <code>{limitPlane}</code> / <code>{spark:sys.cpu}</code> which render a widget inline.
+Unknown tokens are left verbatim (today's <code>command-palette/Placeholders.cs</code> already does this — we generalise it to dotted namespaces + components).
+</p>
+<div class="grid2" style="margin-top:14px">
+  <div class="card">
+    <div class="card-head"><span class="card-num">A</span><span class="card-title">Template → rendered</span></div>
+    <div class="card-body col" style="gap:14px">
+      <div><div class="lbl" style="margin-bottom:5px">template (saved in configuration.yaml)</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text);background:#0c0c12;border:1px solid var(--faint);padding:10px;line-height:1.9">
+          <span style="color:var(--mute)">📁</span> {cwd.name} &nbsp;<span style="color:var(--mute2)">·</span>&nbsp; <span style="color:var(--clavis)">{git.branch}</span> {git.dirtyMark}<br>
+          <span style="color:var(--clavis)">{model}</span> {agent.effort} &nbsp; {bar:agent.contextPercent}
+        </div>
+      </div>
+      <div><div class="lbl" style="margin-bottom:5px">rendered</div>
+        <div class="sl" style="border-color:var(--frame)">
+          <div class="z l" style="flex:none;gap:14px">
+            <span class="seg"><span class="ic">📁</span><span class="v">clavis</span></span>
+            <span class="seg"><span class="dot g"></span><span class="vb">feature/context-info</span><span style="color:var(--over)">✱</span></span>
+            <span class="seg"><span class="v">opus-4.8</span> <span style="color:var(--clavis)">high</span></span>
+            <span class="seg" style="width:90px"><span class="bar thin" style="width:90px"><i style="width:64%"></i></span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-num">B</span><span class="card-title">IntelliSense while editing</span><span class="pill">autocomplete</span></div>
+    <div class="card-body">
+      <div class="ide">
+        <div class="input"><span class="typed">📁 {cwd.name} · {git.</span><span class="caret">▏</span></div>
+        <div class="ac" id="acDemo"></div>
+      </div>
+      <p class="card-desc" style="padding:10px 0 0">Type <code>{</code> → namespaces; type a dot → keys for that namespace, each with a <b>kind</b> badge (val / fn / cmp), the live sample value, and a description. Tab/Enter inserts.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ 2. CATALOG ======================= -->
+<h2><span class="n">02</span> Placeholder catalog <span class="sub">grouped like namespaces · availability today</span></h2>
+<p class="note">
+<span class="dot g" style="margin:0 4px"></span>available now &nbsp;
+<span class="dot a" style="margin:0 4px"></span>cheap to add (git/system/version) &nbsp;
+<span class="dot r" style="margin:0 4px"></span>needs facade plumbing (agent must report it). The agent is behind a facade, so <b>models / modes / efforts</b> must be reported by the bridge, never hard-named in the UI.
+</p>
+<div class="grid2" style="margin-top:14px">
+  <div class="card"><div class="card-body" id="catA" style="padding:0 4px 10px"></div></div>
+  <div class="card"><div class="card-body" id="catB" style="padding:0 4px 10px"></div></div>
+</div>
+
+<!-- ============================================================ 3. WINDOW TOP BAR ================ -->
+<h2><span class="n">03</span> Window top bar — 4 ideas <span class="sub">drop grip · drop "CLAVIS" · drop idle/ready/thinking</span></h2>
+<p class="note">Today the bar shows a redundant <b>grip</b>, the static word <b>CLAVIS</b>, and an <b>idle/ready/thinking</b> status — all removed below.
+The window already knows its focused panel kind (<code>Surface.ActivePanelKind</code>), so the bar can be <b>contextual</b>:
+a chat window shows env info, a shortcuts window shows its title. <b>Slide-in/transient panels contribute nothing.</b></p>
+
+<div class="row" style="margin-top:8px;align-items:stretch;margin-bottom:18px">
+  <div class="card" style="flex:1;min-width:280px;max-width:560px">
+    <div class="card-head"><span class="card-num">—</span><span class="card-title">Today (reference)</span><span class="pill" style="border-color:var(--hot);color:var(--hot)">remove</span></div>
+    <div class="card-body">
+      <div class="win"><div class="titlebar">
+        <div class="zone left">
+          <span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="dot breathe" style="width:6px;height:6px"></span>
+          <span class="tb-txt">CLAVIS</span>
+        </div>
+        <div class="zone right"><span class="tb-mono tb-dim">opus-4.8 · Ready</span><span class="tb-close">✕</span></div>
+      </div><div class="win-body">conversation</div></div>
+      <p class="card-desc" style="padding:9px 0 0">Three of the four left/right items carry no information.</p>
+    </div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <div class="card-head"><span class="card-num">A</span><span class="card-title">Contextual breadcrumb</span><span class="pill" style="border-color:var(--clavis);color:var(--clavis)">recommended</span></div>
+    <div class="card-body">
+      <div class="win active"><div class="titlebar">
+        <div class="zone left"><span class="tb-mono"><span class="tb-dim">📁 </span>clavis<span class="tb-dim"> / </span><span style="color:var(--clavis)">feature/context-info</span> <span style="color:var(--over)">✱</span></span></div>
+        <div class="zone right"><span class="chip accent" style="padding:2px 8px"><span class="v">opus-4.8</span><span class="div" style="background:var(--mute2)"></span><span style="color:var(--clavis)">high</span><span class="div" style="background:var(--mute2)"></span><span style="color:var(--under)">plan</span></span><span class="tb-close">✕</span></div>
+      </div><div class="win-body">conversation</div></div>
+      <p class="card-desc" style="padding:9px 0 0">Left = where you are (cwd + branch), right = compact <b>model · effort · mode</b> chip. Both adapt to the hosting panel.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-num">B</span><span class="card-title">Pure-minimal</span></div>
+    <div class="card-body">
+      <div class="win"><div class="titlebar">
+        <div class="zone left"></div>
+        <div class="zone right"><span class="tb-mono tb-dim">opus-4.8</span><span class="div" style="background:var(--mute2)"></span><span class="tb-mono" style="color:var(--clavis)">high</span><span class="div" style="background:var(--mute2)"></span><span class="tb-mono" style="color:var(--under)">plan</span><span class="tb-close">✕</span></div>
+      </div><div class="win-body">conversation</div></div>
+      <p class="card-desc" style="padding:9px 0 0">Empty, fully draggable bar; a single right-aligned agent cluster. Maximum quiet — content lives in the chat panel instead.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-num">C</span><span class="card-title">Three-zone (center metric)</span></div>
+    <div class="card-body">
+      <div class="win active"><div class="titlebar">
+        <div class="zone left"><span class="tb-txt" style="color:var(--dim)">conversation</span></div>
+        <div class="zone center"><span class="tb-mono" style="font-size:9px"><span class="tb-dim">ctx </span>64%</span> <span class="bar thin" style="width:80px;display:inline-block;vertical-align:middle"><i style="width:64%"></i></span></div>
+        <div class="zone right"><span class="chip accent" style="padding:2px 8px"><span class="v">opus-4.8</span></span><span class="tb-close">✕</span></div>
+      </div><div class="win-body">conversation</div></div>
+      <p class="card-desc" style="padding:9px 0 0">Center hosts one live metric (context bar). Risk: competes with the bottom status line — best if only one of them shows context.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-num">D</span><span class="card-title">Per-panel title provider</span><span class="pill">extensible</span></div>
+    <div class="card-body">
+      <div class="col" style="gap:8px">
+        <div class="win"><div class="titlebar"><div class="zone left"><span class="tb-mono"><span class="tb-dim">📁 </span>clavis · <span style="color:var(--clavis)">feature/context-info</span></span></div><div class="zone right"><span class="chip accent" style="padding:1px 7px"><span class="v">opus-4.8 · high</span></span><span class="tb-close">✕</span></div></div><div class="win-body" style="height:34px">chat panel → env title</div></div>
+        <div class="win"><div class="titlebar"><div class="zone left"><span class="tb-txt">⌨ Keyboard Shortcuts</span></div><div class="zone right"><span class="tb-close">✕</span></div></div><div class="win-body" style="height:34px">shortcuts panel → static title</div></div>
+        <div class="win" style="opacity:.65"><div class="titlebar"><div class="zone left"></div><div class="zone right"><span class="tb-close">✕</span></div></div><div class="win-body" style="height:34px;color:var(--mute2)">slide-in → contributes nothing</div></div>
+      </div>
+      <p class="card-desc" style="padding:9px 0 0">Each panel <b>kind</b> contributes its own title content (like region contributions). Transient/slide-in kinds opt out, so a peek panel never hijacks the chrome.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ 4. STATUS LINE ==================== -->
+<h2><span class="n">04</span> Configurable status line <span class="sub">placeholder-driven · left / center / right zones · editable &amp; saved</span></h2>
+<p class="note">One template string, split into <b>left / center / right</b> alignment buckets. Renders through the same placeholder engine + <code>MarkdownPresenter</code> as panels.
+Edited in-app, persisted to <code>configuration.yaml</code>.</p>
+
+<div class="col" style="margin-top:14px;gap:10px">
+  <h3 style="margin-top:6px">V1 — text with placeholders</h3>
+  <div class="sl">
+    <div class="z l"><span class="seg"><span class="ic">📁</span><span class="v">clavis</span></span><span class="div"></span><span class="seg"><span class="dot g"></span><span class="vb">feature/context-info</span> <span style="color:var(--over)">+3 ~2</span></span></div>
+    <div class="z c"><span class="seg tb-dim">opus-4.8 · high · plan</span></div>
+    <div class="z r"><span class="seg"><span class="ic">◴</span>12:48</span><span class="div"></span><span class="seg">ctx <span class="vb">64%</span></span></div>
+  </div>
+
+  <h3 style="margin-top:14px">V2 — minimalist icon + value</h3>
+  <div class="sl">
+    <div class="z l"><span class="seg"><span class="ic">⎇</span><span class="vb">context-info</span></span><span class="seg"><span class="ic">±</span><span class="v">+3 −2</span></span></div>
+    <div class="z c"></div>
+    <div class="z r"><span class="seg"><span class="ic">⚡</span><span class="v">opus·high</span></span><span class="seg"><span class="ic">▣</span><span class="v">64%</span></span><span class="seg"><span class="ic">▤</span><span class="v">23%</span></span></div>
+  </div>
+
+  <h3 style="margin-top:14px">V3 — inline progress bar + placed limit-plane</h3>
+  <div class="sl">
+    <div class="z l"><span class="seg"><span class="dot g"></span><span class="vb">feature/context-info</span></span></div>
+    <div class="z c"><span class="seg" style="gap:8px"><span class="tb-dim">ctx</span><span class="bar thin" style="width:120px"><i style="width:64%"></i></span><span class="v">128k/200k</span></span></div>
+    <div class="z r"><span class="seg"><span class="v">opus-4.8</span></span><span class="div"></span><span class="seg limitplane" data-u="0.64" data-t="0.5"></span></div>
+  </div>
+
+  <h3 style="margin-top:14px">V4 — graphical (sparklines)</h3>
+  <div class="sl" style="height:30px">
+    <div class="z l"><span class="seg"><span class="dot g"></span><span class="vb">context-info</span></span></div>
+    <div class="z c"></div>
+    <div class="z r">
+      <span class="seg"><span class="tb-dim">cpu</span><span class="spark" data-seed="3"></span><span class="v">23%</span></span>
+      <span class="seg"><span class="tb-dim">ram</span><span class="spark" data-seed="9"></span><span class="v">61%</span></span>
+      <span class="seg"><span class="tb-dim">ctx</span><span class="bar thin" style="width:60px"><i style="width:64%"></i></span></span>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:24px;max-width:760px">
+  <div class="card-head"><span class="card-num">edit</span><span class="card-title">Status-line editor</span><span class="pill">persists to configuration.yaml</span></div>
+  <div class="card-body col" style="gap:14px">
+    <div class="row" style="gap:10px">
+      <div style="flex:1"><div class="lbl" style="margin-bottom:5px">left</div><div class="ide" style="max-width:none"><div class="input" style="font-size:11px"><span class="typed">📁 {cwd.name} · {git.branch} {git.dirtyMark}</span></div></div></div>
+    </div>
+    <div class="row" style="gap:10px">
+      <div style="flex:1"><div class="lbl" style="margin-bottom:5px">center</div><div class="ide" style="max-width:none"><div class="input" style="font-size:11px"><span class="typed">{model} · {agent.effort} · {agent.mode}</span></div></div></div>
+    </div>
+    <div class="row" style="gap:10px">
+      <div style="flex:1"><div class="lbl" style="margin-bottom:5px">right</div><div class="ide" style="max-width:none"><div class="input" style="font-size:11px"><span class="typed">{time.now:HH:mm} · ctx {bar:agent.contextPercent} · {limitPlane}</span><span class="caret">▏</span></div></div></div>
+    </div>
+    <div><div class="lbl" style="margin-bottom:6px">live preview</div>
+      <div class="sl">
+        <div class="z l"><span class="seg"><span class="ic">📁</span><span class="v">clavis</span> · <span class="vb">feature/context-info</span> <span style="color:var(--over)">✱</span></span></div>
+        <div class="z c"><span class="seg tb-dim">opus-4.8 · high · plan</span></div>
+        <div class="z r"><span class="seg">12:48 · ctx <span class="bar thin" style="width:70px;display:inline-block;vertical-align:middle"><i style="width:64%"></i></span></span><span class="seg limitplane" data-u="0.64" data-t="0.5"></span></div>
+      </div>
+    </div>
+    <p class="card-desc" style="padding:0">Each zone is an editor with IntelliSense; the preview re-renders on every keystroke through the placeholder engine.</p>
+  </div>
+</div>
+
+<!-- ============================================================ 5. PROGRESS BAR ================== -->
+<h2><span class="n">05</span> Reusable progress component <span class="sub">one widget · placeholder-driven · status line + panels</span></h2>
+<p class="note"><code>{bar:value}</code> renders any 0–100 placeholder. Color thresholds (good / warn / hot) are configurable. Same component in the status line, the chat panel, and markdown notes.</p>
+<div class="grid3" style="margin-top:14px">
+  <div class="card"><div class="card-head"><span class="card-num">a</span><span class="card-title">Thin line</span></div><div class="card-body col" style="gap:12px">
+    <div><div class="lbl">ctx 64%</div><div class="bar thin" style="margin-top:5px"><i style="width:64%"></i></div></div>
+    <div><div class="lbl">cpu 23%</div><div class="bar thin" style="margin-top:5px"><i style="width:23%;background:var(--under)"></i></div></div>
+    <div><div class="lbl">disk 88%</div><div class="bar thin" style="margin-top:5px"><i style="width:88%;background:var(--hot)"></i></div></div>
+  </div></div>
+  <div class="card"><div class="card-head"><span class="card-num">b</span><span class="card-title">Segmented blocks</span></div><div class="card-body col" style="gap:12px">
+    <div><div class="lbl">ctx 64%</div><div class="seg-bar" style="margin-top:5px" data-seg="13"></div></div>
+    <div><div class="lbl">cpu 23%</div><div class="seg-bar" style="margin-top:5px" data-seg="5"></div></div>
+    <div><div class="lbl">disk 88% <span style="color:var(--hot)">over</span></div><div class="seg-bar warn" style="margin-top:5px" data-seg="18"></div></div>
+  </div></div>
+  <div class="card"><div class="card-head"><span class="card-num">c</span><span class="card-title">Gradient fill</span></div><div class="card-body col" style="gap:12px">
+    <div><div class="lbl">ctx 64%</div><div class="bar thick" style="margin-top:5px"><i style="width:64%"></i></div></div>
+    <div><div class="lbl">cpu 23%</div><div class="bar thick" style="margin-top:5px"><i style="width:23%"></i></div></div>
+    <div><div class="lbl">ram 61%</div><div class="bar thick" style="margin-top:5px"><i style="width:61%"></i></div></div>
+  </div></div>
+  <div class="card"><div class="card-head"><span class="card-num">d</span><span class="card-title">Circular ring</span><span class="pill">compact</span></div><div class="card-body row" style="justify-content:space-around;align-items:center" id="rings"></div></div>
+  <div class="card"><div class="card-head"><span class="card-num">e</span><span class="card-title">Inline (in prose)</span></div><div class="card-body">
+    <div class="turn resp">Context is at <span class="bar thin" style="width:60px;display:inline-block;vertical-align:middle"><i style="width:64%"></i></span> <b style="color:var(--clavis);font-weight:400">64%</b> — about 72k tokens of headroom remain before compaction.</div>
+  </div></div>
+  <div class="card"><div class="card-head"><span class="card-num">f</span><span class="card-title">Vertical (rail)</span></div><div class="card-body row" style="justify-content:space-around;align-items:flex-end;height:120px" id="vbars"></div></div>
+</div>
+
+<!-- ============================================================ 6. LIMIT PLANE ================== -->
+<h2><span class="n">06</span> Limit-plane placement <span class="sub">the existing visualization, placeable via <code>{limitPlane}</code></span></h2>
+<p class="note">The pace-plane (usage on X, time on Y, even-burn diagonal; dot green above / red below the line) is too specific to genericise — but it becomes a <b>placeable element</b>: drop <code>{limitPlane}</code> anywhere a placeholder is allowed.</p>
+<div class="grid3" style="margin-top:14px">
+  <div class="card"><div class="card-head"><span class="card-num">a</span><span class="card-title">Glyph in status line</span></div><div class="card-body">
+    <div class="sl"><div class="z l"><span class="seg"><span class="dot g"></span>context-info</span></div><div class="z r"><span class="seg">ctx 64%</span><span class="div"></span><span class="seg limitplane" data-u="0.64" data-t="0.5"></span></div></div>
+  </div></div>
+  <div class="card"><div class="card-head"><span class="card-num">b</span><span class="card-title">Larger in chat header</span></div><div class="card-body row" style="align-items:center;gap:14px">
+    <span class="limitplane" data-u="0.64" data-t="0.5" data-size="56"></span>
+    <div><div class="lbl">5-hour window</div><div class="num" style="color:var(--bright);font-size:13px">64% used</div><div class="num" style="color:var(--under);font-size:10px">↑ 14% under pace</div></div>
+  </div></div>
+  <div class="card"><div class="card-head"><span class="card-num">c</span><span class="card-title">Embedded in markdown note</span></div><div class="card-body">
+    <div style="font-family:var(--inter);font-size:11px;color:var(--text);line-height:1.7">
+      <div style="font-family:var(--rajdhani);letter-spacing:2px;text-transform:uppercase;color:var(--bright);font-size:11px;margin-bottom:6px">## Today's budget</div>
+      Weekly pace <span class="limitplane" data-u="0.8" data-t="0.6" data-size="22" style="vertical-align:middle"></span> running <span style="color:var(--over)">8% hot</span>.
+    </div>
+  </div></div>
+</div>
+
+<!-- ============================================================ 7. CHAT PANEL ==================== -->
+<h2><span class="n">07</span> Chat-panel environment info — 5 treatments <span class="sub">the priority area · rich but never overloaded</span></h2>
+<p class="note">These facts are conversation-scoped, so the chat panel is their natural home. Five ways to fit a lot of signal into little space.</p>
+
+<div class="grid2" style="margin-top:14px">
+  <!-- A collapsible header -->
+  <div class="card">
+    <div class="card-head"><span class="card-num">A</span><span class="card-title">Collapsible env header</span><span class="pill" style="border-color:var(--clavis);color:var(--clavis)">recommended</span></div>
+    <div class="card-body" style="padding:0">
+      <div class="chat" style="max-width:none;border:none">
+        <div class="chat-hd"><span class="dot breathe"></span><span class="tb-txt">conversation</span><span style="margin-left:auto;color:var(--mute);font-size:11px;cursor:pointer">▾ env</span></div>
+        <div class="envrow">
+          <span class="chip"><span class="ic">📁</span><span class="v">~/Repos/FS/clavis</span></span>
+          <span class="chip"><span class="dot g"></span><span class="v">feature/context-info</span> <span style="color:var(--over)">+3 ~2</span> <span style="color:var(--under)">↑1</span></span>
+          <span class="chip accent"><span class="k">model</span><span class="v">opus-4.8</span></span>
+          <span class="chip"><span class="k">effort</span><span class="v" style="color:var(--clavis)">high</span></span>
+          <span class="chip"><span class="k">mode</span><span class="v" style="color:var(--under)">plan</span></span>
+          <span class="chip" style="gap:8px"><span class="k">ctx</span><span class="ringMini" data-pct="64"></span></span>
+        </div>
+        <div class="turn"><div class="req">Add a configurable status line</div><div class="resp">I'll start by exploring the placeholder engine…</div></div>
+      </div>
+    </div>
+    <p class="card-desc">One quiet chip row, collapsible to a single line. Context shown as a tiny ring. Everything is placeholder-templated, so power users can re-arrange it.</p>
+  </div>
+
+  <!-- B vertical rail -->
+  <div class="card">
+    <div class="card-head"><span class="card-num">B</span><span class="card-title">Slim vertical rail</span></div>
+    <div class="card-body" style="padding:0">
+      <div class="chat rail-wrap" style="max-width:none;border:none">
+        <div class="rail">
+          <span class="ringMini" data-pct="64" data-size="30"></span>
+          <div class="mini"><span class="lbl">cpu</span><span class="val">23%</span></div>
+          <div class="mini"><span class="lbl">ram</span><span class="val">61%</span></div>
+          <div class="mini"><span class="lbl">⎇</span><span class="val" style="font-size:7px;color:var(--clavis)">ctx-info</span></div>
+          <span class="limitplane" data-u="0.64" data-t="0.5" data-size="28"></span>
+        </div>
+        <div style="flex:1"><div class="turn"><div class="req">Add a configurable status line</div><div class="resp">I'll start by exploring the placeholder engine…</div></div></div>
+      </div>
+    </div>
+    <p class="card-desc">A persistent 50px gutter of ambient micro-stats beside the transcript — always visible without intruding on prose width.</p>
+  </div>
+
+  <!-- C init card -->
+  <div class="card">
+    <div class="card-head"><span class="card-num">C</span><span class="card-title">Session-start snapshot card</span></div>
+    <div class="card-body" style="padding:0">
+      <div class="chat" style="max-width:none;border:none">
+        <div style="margin:14px;border:1px solid var(--faint);background:var(--card2)">
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--faint)"><span class="dot"></span><span class="tb-txt" style="color:var(--bright)">Session started</span><span class="num" style="margin-left:auto;color:var(--mute);font-size:9px">12:31:08</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 22px;padding:11px 14px">
+            <div><div class="lbl">working dir</div><div class="num" style="color:var(--bright);font-size:10px">~/Repos/FS/clavis</div></div>
+            <div><div class="lbl">branch</div><div class="num" style="color:var(--clavis);font-size:10px">feature/context-info ✱</div></div>
+            <div><div class="lbl">model · effort</div><div class="num" style="color:var(--bright);font-size:10px">opus-4.8 · high</div></div>
+            <div><div class="lbl">mode</div><div class="num" style="color:var(--under);font-size:10px">plan</div></div>
+            <div><div class="lbl">context window</div><div class="num" style="color:var(--bright);font-size:10px">200k tokens</div></div>
+            <div><div class="lbl">clavis</div><div class="num" style="color:var(--bright);font-size:10px">v0.4.1</div></div>
+          </div>
+        </div>
+        <div class="turn" style="padding-top:0"><div class="req">Add a configurable status line</div></div>
+      </div>
+    </div>
+    <p class="card-desc">Replaces today's bare init row with a full, scrollable-away environment snapshot — a permanent record of the session's starting conditions.</p>
+  </div>
+
+  <!-- D hover expand -->
+  <div class="card">
+    <div class="card-head"><span class="card-num">D</span><span class="card-title">Hover-to-expand glyphs</span></div>
+    <div class="card-body" style="padding:0">
+      <div class="chat" style="max-width:none;border:none">
+        <div class="envrow" style="gap:14px">
+          <span class="hoverbox"><span class="chip"><span class="dot g"></span><span class="v">⎇</span></span><span class="pop"><div class="lbl">git</div><div class="num" style="color:var(--bright);font-size:10px">feature/context-info<br>+3 ~2 −0 · ↑1 ahead<br>origin: clavis</div></span></span>
+          <span class="hoverbox"><span class="chip accent"><span class="v">⚡</span></span><span class="pop"><div class="lbl">agent</div><div class="num" style="color:var(--bright);font-size:10px">opus-4.8<br>effort high · mode plan<br>cost $0.42 this turn</div></span></span>
+          <span class="hoverbox"><span class="chip"><span class="ringMini" data-pct="64" data-size="14"></span></span><span class="pop"><div class="lbl">context</div><div class="num" style="color:var(--bright);font-size:10px">128k / 200k (64%)<br>~72k until compaction</div></span></span>
+          <span class="hoverbox"><span class="chip"><span class="v">▤</span></span><span class="pop"><div class="lbl">system</div><div class="num" style="color:var(--bright);font-size:10px">cpu 23% · ram 61%<br>disk 88%</div></span></span>
+        </div>
+        <div class="turn"><div class="resp">Minimal glyph strip; hover any glyph for the full breakdown. (Hover the chips above.)</div></div>
+      </div>
+    </div>
+    <p class="card-desc">Quietest default — four icons. Detail is one hover away, so the resting state is almost invisible.</p>
+  </div>
+</div>
+
+<!-- E ambient graphical -->
+<div class="card" style="margin-top:16px;max-width:none">
+  <div class="card-head"><span class="card-num">E</span><span class="card-title">Ambient / graphical</span><span class="pill">most minimal signal-density</span></div>
+  <div class="card-body row" style="align-items:center;gap:30px;flex-wrap:wrap">
+    <div class="row" style="align-items:center;gap:10px"><span class="ringMini" data-pct="64" data-size="40"></span><div><div class="lbl">context</div><div class="num" style="color:var(--bright)">64%</div></div></div>
+    <div class="row" style="align-items:center;gap:10px"><span class="limitplane" data-u="0.64" data-t="0.5" data-size="40"></span><div><div class="lbl">pace</div><div class="num" style="color:var(--under)">under</div></div></div>
+    <div><div class="lbl">cpu</div><span class="spark" data-seed="3" data-w="80"></span></div>
+    <div><div class="lbl">ram</div><span class="spark" data-seed="9" data-w="80"></span></div>
+    <div class="chip"><span class="dot g"></span><span class="v">feature/context-info</span></div>
+    <div class="chip accent"><span class="v">opus-4.8 · high</span></div>
+  </div>
+  <p class="card-desc">Rings + sparklines + a couple of chips. No labels-heavy table — shape and color carry the meaning.</p>
+</div>
+
+<!-- ============================================================ 8. EXTRA INFO =================== -->
+<h2><span class="n">08</span> Suggested extra placeholders <span class="sub">things worth surfacing you didn't list</span></h2>
+<ul class="sug" id="sugList"></ul>
+
+<!-- ============================================================ 9. OTHER AREAS ================== -->
+<h2><span class="n">09</span> Other chat-panel info opportunities <span class="sub">beyond a header</span></h2>
+<div class="grid2" style="margin-top:14px">
+  <div class="card"><div class="card-head"><span class="card-num">a</span><span class="card-title">Turn footer micro-stats</span></div><div class="card-body">
+    <div class="turn" style="padding:0"><div class="resp" style="margin-bottom:8px">…done. The placeholder engine now resolves dotted namespaces.</div>
+      <div class="row" style="gap:14px;font-family:var(--mono);font-size:9px;color:var(--mute)">
+        <span>⏱ 8.2s</span><span>↑ 1.2k ↓ 3.4k tok</span><span>🔧 4 tools</span><span>$0.42</span><span>ctx +2.1%</span>
+      </div>
+    </div>
+  </div><p class="card-desc">Per-turn cost / tokens / duration / tool-count, right under the response. Builds on today's stats column.</p></div>
+
+  <div class="card"><div class="card-head"><span class="card-num">b</span><span class="card-title">Timestamped separators</span></div><div class="card-body">
+    <div class="sep"><span>12:31</span><span class="ln"></span><span style="color:var(--dim)">session start · plan mode</span><span class="ln"></span></div>
+    <div class="turn" style="padding:8px 0"><div class="req">Add a status line</div></div>
+    <div class="sep"><span>12:48</span><span class="ln"></span><span style="color:var(--over)">mode → accept</span><span class="ln"></span></div>
+  </div><p class="card-desc">Lightweight time/state markers between turns — also a natural place to log mode/effort switches.</p></div>
+
+  <div class="card"><div class="card-head"><span class="card-num">c</span><span class="card-title">Input-box adornments</span></div><div class="card-body">
+    <div class="inputbar"><span class="chip" style="padding:1px 6px"><span class="ic">📁</span><span class="v" style="font-size:9px">clavis</span></span><span class="field">Type a message…</span><span class="chip accent" style="padding:1px 6px"><span class="v" style="font-size:9px">opus·high·plan</span></span><span class="send">➤</span></div>
+  </div><p class="card-desc">cwd hint left of the field, model/effort/mode chip by the send button — context exactly where you act.</p></div>
+
+  <div class="card"><div class="card-head"><span class="card-num">d</span><span class="card-title">Ambient corner clock + version</span></div><div class="card-body">
+    <div style="position:relative;height:70px;border:1px solid var(--faint);background:var(--card2)">
+      <span style="position:absolute;top:8px;right:10px;font-family:var(--mono);font-size:9px;color:var(--mute)">12:48 · Mon</span>
+      <span style="position:absolute;bottom:8px;right:10px;font-family:var(--mono);font-size:8px;color:var(--mute2)">CLAVIS v0.4.1</span>
+      <span style="position:absolute;bottom:8px;left:10px;font-family:var(--rajdhani);font-size:9px;letter-spacing:2px;color:var(--mute2);text-transform:uppercase">conversation</span>
+    </div>
+  </div><p class="card-desc">Non-intrusive date/time and Clavis version tucked in panel corners — present but ignorable.</p></div>
+</div>
+
+<p class="note" style="margin-top:48px;border-top:1px solid var(--line);padding-top:18px">
+<b>Next:</b> pick the directions you like (top-bar idea, status-line variant, chat-panel treatment, bar/ring style) and I'll write the implementation plan — placeholder engine as a shared Default-ALC assembly, token providers on the bus, facade reporting models/modes/efforts, and the real context size wired from <code>AgentUsageReport</code>.
+</p>
+
+<script>
+/* ============================== data ============================== */
+const NS = {
+  cwd:{icon:'📁',rows:[
+    ['cwd.path','~/Repos/FS/clavis','full working directory','g'],
+    ['cwd.name','clavis','leaf folder name','g'],
+    ['cwd.homeRelative','~/Repos/FS/clavis','path relative to home','g'],
+  ]},
+  git:{icon:'⎇',rows:[
+    ['git.branch','feature/context-info','current branch','a'],
+    ['git.dirtyMark','✱','set when working tree is dirty','a'],
+    ['git.changedFiles','5','number of changed files','a'],
+    ['git.addedLines','+3','lines added','a'],
+    ['git.removedLines','−2','lines removed','a'],
+    ['git.ahead','1','commits ahead of upstream','a'],
+    ['git.behind','0','commits behind upstream','a'],
+    ['git.repo','clavis','origin repo name','a'],
+    ['git.upstream','origin/main','tracking ref','a'],
+    ['git.user','Fabio von Hertell','git config user.name','a'],
+    ['git.version','2.45.1','installed git version','a'],
+    ['git.stashCount','0','number of stashes','a'],
+    ['git.lastCommitRelative','3m ago','time since HEAD','a'],
+  ]},
+  agent:{icon:'⚡',rows:[
+    ['agent.name','Claude','agent display name (via facade)','r'],
+    ['agent.model','opus-4.8','current model','g'],
+    ['agent.models','[opus-4.8, sonnet-4.6…]','available models (facade-reported)','r'],
+    ['agent.effort','high','low/medium/high/xhigh/max/ultracode','r'],
+    ['agent.efforts','[low…ultracode]','available efforts for this model','r'],
+    ['agent.mode','plan','auto/accept/plan/none','r'],
+    ['agent.modes','[auto, accept, plan, none]','available permission modes','r'],
+    ['agent.version','1.x','agent/CLI version','r'],
+    ['agent.contextWindow','200000','true window size (from usage report)','a'],
+    ['agent.contextUsed','128000','tokens used','g'],
+    ['agent.contextPercent','64','used / window (0–100)','g'],
+    ['agent.status','Working','live status','g'],
+    ['agent.costUsd','0.42','cost this turn','g'],
+    ['agent.sessionCostUsd','3.18','cumulative session cost','g'],
+    ['agent.turnDuration','8.2s','last turn wall-clock','g'],
+    ['agent.queued','0','queued prompts','g'],
+    ['agent.toolCalls','4','tool calls this turn','g'],
+  ]},
+  sys:{icon:'▤',rows:[
+    ['sys.cpu','23%','CPU, sampled (window configurable)','a'],
+    ['sys.ram','61%','RAM used %','a'],
+    ['sys.ramUsed','19.4 GB','RAM used','a'],
+    ['sys.ramTotal','32 GB','RAM total','a'],
+    ['sys.disk','88%','disk used % (cwd volume)','a'],
+    ['sys.diskFree','64 GB','free space','a'],
+    ['sys.battery','—','battery % (laptop)','a'],
+  ]},
+  time:{icon:'◴',rows:[
+    ['time.now','12:48:31','current time','g'],
+    ['time.date','2026-06-09','ISO date','g'],
+    ['time.time','12:48','HH:mm','g'],
+    ['time.iso','2026-06-09T12:48:31','ISO timestamp','g'],
+    ['time.now:HH:mm','12:48','custom .NET format','g'],
+  ]},
+  clavis:{icon:'◈',rows:[
+    ['clavis.version','v0.4.1','app version (assembly)','a'],
+    ['clavis.uptime','1h 12m','time since launch','a'],
+    ['clavis.plugins','14','active plugins','a'],
+    ['clavis.mcpServers','3','connected MCP servers','a'],
+  ]},
+};
+const COMP = [
+  ['bar:value','▰▰▰▱▱','progress bar from a 0–100 placeholder','cmp'],
+  ['limitPlane','◹','places the usage pace-plane','cmp'],
+  ['spark:value','╱╲╱','sparkline of a sampled series','cmp'],
+];
+const AV={g:'g',a:'a',r:'r'};
+
+/* ============================== catalog ============================== */
+function buildCatalog(){
+  const entries=Object.entries(NS);
+  const half=Math.ceil(entries.length/2);
+  const render=(slice,el,extra)=>{
+    let h='';
+    slice.forEach(([ns,d])=>{
+      h+=`<div class="ns"><span class="ic">${d.icon}</span>${ns}.<span class="cnt">· ${d.rows.length}</span></div>`;
+      h+=`<table class="cat"><tr><th style="width:18px"></th><th>placeholder</th><th>sample</th><th>description</th></tr>`;
+      d.rows.forEach(([ph,ex,ds,av])=>{
+        h+=`<tr><td class="av"><span class="dot ${av}"></span></td><td class="ph">{${ph}}</td><td class="ex">${ex}</td><td class="ds">${ds}</td></tr>`;
+      });
+      h+=`</table>`;
+    });
+    if(extra){
+      h+=`<div class="ns"><span class="ic">◧</span>components<span class="cnt">· ${COMP.length}</span></div><table class="cat"><tr><th style="width:18px"></th><th>placeholder</th><th>sample</th><th>description</th></tr>`;
+      COMP.forEach(([ph,ex,ds])=>{h+=`<tr><td></td><td class="ph">{${ph}}</td><td class="ex">${ex}</td><td class="ds">${ds}</td></tr>`;});
+      h+=`</table>`;
+    }
+    el.innerHTML=h;
+  };
+  render(entries.slice(0,half),document.getElementById('catA'),false);
+  render(entries.slice(half),document.getElementById('catB'),true);
+}
+
+/* ============================== intellisense demo ============================== */
+function buildAutocomplete(){
+  const el=document.getElementById('acDemo');
+  let h='';
+  NS.git.rows.slice(0,8).forEach((r,i)=>{
+    h+=`<div class="it ${i===0?'sel':''}"><span class="kind">val</span><span class="nm">git.<b>${r[0].split('.')[1]}</b></span><span class="desc">${r[2]}</span></div>`;
+  });
+  el.innerHTML=h;
+}
+
+/* ============================== svg helpers ============================== */
+function ring(pct,size){
+  const r=size/2-3,c=2*Math.PI*r,off=c*(1-pct/100);
+  const col=pct>=85?'var(--hot)':pct>=70?'var(--over)':'var(--clavis)';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#1a1a22" stroke-width="3"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${col}" stroke-width="3"
+      stroke-dasharray="${c}" stroke-dashoffset="${off}" transform="rotate(-90 ${size/2} ${size/2})" stroke-linecap="butt"/>
+    ${size>=34?`<text x="${size/2}" y="${size/2+3}" text-anchor="middle" font-size="${size*0.26}" fill="var(--bright)">${pct}</text>`:''}
+  </svg>`;
+}
+function limitPlane(u,t,size){
+  const p=6,s=size,w=s-p*2;
+  // x = usage (0..1), y axis inverted (time bottom->top). diagonal even-burn line.
+  const x=p+u*w, y=s-p-t*w;
+  const onPace=u<=t+0.001; // under usage-vs-time => surplus(green)
+  const dotCol=u>t?'var(--hot)':'var(--under)';
+  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">
+    <rect x="${p}" y="${p}" width="${w}" height="${w}" fill="none" stroke="#1c1c24" stroke-width="1"/>
+    <line x1="${p}" y1="${s-p}" x2="${s-p}" y2="${p}" stroke="var(--mute2)" stroke-width="1" stroke-dasharray="2 2"/>
+    <circle cx="${x}" cy="${y}" r="${Math.max(2,size*0.06)}" fill="${dotCol}"/>
+  </svg>`;
+}
+function spark(seed,w){
+  const n=18,h=14;let pts=[],v=10+(seed*7)%30;
+  for(let i=0;i<n;i++){v+=(((seed*13+i*7)%11)-5);v=Math.max(2,Math.min(h-2,v));pts.push(v);}
+  const dx=w/(n-1);
+  const d=pts.map((p,i)=>`${i?'L':'M'}${(i*dx).toFixed(1)} ${(h-p).toFixed(1)}`).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><path d="${d}" fill="none" stroke="var(--clavis)" stroke-width="1"/></svg>`;
+}
+function segbar(pctSeg,total,warn){
+  let h='';for(let i=0;i<total;i++){const on=i<pctSeg;h+=`<i class="${on?(warn?'warn':'on'):''}"></i>`;}return h;
+}
+
+/* ============================== mount ============================== */
+buildCatalog();buildAutocomplete();
+
+document.querySelectorAll('.limitplane').forEach(e=>{
+  const sz=+(e.dataset.size||22);e.innerHTML=limitPlane(+e.dataset.u,+e.dataset.t,sz);e.style.display='inline-block';e.style.lineHeight='0';
+});
+document.querySelectorAll('.spark').forEach(e=>{e.innerHTML=spark(+(e.dataset.seed||4),+(e.dataset.w||44));e.style.display='inline-block';e.style.lineHeight='0';e.style.margin='0 4px'});
+document.querySelectorAll('.ringMini').forEach(e=>{e.innerHTML=ring(+e.dataset.pct,+(e.dataset.size||22));e.style.display='inline-block';e.style.lineHeight='0'});
+document.querySelectorAll('.seg-bar').forEach(e=>{const n=+e.dataset.seg;e.innerHTML=segbar(n,20,e.classList.contains('warn'))});
+
+// rings card
+document.getElementById('rings').innerHTML=
+  ['64','23','88'].map((p,i)=>`<div style="text-align:center"><div>${ring(+p,52)}</div><div class="lbl" style="margin-top:4px">${['ctx','cpu','disk'][i]} ${p}%</div></div>`).join('');
+// vertical bars card
+document.getElementById('vbars').innerHTML=
+  [['ctx',64],['cpu',23],['ram',61],['disk',88]].map(([k,v])=>{
+    const col=v>=85?'var(--hot)':v>=70?'var(--over)':'var(--clavis)';
+    return `<div style="text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+      <div style="width:12px;height:90px;background:#16161c;display:flex;align-items:flex-end"><div style="width:100%;height:${v}%;background:${col}"></div></div>
+      <div class="lbl" style="margin-top:5px">${k}</div></div>`;
+  }).join('');
+
+// suggestions
+const SUG=[
+  ['agent.sessionCostUsd','Cumulative $ spent this session — budget awareness at a glance.'],
+  ['agent.burnRate','Tokens/min over a rolling window — spot a runaway turn early.'],
+  ['agent.turnDuration','Wall-clock of the last turn; pairs well with the footer micro-stats.'],
+  ['agent.queued','How many prompts are waiting behind the active turn.'],
+  ['agent.toolCalls','Tool invocations this turn — a cheap activity proxy.'],
+  ['clavis.mcpServers','Connected MCP servers; a red dot if one dropped.'],
+  ['clavis.plugins','Active plugin count — quick health read.'],
+  ['agent.mode (badge)','Permission-mode badge that recolors on auto/accept/plan/none.'],
+  ['agent.hooksActive','Whether session hooks are firing (and which).'],
+  ['git.stashCount','Forgotten stashes are easy to lose — surface the count.'],
+  ['sys.battery','On a laptop, low battery during a long agent run is worth knowing.'],
+  ['time.timezone','Useful when scheduling or reading logs across zones.'],
+];
+document.getElementById('sugList').innerHTML=SUG.map(([p,d])=>`<li><span class="dot a" style="margin-top:4px"></span><div><span class="ph">{${p}}</span><span class="d">${d}</span></div></li>`).join('');
+</script>
+</body>
+</html>

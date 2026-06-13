@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CLAVIS — Context Info / Status Line — v2 (chosen direction)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0A10;--surface:#08080A;--card:#0D0D12;--card2:#101016;--line:#222228;--faint:#19191F;--frame:#4A4A52;
+  --text:#C8C8D0;--bright:#F0F0F0;--dim:#B0B0BA;--mute:#55555E;--mute2:#3A3A42;
+  --clavis:#9FD5F0;--clavis-dim:#5E7E8E;
+  --under:#6FD49B;--over:#D49A6A;--hot:#D47070;--human:#5ED4C4;
+  /* claude mode colors */
+  --mode-auto:#FDE199;       /* auto = yellow */
+  --mode-accept:#C4A4E6;     /* accept edits = purple */
+  --mode-plan:#6FD49B;       /* plan = green */
+  --rajdhani:'Rajdhani',sans-serif;--inter:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--inter);font-weight:300;padding:48px 44px 160px;min-height:100vh;line-height:1.5}
+h1{font-family:var(--rajdhani);font-size:20px;letter-spacing:7px;text-transform:uppercase;color:var(--bright);font-weight:700;margin-bottom:8px}
+h1 small{display:block;font-size:11px;letter-spacing:3px;color:var(--clavis);font-weight:500;margin-top:6px}
+p.lead{font-size:12px;color:#8A8A94;max-width:1000px;margin-bottom:10px;line-height:1.85}
+p.lead b{color:var(--clavis);font-weight:400}
+h2{font-family:var(--rajdhani);font-size:13px;letter-spacing:4px;text-transform:uppercase;color:var(--bright);font-weight:600;margin:60px 0 4px;padding-bottom:10px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px}
+h2 .n{font-family:var(--mono);font-size:11px;color:var(--clavis);font-weight:400}
+h2 .sub{font-family:var(--inter);font-size:10.5px;letter-spacing:0;text-transform:none;color:var(--mute);font-weight:300;margin-left:auto}
+h3{font-family:var(--rajdhani);font-size:10.5px;letter-spacing:2.5px;text-transform:uppercase;color:var(--dim);font-weight:600;margin:0 0 10px}
+.note{font-size:10.5px;color:#76767E;line-height:1.7;margin:8px 0 0;max-width:920px}
+.note b{color:var(--clavis);font-weight:400}
+.lbl{font-family:var(--rajdhani);font-size:8.5px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
+.num{font-family:var(--mono)}
+code{font-family:var(--mono);font-size:11px;color:var(--clavis);background:#11111a;padding:1px 5px;border:1px solid var(--faint)}
+.pill{font-family:var(--rajdhani);font-size:7.5px;letter-spacing:1.4px;text-transform:uppercase;border:1px solid var(--frame);color:var(--mute);padding:1px 6px;margin-left:auto}
+.pill.rec{border-color:var(--clavis);color:var(--clavis)}
+.row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{border:1px solid var(--line);background:var(--card);position:relative;display:flex;flex-direction:column}
+.card-head{display:flex;align-items:baseline;gap:10px;padding:11px 15px 9px;border-bottom:1px solid var(--faint)}
+.card-num{font-family:var(--mono);font-size:9.5px;color:var(--clavis)}
+.card-title{font-family:var(--rajdhani);font-size:10.5px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--bright)}
+.card-body{padding:16px;flex:1}
+.card-desc{padding:0 15px 13px;font-size:10px;line-height:1.65;color:#76767E}
+.card-desc b{color:var(--clavis);font-weight:400}
+svg{display:block;overflow:visible}
+
+/* dots = circles */
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--clavis);flex:none}
+.dot.g{background:var(--under)}.dot.a{background:var(--over)}.dot.r{background:var(--hot)}.dot.m{background:var(--mute)}
+.star{color:var(--mode-auto);font-size:11px}
+.breathe{animation:pulse 2.4s ease-in-out infinite}@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+
+/* ---------- NEW bar component: label in front, no %, dark full-length track + bright fill ---------- */
+.barline{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px}
+.barline .lab{font-family:var(--rajdhani);font-size:8.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim)}
+.barline .track{height:3px;background:#1b1b22;position:relative;display:inline-block}
+.barline .track>i{position:absolute;left:0;top:0;height:100%;background:var(--clavis)}
+.barline .track.warn>i{background:var(--over)}.barline .track.hot>i{background:var(--hot)}.barline .track.good>i{background:var(--under)}
+.barline .xy{color:var(--text)}
+
+/* ---------- standard badge: dark-gray (FaintBrush #2A2A30) rectangle, colored text, no border ---------- */
+.badge{font-family:var(--rajdhani);font-size:8px;letter-spacing:1.4px;text-transform:uppercase;padding:2px 7px;line-height:1.4;background:#2A2A30;color:var(--dim)}
+.badge.auto{color:var(--mode-auto)}
+.badge.accept{color:var(--mode-accept)}
+.badge.plan{color:var(--mode-plan)}
+
+/* ---------- window-frame mock ---------- */
+.win{border:1px solid var(--clavis-dim);background:var(--bg);width:100%;max-width:600px}
+.titlebar{height:30px;display:flex;align-items:center;background:#0c0c11;border-bottom:1px solid var(--faint);position:relative}
+.titlebar .left{padding-left:14px;flex:1;min-width:0;display:flex;align-items:center;gap:9px}
+.titlebar .right{padding-right:4px;display:flex;align-items:center;gap:9px}
+.tb-close{width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--mute);cursor:pointer}
+.tb-close:hover{color:var(--hot);background:#1a0d0d}
+.tb-txt{font-family:var(--rajdhani);font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-model{font-family:var(--mono);font-size:10px;color:var(--bright)}
+.tb-effort{font-family:var(--mono);font-size:10px;color:var(--clavis)}
+.tb-branch{font-family:var(--mono);font-size:10px;color:var(--clavis)}
+.tb-sep{width:1px;height:11px;background:var(--mute2)}
+.win-body{height:80px;display:flex;align-items:center;justify-content:center;color:var(--mute2);font-family:var(--rajdhani);letter-spacing:3px;text-transform:uppercase;font-size:10px;background:repeating-linear-gradient(135deg,#0a0a10,#0a0a10 9px,#0c0c12 9px,#0c0c12 18px)}
+
+/* ---------- conversation status bar (bottom of chat window) ---------- */
+.cbar{display:flex;align-items:center;height:26px;background:#0b0b10;border:1px solid var(--line);padding:0 12px;font-family:var(--mono);font-size:10px;color:var(--dim)}
+.cbar .z{display:flex;align-items:center;gap:12px;height:100%}
+.cbar .z.l{flex:1;justify-content:flex-start}
+.cbar .z.c{flex:1;justify-content:center}
+.cbar .z.r{flex:1;justify-content:flex-end}
+.cbar .cv{color:var(--mute)}
+
+/* ---------- intellisense ---------- */
+.ide{border:1px solid var(--frame);background:#0c0c12;font-family:var(--mono)}
+.ide .input{padding:8px 12px;font-size:11.5px;color:var(--text)}
+.ide .input .typed{color:var(--bright)} .ide .input .caret{color:var(--clavis);animation:blink 1s steps(1) infinite}
+.ide.titled{border:1px solid var(--frame)}
+.ide .cap{font-family:var(--rajdhani);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mute);padding:5px 12px 0}
+@keyframes blink{50%{opacity:0}}
+.ac{max-height:300px;overflow:auto;border-top:1px solid var(--line)}
+.ac .it{display:flex;align-items:center;gap:10px;padding:5px 12px;font-size:11px;border-left:2px solid transparent}
+.ac .it:hover,.ac .it.sel{background:#15151d;border-left-color:var(--clavis)}
+.ac .it .kind{font-family:var(--rajdhani);font-size:7.5px;letter-spacing:1px;text-transform:uppercase;background:#2A2A30;color:var(--clavis);padding:2px 7px;flex:none;text-align:center;line-height:1.4}
+.ac .it .kind.cmp{color:var(--under)}.ac .it .kind.fmt{color:var(--over)}
+.ac .it .nm{color:var(--bright);flex:none}.ac .it .nm b{color:var(--clavis);font-weight:500}
+.ac .it .desc{color:var(--mute);font-size:10px;margin-left:auto;text-align:right;font-family:var(--inter)}
+.ac .it .from{font-family:var(--rajdhani);font-size:7px;letter-spacing:1px;text-transform:uppercase;color:var(--mute2);margin-left:8px}
+
+/* ---------- turn row with configurable micro-stat stats column ---------- */
+.turnrow{display:grid;grid-template-columns:84px 20px 1fr;gap:0;border:1px solid var(--line);background:var(--surface);max-width:660px}
+.stats{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:14px 8px 14px 12px}
+.ms{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+.ms .ic{font-size:10px;color:var(--dim)}
+.ms .v{color:var(--dim)}
+.rail{display:flex;flex-direction:column;align-items:center;padding-top:16px}
+.rail .pip{width:7px;height:7px;border-radius:50%;background:var(--clavis)}
+.rail .line{width:1px;flex:1;background:var(--faint);margin-top:5px}
+.content{padding:14px 16px}
+.content .req{color:var(--bright);font-size:12.5px;margin-bottom:8px}
+.content .resp{color:var(--text);font-size:11.5px;line-height:1.7}
+.addrm{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.addrm .chipx{font-family:var(--mono);font-size:9px;color:var(--mute);border:1px dashed var(--mute2);padding:2px 7px}
+
+/* ---------- reusable input control demo ---------- */
+.inp{border:1px solid var(--frame);background:#0c0c12;font-family:var(--mono);font-size:11.5px;color:var(--text);padding:7px 11px;display:flex;align-items:center}
+.inp.focus{border-color:var(--clavis)}
+.inp .ph{color:var(--mute)}
+</style>
+</head>
+<body>
+
+<h1>CLAVIS <small>v2 — chosen direction, refined to spec</small></h1>
+<p class="lead">
+Final design from your decisions. Placeholders are <b>plugin-contributed</b> &amp; namespaced with IntelliSense; components are
+<b>bar / limitPlane / badge / microstat</b> with a <code>{value:format}</code> transform (e.g. <code>{agent.name:uppercase}</code>).
+New bar style (label in front, dark full-length track, no %). Top bar: per-panel left title + minimal right agent cluster with Claude mode colors, both
+<b>configurable &amp; faded on switch</b>. The status-line editor is a new panel; the input-box style becomes a shared control.
+</p>
+
+<!-- 1. grammar -->
+<h2><span class="n">01</span> Placeholder grammar &amp; plugin contribution <span class="sub">every plugin owns its namespace</span></h2>
+<div class="grid2" style="margin-top:14px">
+  <div class="card">
+    <div class="card-head"><span class="card-num">A</span><span class="card-title">Grammar</span></div>
+    <div class="card-body" style="font-family:var(--mono);font-size:11px;line-height:2.1;color:var(--text)">
+      <div><code>{git.branch}</code><span style="color:var(--mute)"> — value</span></div>
+      <div><code>{agent.name:uppercase}</code><span style="color:var(--mute)"> — value : format</span></div>
+      <div><code>{time.now:HH:mm}</code><span style="color:var(--mute)"> — value : .NET format</span></div>
+      <div><code>{bar:agent.contextPercent}</code><span style="color:var(--mute)"> — component : value</span></div>
+      <div><code>{badge:agent.mode}</code><span style="color:var(--mute)"> — component : value</span></div>
+      <div><code>{badge:time.now:HH:mm}</code><span style="color:var(--mute)"> — component : value : <b style="color:var(--clavis)">format</b> (composable)</span></div>
+      <div><code>{microstat(arrow-up):turn.runtime}</code><span style="color:var(--mute)"> — component(arg) : value</span></div>
+      <div><code>{limitPlane}</code><span style="color:var(--mute)"> — component, no value</span></div>
+      <p class="card-desc" style="padding:12px 0 0">Leading name decides: a registered <b>component</b> treats the tail as the value; otherwise the name is a value and the tail is a <b>format/transform</b>. <b>Components and formats compose</b> — a component's value can itself carry a format, so <code>{badge:time.now:HH:mm}</code> renders a badge holding the time formatted <code>HH:mm</code>. Unknown tokens render verbatim.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="card-num">B</span><span class="card-title">Plugin-contributed namespaces</span><span class="pill rec">extensible</span></div>
+    <div class="card-body">
+      <div style="font-family:var(--mono);font-size:10.5px;line-height:1.95;color:var(--text)">
+        <div><span style="color:var(--clavis)">agent.*</span> &nbsp;◂ &nbsp;<span style="color:var(--mute)">ClaudeBridge / agent facade</span></div>
+        <div><span style="color:var(--clavis)">git.*</span> &nbsp;◂ &nbsp;<span style="color:var(--mute)">git provider plugin</span></div>
+        <div><span style="color:var(--clavis)">sys.*</span> &nbsp;◂ &nbsp;<span style="color:var(--mute)">system-metrics plugin</span></div>
+        <div><span style="color:var(--clavis)">turn.* / context</span> &nbsp;◂ &nbsp;<span style="color:var(--mute)">conversation plugin</span></div>
+        <div><span style="color:var(--clavis)">cwd.* / clavis.* / time.*</span> &nbsp;◂ &nbsp;<span style="color:var(--mute)">host / core providers</span></div>
+      </div>
+      <p class="card-desc" style="padding:12px 0 0">Each plugin registers a <b>PlaceholderProvider</b> (namespace + token descriptors + value resolver) on the bus. The engine aggregates every registration for resolution <b>and</b> IntelliSense — so a new plugin's tokens appear in the catalog automatically.</p>
+    </div>
+  </div>
+</div>
+
+<!-- 2. intellisense -->
+<h2><span class="n">02</span> IntelliSense <span class="sub">namespaces · keys · components · formats — all discoverable</span></h2>
+<div class="row" style="margin-top:14px;gap:18px">
+  <div class="ide titled" style="width:520px">
+    <div class="cap">status-line · left zone</div>
+    <div class="input"><span class="typed">{git.</span><span class="caret">▏</span></div>
+    <div class="ac" id="ac1"></div>
+  </div>
+  <div class="ide titled" style="width:430px">
+    <div class="cap">after a value, type ":" → formats</div>
+    <div class="input"><span class="typed">{agent.name:</span><span class="caret">▏</span></div>
+    <div class="ac" id="ac2"></div>
+  </div>
+</div>
+
+<!-- 3. bar component -->
+<h2><span class="n">03</span> Bar component <span class="sub">label in front · dark full-length track · bright fill · no %</span></h2>
+<div class="grid3" style="margin-top:14px">
+  <div class="card"><div class="card-head"><span class="card-num">a</span><span class="card-title">Standalone</span></div><div class="card-body col" style="gap:13px">
+    <span class="barline"><span class="lab">ctx</span><span class="track" style="width:120px"><i style="width:64%"></i></span></span>
+    <span class="barline"><span class="lab">cpu</span><span class="track good" style="width:120px"><i style="width:23%"></i></span></span>
+    <span class="barline"><span class="lab">disk</span><span class="track hot" style="width:120px"><i style="width:88%"></i></span></span>
+  </div></div>
+  <div class="card"><div class="card-head"><span class="card-num">b</span><span class="card-title">With X/Y (chat status)</span></div><div class="card-body">
+    <span class="barline"><span class="lab">ctx</span><span class="track" style="width:130px"><i style="width:64%"></i></span><span class="xy">128k / 200k</span></span>
+    <p class="card-desc" style="padding:11px 0 0">Exactly the chat status-bar form: <code>{bar:agent.contextPercent}</code> then <code>{agent.contextUsed}/{agent.contextWindow}</code>. No percentage glyph; the dark track conveys the remainder.</p>
+  </div></div>
+  <div class="card"><div class="card-head"><span class="card-num">c</span><span class="card-title">Inline in prose</span></div><div class="card-body">
+    <div class="content resp" style="padding:0">Context <span class="barline" style="vertical-align:middle"><span class="track" style="width:70px"><i style="width:64%"></i></span></span> ~72k tokens of headroom remain.</div>
+  </div></div>
+</div>
+
+<!-- 4. window top bar -->
+<h2><span class="n">04</span> Window top bar <span class="sub">per-panel left title · minimal right agent cluster · configurable · faded on switch</span></h2>
+<p class="note">
+Right cluster (your <b>B pure-minimal</b>): <span class="tb-model">model</span> brighter · <span class="tb-effort">effort</span> in accent · mode as a colored <b>badge</b>
+(<span style="color:var(--mode-auto)">auto=yellow</span>, <span style="color:var(--mode-accept)">accept=purple</span>, <span style="color:var(--mode-plan)">plan=green</span>, none hidden).
+Left (your <b>D per-panel provider</b>): chat → branch + <span class="star">★</span> if uncommitted; shortcuts → "Keyboard Shortcuts"; slide-ins → nothing.
+</p>
+<div class="col" style="margin-top:14px;gap:14px">
+  <div class="card">
+    <div class="card-head"><span class="card-num">A</span><span class="card-title">Switch panels → top bar fades (click)</span><span class="pill rec">configurable per kind</span></div>
+    <div class="card-body">
+      <div class="win"><div class="titlebar">
+        <div class="left" id="tbLeft"><span class="tb-branch">feature/context-info</span> <span class="star">★</span></div>
+        <div class="right" id="tbRight">
+          <span class="tb-model">opus-4.8</span><span class="tb-sep"></span><span class="tb-effort">high</span><span class="tb-sep"></span><span class="badge plan">plan</span>
+          <span class="tb-close">✕</span>
+        </div>
+      </div><div class="win-body" id="tbBody">conversation</div></div>
+      <div class="row" style="margin-top:12px;gap:8px">
+        <button class="tabbtn" data-k="chat">chat</button>
+        <button class="tabbtn" data-k="shortcuts">shortcuts</button>
+        <button class="tabbtn" data-k="git">git-log</button>
+        <button class="tabbtn" data-k="slide">slide-in</button>
+      </div>
+      <p class="card-desc" style="padding:11px 0 0">The left title is itself a <b>placeholder template per panel kind</b> (chat = <code>{git.branch}{git.dirtyStar}</code>, shortcuts = literal text). On switch, content cross-fades quickly (~140ms via <code>Motion.fadeTo</code>).</p>
+    </div>
+  </div>
+</div>
+
+<!-- 5. chat status bar -->
+<h2><span class="n">05</span> Chat status bar <span class="sub">ctx bar + X/Y left · working dir centered (truncated) · clavis version right</span></h2>
+<p class="note">Working dir: collapse home to <code>~\</code>; if more than 4 segments, cut the start to <code>...\a\b\c\d</code>.</p>
+<div class="col" style="margin-top:14px;gap:12px">
+  <div class="cbar">
+    <div class="z l"><span class="barline"><span class="lab">ctx</span><span class="track" style="width:120px"><i style="width:64%"></i></span><span class="xy">128k / 200k</span></span></div>
+    <div class="z c" id="cwd1"></div>
+    <div class="z r"><span class="cv">CLAVIS v0.4.1</span></div>
+  </div>
+  <div class="cbar">
+    <div class="z l"><span class="barline"><span class="lab">ctx</span><span class="track warn" style="width:120px"><i style="width:82%"></i></span><span class="xy">164k / 200k</span></span></div>
+    <div class="z c" id="cwd2"></div>
+    <div class="z r"><span class="cv">CLAVIS v0.4.1</span></div>
+  </div>
+  <p class="note">Examples of the centered cwd truncation:</p>
+  <table style="font-family:var(--mono);font-size:10.5px;border-collapse:collapse">
+    <tr><td style="color:var(--mute);padding:3px 18px 3px 0">C:\Users\fhertell\Repos\FS\clavis</td><td style="color:var(--bright)">~\Repos\FS\clavis</td></tr>
+    <tr><td style="color:var(--mute);padding:3px 18px 3px 0">C:\Users\fhertell\Repos\FS\clavis\src\plugins\wpf-host\views</td><td style="color:var(--bright)">...\wpf-host\views ← (last 4: ...\plugins\wpf-host\views)</td></tr>
+    <tr><td style="color:var(--mute);padding:3px 18px 3px 0">D:\work\project</td><td style="color:var(--bright)">D:\work\project</td></tr>
+  </table>
+</div>
+
+<!-- 6. micro-stats -->
+<h2><span class="n">06</span> Configurable micro-stats <span class="sub">in front of the turn · default runtime + tokens · add/remove freely</span></h2>
+<p class="note">The stats column becomes a <b>configurable micro-stat template</b> using <code>{microstat(icon):turn.value}</code>. Default = runtime + tokens; add cost, tool-count, context-delta, etc.</p>
+<div class="row" style="margin-top:14px;gap:18px;align-items:flex-start">
+  <div class="col" style="gap:12px">
+    <div class="turnrow">
+      <div class="stats" id="stats1"></div>
+      <div class="rail"><span class="pip"></span><span class="line"></span></div>
+      <div class="content"><div class="req">Add a configurable status line</div><div class="resp">I'll start by exploring the placeholder engine and registering providers per plugin…</div></div>
+    </div>
+    <p class="card-desc" style="padding:0">Default template: <code>{microstat(clock):turn.runtime}{microstat(tokens):turn.tokens}</code></p>
+  </div>
+  <div class="card" style="flex:1;min-width:300px">
+    <div class="card-head"><span class="card-num">+</span><span class="card-title">Available turn.* micro-stats</span></div>
+    <div class="card-body">
+      <div class="addrm" id="microMenu"></div>
+      <p class="card-desc" style="padding:11px 0 0">Drag any into the stats column; it persists in config. The same <code>microstat</code> component works in the status line or a markdown panel.</p>
+    </div>
+  </div>
+</div>
+
+<!-- 7. status-line editor panel -->
+<h2><span class="n">07</span> Status-line editor — a new panel <span class="sub">left / center / right zones · live preview · persists to configuration.yaml</span></h2>
+<div class="card" style="margin-top:14px;max-width:780px">
+  <div class="card-head"><span class="card-num">panel</span><span class="card-title">kind: status-line-editor</span><span class="pill">dockable</span></div>
+  <div class="card-body col" style="gap:13px">
+    <div><div class="lbl" style="margin-bottom:5px">target</div>
+      <div style="position:relative;max-width:300px">
+        <div class="inp" style="justify-content:space-between"><span style="color:var(--bright)">conversation status bar</span><span style="color:var(--mute)">▾</span></div>
+        <div style="border:1px solid var(--frame);border-top:none;background:#0c0c12;font-family:var(--mono);font-size:11px">
+          <div style="padding:5px 11px;color:var(--bright);background:#15151d;border-left:2px solid var(--clavis)">conversation status bar</div>
+          <div style="padding:5px 11px;color:var(--text);border-left:2px solid transparent">chat panel — top bar (left)</div>
+          <div style="padding:5px 11px;color:var(--text);border-left:2px solid transparent">chat panel — top bar (right)</div>
+          <div style="padding:5px 11px;color:var(--text);border-left:2px solid transparent">chat panel — stats column</div>
+          <div style="padding:5px 11px;color:var(--text);border-left:2px solid transparent">git-log panel — top bar</div>
+        </div>
+      </div>
+      <p class="card-desc" style="padding:7px 0 0">A single dropdown, not a row of every panel — keeps it uncrowded as panel kinds grow.</p>
+    </div>
+    <div><div class="lbl" style="margin-bottom:5px">left</div><div class="ide"><div class="input" style="font-size:11px"><span class="typed">{bar:agent.contextPercent} {agent.contextUsed}/{agent.contextWindow}</span></div></div></div>
+    <div><div class="lbl" style="margin-bottom:5px">center</div><div class="ide"><div class="input" style="font-size:11px"><span class="typed">{cwd.short}</span></div></div></div>
+    <div><div class="lbl" style="margin-bottom:5px">right</div><div class="ide"><div class="input" style="font-size:11px"><span class="typed">CLAVIS {clavis.version}</span><span class="caret">▏</span></div></div></div>
+    <div><div class="lbl" style="margin-bottom:6px">live preview</div>
+      <div class="cbar">
+        <div class="z l"><span class="barline"><span class="lab">ctx</span><span class="track" style="width:120px"><i style="width:64%"></i></span><span class="xy">128k / 200k</span></span></div>
+        <div class="z c"><span style="color:var(--text)">~\Repos\FS\clavis</span></div>
+        <div class="z r"><span class="cv">CLAVIS v0.4.1</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 8. shared input control -->
+<h2><span class="n">08</span> Shared input control <span class="sub">promote the editor input box to FabioSoft.Clavis.Controls; adopt in shortcut editor</span></h2>
+<div class="grid2" style="margin-top:14px">
+  <div class="card"><div class="card-head"><span class="card-num">a</span><span class="card-title">New default Inputs.text</span></div><div class="card-body col" style="gap:10px">
+    <div class="inp"><span class="ph">Type a value…</span></div>
+    <div class="inp focus"><span class="typed" style="color:var(--bright)">opus-4.8</span><span class="caret" style="color:var(--clavis)">▏</span></div>
+    <p class="card-desc" style="padding:8px 0 0">Square corners, frame border, focus → accent border, mono font — themed purely via host resource keys.</p>
+  </div></div>
+  <div class="card"><div class="card-head"><span class="card-num">b</span><span class="card-title">Shortcut editor adopts it</span></div><div class="card-body col" style="gap:10px">
+    <div class="row" style="gap:10px;align-items:center"><span class="tb-txt" style="width:90px">Toggle panel</span><div class="inp" style="flex:1"><span class="typed" style="color:var(--bright)">Ctrl + Shift + P</span></div></div>
+    <div class="row" style="gap:10px;align-items:center"><span class="tb-txt" style="width:90px">Close panel</span><div class="inp focus" style="flex:1"><span class="typed" style="color:var(--bright)">Esc</span></div></div>
+    <p class="card-desc" style="padding:8px 0 0">Same control, consistent look across every plugin input.</p>
+  </div></div>
+</div>
+
+<p class="note" style="margin-top:48px;border-top:1px solid var(--line);padding-top:18px">
+All decisions captured. The implementation plan (placeholder engine as a shared Default-ALC assembly, the <code>PlaceholderProvider</code> contract, facade reporting models/modes/efforts, real context size from <code>AgentUsageReport</code>, the new components, the editor panel, and the shared input control) is written up in the plan file.
+</p>
+
+<script>
+const GIT=[
+ ['branch','feature/context-info','current branch'],['dirtyStar','★','star when dirty'],
+ ['changedFiles','5','changed files'],['addedLines','+3','lines added'],['removedLines','−2','lines removed'],
+ ['ahead','1','ahead of upstream'],['repo','clavis','origin repo'],['user','Fabio von Hertell','user.name'],
+];
+const FMT=[['uppercase','CLAUDE','to upper'],['lowercase','claude','to lower'],['trim','claude','trim space'],['pad(8)','claude  ','pad/align'],['default(—)','—','fallback if empty']];
+document.getElementById('ac1').innerHTML=GIT.map((r,i)=>`<div class="it ${i===0?'sel':''}"><span class="kind">value</span><span class="nm">git.<b>${r[0]}</b></span><span class="from">git</span><span class="desc">${r[2]}</span></div>`).join('');
+document.getElementById('ac2').innerHTML=FMT.map((r,i)=>`<div class="it ${i===0?'sel':''}"><span class="kind fmt">format</span><span class="nm"><b>${r[0]}</b></span><span class="desc">${r[1]} · ${r[2]}</span></div>`).join('');
+
+// limit plane mini for completeness (not heavily used here)
+// micro-stats default + menu
+const MS_DEFAULT=[['◷','8.2s'],['↑↓','1.2k/3.4k']];
+const MS_MENU=[['◷','runtime'],['↑↓','tokens'],['$','cost'],['⚒','tools'],['▣','ctx Δ'],['⟳','retries'],['◴','queued']];
+document.getElementById('stats1').innerHTML=MS_DEFAULT.map(([i,v])=>`<span class="ms"><span class="ic">${i}</span><span class="v">${v}</span></span>`).join('');
+document.getElementById('microMenu').innerHTML=MS_MENU.map(([i,v])=>`<span class="chipx">${i} ${v}</span>`).join('');
+
+// cwd truncation demo
+function shortCwd(p){
+  let s=p.replace(/^C:\\Users\\fhertell/i,'~');
+  const parts=s.split('\\').filter(Boolean);
+  if(parts.length>4){return '...\\'+parts.slice(-4).join('\\');}
+  return s.startsWith('~')? s : s;
+}
+document.getElementById('cwd1').innerHTML=`<span style="color:var(--text)">${shortCwd('C:\\Users\\fhertell\\Repos\\FS\\clavis')}</span>`;
+document.getElementById('cwd2').innerHTML=`<span style="color:var(--text)">${shortCwd('C:\\Users\\fhertell\\Repos\\FS\\clavis\\src\\plugins\\wpf-host\\views')}</span>`;
+
+// top bar panel switch with fade
+const PANELS={
+  chat:{left:'<span class="tb-branch">feature/context-info</span> <span class="star">★</span>',right:true,body:'conversation'},
+  shortcuts:{left:'<span class="tb-txt">⌨ Keyboard Shortcuts</span>',right:true,body:'keyboard shortcuts'},
+  git:{left:'<span class="tb-txt">git-log · </span><span class="tb-branch">clavis</span>',right:true,body:'git log'},
+  slide:{left:'',right:false,body:'slide-in (no chrome)'},
+};
+const rightHtml='<span class="tb-model">opus-4.8</span><span class="tb-sep"></span><span class="tb-effort">high</span><span class="tb-sep"></span><span class="badge plan">plan</span>';
+const L=document.getElementById('tbLeft'),R=document.getElementById('tbRight'),B=document.getElementById('tbBody');
+function setPanel(k){
+  const p=PANELS[k];
+  [L,R,B].forEach(e=>{e.style.transition='opacity .14s ease';e.style.opacity='0';});
+  setTimeout(()=>{
+    L.innerHTML=p.left;
+    R.innerHTML=(p.right?rightHtml:'')+'<span class="tb-close">✕</span>';
+    B.textContent=p.body;
+    [L,R,B].forEach(e=>e.style.opacity='1');
+  },150);
+}
+document.querySelectorAll('.tabbtn').forEach(b=>{
+  b.style.cssText='font-family:var(--rajdhani);font-size:9px;letter-spacing:2px;text-transform:uppercase;background:#0c0c12;border:1px solid var(--frame);color:var(--dim);padding:5px 12px;cursor:pointer';
+  b.onclick=()=>setPanel(b.dataset.k);
+});
+</script>
+</body>
+</html>

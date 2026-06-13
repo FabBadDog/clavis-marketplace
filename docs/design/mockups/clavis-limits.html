@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CLAVIS — Limit Visualizations</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0A0C;--surface:#08080A;--card:#0D0D10;--line:#222228;--faint:#19191F;
+  --text:#C8C8D0;--bright:#E8E8EC;--dim:#8A8A94;--mute:#55555E;
+  --clavis:#7FB5D8;        /* on-pace / neutral blue */
+  --under:#6FD49B;         /* under pace - surplus, good */
+  --over:#D49A6A;          /* over pace - warning amber */
+  --hot:#D47070;           /* severe over - red */
+  --human:#5ED4C4;
+  --rajdhani:'Rajdhani',sans-serif;
+  --inter:'Inter',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--inter);font-weight:300;padding:56px 48px 140px;min-height:100vh}
+
+h1{font-family:var(--rajdhani);font-size:15px;letter-spacing:6px;text-transform:uppercase;color:#9AA;margin-bottom:6px;font-weight:600}
+p.lead{font-size:11.5px;color:#777;max-width:900px;margin-bottom:28px;line-height:1.8}
+
+/* sample-data banner */
+.data{
+  display:flex;gap:40px;flex-wrap:wrap;
+  border:1px solid var(--line);background:var(--surface);
+  padding:14px 20px;margin-bottom:14px;max-width:900px;
+}
+.data .col{display:flex;flex-direction:column;gap:3px}
+.data .k{font-family:var(--rajdhani);font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:var(--mute)}
+.data .v{font-family:var(--mono);font-size:12px;color:var(--bright)}
+.data .v small{color:var(--dim);font-size:10px}
+
+.legend{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:44px;font-family:var(--rajdhani);font-size:9px;letter-spacing:1.6px;text-transform:uppercase;color:var(--dim)}
+.legend .sw{display:inline-flex;align-items:center;gap:7px}
+.legend .dot{width:9px;height:9px;display:inline-block}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(390px,1fr));gap:18px}
+
+.card{border:1px solid var(--line);background:var(--card);display:flex;flex-direction:column;position:relative}
+.card-head{display:flex;align-items:baseline;gap:10px;padding:12px 16px 4px}
+.card-num{font-family:var(--mono);font-size:10px;color:var(--mute)}
+.card-title{font-family:var(--rajdhani);font-size:11px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:var(--bright)}
+.card-body{padding:6px 16px 14px;flex:1;display:flex;align-items:center;justify-content:center;min-height:172px}
+.card-desc{padding:0 16px 13px;font-size:10.5px;line-height:1.6;color:#76767E}
+.card-desc b{color:var(--clavis);font-weight:400}
+
+/* shared atoms */
+.lbl{font-family:var(--rajdhani);font-size:8.5px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
+.num{font-family:var(--mono)}
+.tiny{font-size:8px;letter-spacing:1.5px}
+
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+.breathe{animation:pulse 2.4s ease-in-out infinite}
+
+svg{display:block;overflow:visible}
+svg text{font-family:var(--mono);fill:var(--text)}
+svg .lab{font-family:var(--rajdhani);font-weight:500;letter-spacing:1.5px;text-transform:uppercase;fill:var(--dim)}
+.glow{filter:none}
+</style>
+</head>
+<body>
+
+<h1>Clavis — Usage Limit Visualizations</h1>
+<p class="lead">
+Twenty ways to read your Claude Code budget at a glance. Each proposal shows both the <b>5-hour</b> and <b>weekly</b> windows,
+and — the key idea — your <b>pace</b>: whether you are burning faster or slower than a steady, even spend across the window.
+Same sample data everywhere so you can compare the forms directly.
+</p>
+
+<div class="data" id="dataBanner"></div>
+
+<div class="legend">
+  <span class="sw"><span class="dot" style="background:var(--under)"></span>Under pace · surplus</span>
+  <span class="sw"><span class="dot" style="background:var(--clavis)"></span>On pace</span>
+  <span class="sw"><span class="dot" style="background:var(--over)"></span>Over pace · warning</span>
+  <span class="sw"><span class="dot" style="background:var(--hot)"></span>Far over pace</span>
+  <span class="sw"><span class="dot" style="background:var(--mute)"></span>Expected position (steady spend)</span>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+/* ============================================================
+   Sample state. "used / total" are abstract budget units.
+   elapsedMin / windowMin give where we are in the window.
+   ============================================================ */
+function slot(o){
+  o.usedFrac   = o.used / o.total;
+  o.remaining  = o.total - o.used;
+  o.timeFrac   = o.elapsedMin / o.windowMin;
+  o.expected   = o.total * o.timeFrac;          // steady-spend target right now
+  o.delta      = o.used - o.expected;           // + = over (ahead of burn), - = under
+  o.ratio      = o.used / Math.max(o.expected, 0.0001);
+  // how far ahead/behind in TIME terms: minutes of budget consumed vs minutes elapsed
+  o.timeAhead  = o.usedFrac * o.windowMin - o.elapsedMin;
+  return o;
+}
+const FIVE = slot({ key:'5h', name:'5-Hour', total:100, used:40, windowMin:300, elapsedMin:60,
+                    resetAt:'14:30', resetIn:'4h 00m' });
+const WEEK = slot({ key:'wk', name:'Weekly', total:1000, used:450, windowMin:10080, elapsedMin:4320,
+                    resetAt:'Mon 00:00', resetIn:'4d 00h' });
+const SLOTS=[FIVE,WEEK];
+
+/* pace -> colour + label */
+function pace(s){
+  const r=s.ratio;
+  if(r>1.5)  return {c:'var(--hot)',   k:'far over', sign:'+'};
+  if(r>1.08) return {c:'var(--over)',  k:'over',     sign:'+'};
+  if(r<0.92) return {c:'var(--under)', k:'under',    sign:'−'};
+  return        {c:'var(--clavis)',k:'on pace',  sign:'±'};
+}
+const pct = f => Math.round(f*100);
+const sgn = d => (d>=0?'+':'−')+Math.abs(Math.round(d));
+const hrs = m => { const h=Math.floor(Math.abs(m)/60), mm=Math.round(Math.abs(m)%60); return (m<0?'−':'+')+(h?h+'h ':'')+mm+'m'; };
+
+/* geometry */
+function polar(cx,cy,r,deg){const a=(deg-90)*Math.PI/180;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];}
+function arc(cx,cy,r,a0,a1,sweep=1){
+  const [sx,sy]=polar(cx,cy,r,a0),[ex,ey]=polar(cx,cy,r,a1);
+  const large=Math.abs(a1-a0)>180?1:0;
+  return `M ${sx.toFixed(2)} ${sy.toFixed(2)} A ${r} ${r} 0 ${large} ${sweep} ${ex.toFixed(2)} ${ey.toFixed(2)}`;
+}
+let _id=0; const uid=()=>'g'+(++_id);
+
+/* fill banner */
+document.getElementById('dataBanner').innerHTML = SLOTS.map(s=>`
+  <div class="col">
+    <span class="k">${s.name} window</span>
+    <span class="v">${s.used}<small> / ${s.total} used</small> &nbsp;·&nbsp; ${pct(s.timeFrac)}% elapsed</span>
+    <span class="v"><small>resets ${s.resetAt} · in ${s.resetIn} · expected ≈ ${Math.round(s.expected)}</small></span>
+  </div>`).join('');
+
+/* ============================================================
+   Proposals
+   ============================================================ */
+const P = [];
+
+/* 1 — Dual bars with expected tick */
+P.push({title:'Pace Bars', combined:true,
+  desc:'Two flat bars. The fill is what you have spent; the <b>caret</b> marks where a steady spend would sit right now. Fill past the caret = burning hot.',
+  render(){ return SLOTS.map(s=>{const p=pace(s);return `
+    <div style="width:100%;margin:14px 0">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <span class="lbl">${s.name}</span>
+        <span class="num tiny" style="color:${p.c}">${p.k.toUpperCase()} ${sgn(s.delta)}</span>
+      </div>
+      <svg viewBox="0 0 320 22" width="100%">
+        <rect x="0" y="8" width="320" height="6" fill="var(--faint)"/>
+        <rect x="0" y="8" width="${(s.usedFrac*320).toFixed(1)}" height="6" fill="${p.c}"/>
+        <path d="M ${(s.timeFrac*320).toFixed(1)} 4 v 14" stroke="var(--mute)" stroke-width="1.5"/>
+        <path d="M ${(s.timeFrac*320-3).toFixed(1)} 2 l 3 3 l 3 -3 z" fill="var(--mute)"/>
+      </svg>
+      <div class="num tiny" style="color:var(--dim);margin-top:4px">${s.remaining} left · resets ${s.resetIn}</div>
+    </div>`;}).join('');}});
+
+/* 2 — Twin 270° gauges */
+P.push({title:'Twin Gauges', combined:true,
+  desc:'Each window is a C-shaped gauge. The arc fills with spend; the <b>ghost tick</b> is the steady-spend position. Centre reads remaining percent.',
+  render(){ const A0=135,SPAN=270; return `<div style="display:flex;gap:18px;width:100%;justify-content:space-around">`+
+    SLOTS.map(s=>{const p=pace(s);const end=A0+SPAN*s.usedFrac;const exp=A0+SPAN*s.timeFrac;const[ex,ey]=polar(60,60,46,exp);return `
+    <svg viewBox="0 0 120 132" width="140">
+      <path d="${arc(60,60,46,A0,A0+SPAN)}" stroke="var(--faint)" stroke-width="7" fill="none" stroke-linecap="butt"/>
+      <path d="${arc(60,60,46,A0,end)}" stroke="${p.c}" stroke-width="7" fill="none" stroke-linecap="butt" class="glow" style="color:${p.c}"/>
+      <line x1="${(polar(60,60,38,exp))[0]}" y1="${(polar(60,60,38,exp))[1]}" x2="${ex}" y2="${ey}" stroke="var(--mute)" stroke-width="2.5"/>
+      <text x="60" y="56" text-anchor="middle" font-size="20" fill="var(--bright)">${pct(1-s.usedFrac)}<tspan font-size="10" fill="var(--dim)">%</tspan></text>
+      <text x="60" y="70" text-anchor="middle" font-size="8" fill="var(--dim)">LEFT</text>
+      <text class="lab" x="60" y="124" text-anchor="middle" font-size="9">${s.name}</text>
+      <text x="60" y="92" text-anchor="middle" font-size="8" fill="${p.c}">${sgn(s.delta)}</text>
+    </svg>`;}).join('')+`</div>`;}});
+
+/* 3 — Concentric rings */
+P.push({title:'Concentric Rings', combined:true,
+  desc:'Outer ring = weekly, inner ring = 5-hour. The small dot on each ring is the steady-spend marker, so the gap to the fill end is your pace.',
+  render(){ const A0=135,SPAN=270; const cfg=[[WEEK,52],[FIVE,38]]; let rings='';
+    cfg.forEach(([s,r])=>{const p=pace(s);const end=A0+SPAN*s.usedFrac;const exp=A0+SPAN*s.timeFrac;const[dx,dy]=polar(70,70,r,exp);
+      rings+=`<path d="${arc(70,70,r,A0,A0+SPAN)}" stroke="var(--faint)" stroke-width="6" fill="none"/>
+        <path d="${arc(70,70,r,A0,end)}" stroke="${p.c}" stroke-width="6" fill="none" class="glow" style="color:${p.c}"/>
+        <circle cx="${dx}" cy="${dy}" r="2.6" fill="var(--bright)"/>`;});
+    return `<svg viewBox="0 0 200 150" width="100%">${rings}
+      <text x="70" y="66" text-anchor="middle" font-size="9" fill="var(--dim)">WK ${pct(WEEK.usedFrac)}%</text>
+      <text x="70" y="80" text-anchor="middle" font-size="9" fill="var(--dim)">5H ${pct(FIVE.usedFrac)}%</text>
+      <g transform="translate(150,40)">
+        <text class="lab" font-size="9" y="0">5H · ${FIVE.resetIn}</text>
+        <text class="lab" font-size="9" y="16">WK · ${WEEK.resetIn}</text>
+        <text font-size="9" y="40" fill="${pace(FIVE).c}">5h ${sgn(FIVE.delta)}</text>
+        <text font-size="9" y="56" fill="${pace(WEEK).c}">wk ${sgn(WEEK.delta)}</text>
+      </g></svg>`;}});
+
+/* 4 — Burn-down */
+P.push({title:'Burn-Down', combined:true,
+  desc:'Budget remaining over time. The faint diagonal is the ideal steady burn; your <b>solid line</b> dropping below it means you are ahead of schedule (overspending).',
+  render(){ return SLOTS.map(s=>{const p=pace(s);const W=300,H=58,padL=4;
+    const x=padL+s.timeFrac*(W-padL);const y=4+s.usedFrac*H;
+    const projX=W, projY=4 + Math.min(1, s.usedFrac/Math.max(s.timeFrac,.001))*H;
+    return `<div style="width:100%;margin:8px 0">
+      <div style="display:flex;justify-content:space-between"><span class="lbl">${s.name}</span><span class="num tiny" style="color:${p.c}">${p.k.toUpperCase()}</span></div>
+      <svg viewBox="0 0 ${W} ${H+12}" width="100%">
+        <line x1="${padL}" y1="4" x2="${W}" y2="${H+4}" stroke="var(--faint)" stroke-width="1" stroke-dasharray="3 3"/>
+        <polyline points="${padL},4 ${x.toFixed(1)},${y.toFixed(1)}" stroke="${p.c}" stroke-width="2" fill="none" class="glow" style="color:${p.c}"/>
+        <polyline points="${x.toFixed(1)},${y.toFixed(1)} ${projX},${projY.toFixed(1)}" stroke="${p.c}" stroke-width="1" stroke-dasharray="2 3" opacity=".5" fill="none"/>
+        <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${p.c}"/>
+        <text x="${W}" y="${H+11}" text-anchor="end" font-size="8" fill="var(--dim)">empty in ${s.resetIn}</text>
+      </svg></div>`;}).join('');}});
+
+/* 5 — Diverging pace bars */
+P.push({title:'Pace Deviation', combined:true,
+  desc:'A centred zero line. The bar grows <b>left</b> when you have a surplus (under pace) or <b>right</b> when overspending. Pure pace, nothing else.',
+  render(){ const W=320,mid=W/2,scale=70; return SLOTS.map(s=>{const p=pace(s);const d=s.delta;const len=Math.min(Math.abs(d)/100*scale*3,mid-6);return `
+    <div style="width:100%;margin:13px 0">
+      <div style="display:flex;justify-content:space-between"><span class="lbl">${s.name}</span><span class="num tiny" style="color:${p.c}">${sgn(d)} units</span></div>
+      <svg viewBox="0 0 ${W} 26" width="100%">
+        <line x1="${mid}" y1="2" x2="${mid}" y2="24" stroke="var(--mute)" stroke-width="1"/>
+        <rect x="${d>=0?mid:mid-len}" y="8" width="${len}" height="9" fill="${p.c}" class="glow" style="color:${p.c}"/>
+        <text x="6" y="6" font-size="7" class="lab" fill="var(--mute)">SURPLUS</text>
+        <text x="${W-6}" y="6" text-anchor="end" font-size="7" class="lab" fill="var(--mute)">OVERSPEND</text>
+      </svg></div>`;}).join('');}});
+
+/* 6 — Segmented fuel cells */
+P.push({title:'Fuel Cells', combined:true,
+  desc:'Twenty segments per window. Lit segments are spent; the <b>bright divider</b> is the steady-spend line. Lit past it = ahead of budget.',
+  render(){ const N=20; return SLOTS.map(s=>{const p=pace(s);const lit=Math.round(s.usedFrac*N);const exp=s.timeFrac*N;
+    let cells='';for(let i=0;i<N;i++){cells+=`<rect x="${i*15}" y="2" width="12" height="16" fill="${i<lit?p.c:'var(--faint)'}"/>`;}
+    return `<div style="width:100%;margin:11px 0">
+      <div style="display:flex;justify-content:space-between"><span class="lbl">${s.name}</span><span class="num tiny" style="color:var(--dim)">${s.remaining} left · ${s.resetIn}</span></div>
+      <svg viewBox="0 0 300 24" width="100%">${cells}
+        <path d="M ${(exp*15-1.5).toFixed(1)} 0 v 20" stroke="var(--bright)" stroke-width="1.5"/>
+      </svg></div>`;}).join('');}});
+
+/* 7 — Orbital HUD */
+P.push({title:'Orbital HUD', combined:true,
+  desc:'Sci-fi orbits. A bright body travels its track by spend; the faint body marks steady spend. When the bright body leads, you are overspending.',
+  render(){ const cx=75,cy=72; const orbits=[[WEEK,56],[FIVE,34]]; let g='';
+    orbits.forEach(([s,r])=>{const p=pace(s);const a=s.usedFrac*360;const ea=s.timeFrac*360;const[bx,by]=polar(cx,cy,r,a);const[gx,gy]=polar(cx,cy,r,ea);
+      g+=`<circle cx="${cx}" cy="${cy}" r="${r}" stroke="var(--faint)" stroke-width="1" fill="none"/>
+          <circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="2.5" fill="none" stroke="var(--mute)" stroke-width="1"/>
+          <circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="3.6" fill="${p.c}" class="glow breathe" style="color:${p.c}"/>`;});
+    return `<svg viewBox="0 0 230 150" width="100%">${g}
+      <circle cx="${cx}" cy="${cy}" r="2" fill="var(--dim)"/>
+      <g transform="translate(160,52)" font-size="9">
+        <text class="lab" y="0">5H ${pct(FIVE.usedFrac)}%</text>
+        <text y="14" fill="${pace(FIVE).c}">${sgn(FIVE.delta)} · ${FIVE.resetIn}</text>
+        <text class="lab" y="36">WK ${pct(WEEK.usedFrac)}%</text>
+        <text y="50" fill="${pace(WEEK).c}">${sgn(WEEK.delta)} · ${WEEK.resetIn}</text>
+      </g></svg>`;}});
+
+/* 8 — Horizon scrubber */
+P.push({title:'Horizon Scrubber', combined:true,
+  desc:'The whole bar is the time window. A vertical <b>NOW</b> scrubber sits at elapsed time; the coloured fill is spend. Fill ahead of NOW = overspending.',
+  render(){ return SLOTS.map(s=>{const p=pace(s);const W=320;return `
+    <div style="width:100%;margin:12px 0">
+      <div style="display:flex;justify-content:space-between"><span class="lbl">${s.name}</span><span class="num tiny" style="color:var(--dim)">reset ${s.resetAt}</span></div>
+      <svg viewBox="0 0 ${W} 30" width="100%">
+        <rect x="0" y="14" width="${W}" height="3" fill="var(--faint)"/>
+        <rect x="0" y="14" width="${(s.usedFrac*W).toFixed(1)}" height="3" fill="${p.c}"/>
+        <line x1="${(s.timeFrac*W).toFixed(1)}" y1="6" x2="${(s.timeFrac*W).toFixed(1)}" y2="25" stroke="var(--bright)" stroke-width="1.5"/>
+        <text x="${(s.timeFrac*W).toFixed(1)}" y="4" text-anchor="middle" font-size="7" class="lab" fill="var(--bright)">NOW</text>
+        <text x="${(s.usedFrac*W).toFixed(1)}" y="28" text-anchor="middle" font-size="7" fill="${p.c}">spent</text>
+      </svg></div>`;}).join('');}});
+
+/* 9 — Numeric readout */
+P.push({title:'Readout', combined:true,
+  desc:'Telemetry-style. Big remaining number, a hairline progress, and a pace <b>chip</b> in time units (how many minutes of budget ahead/behind).',
+  render(){ return `<div style="width:100%">`+SLOTS.map(s=>{const p=pace(s);return `
+    <div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--faint)">
+      <div style="flex:0 0 64px">
+        <div class="num" style="font-size:26px;color:var(--bright)">${pct(1-s.usedFrac)}<span style="font-size:11px;color:var(--dim)">%</span></div>
+        <div class="lbl tiny">${s.name} LEFT</div>
+      </div>
+      <div style="flex:1">
+        <svg viewBox="0 0 200 4" width="100%"><rect width="200" height="4" fill="var(--faint)"/><rect width="${s.usedFrac*200}" height="4" fill="${p.c}"/></svg>
+        <div class="num tiny" style="color:var(--dim);margin-top:6px">resets ${s.resetIn}</div>
+      </div>
+      <div style="flex:0 0 auto;text-align:right;border:1px solid ${p.c};padding:4px 8px;color:${p.c}">
+        <div class="num" style="font-size:13px">${hrs(s.timeAhead)}</div>
+        <div class="tiny lab" style="color:${p.c}">${p.k}</div>
+      </div>
+    </div>`;}).join('')+`</div>`;}});
+
+/* 10 — Pace dials */
+P.push({title:'Pace Dials', combined:true,
+  desc:'Forget totals — just rate. The needle reads your <b>burn multiplier</b>: 1× is dead steady, left of it is coasting, right is overspending.',
+  render(){ const A0=-120,A1=120; return `<div style="display:flex;gap:18px;width:100%;justify-content:space-around">`+
+    SLOTS.map(s=>{const p=pace(s);const t=Math.max(0,Math.min(2,s.ratio))/2;const ang=A0+(A1-A0)*t;const[nx,ny]=polar(58,62,38,ang);
+    const onA=A0+(A1-A0)*0.5;const[o1x,o1y]=polar(58,62,30,onA),[o2x,o2y]=polar(58,62,42,onA);return `
+    <svg viewBox="0 0 116 110" width="150">
+      <path d="${arc(58,62,38,A0,onA)}" stroke="var(--under)" stroke-width="3" fill="none" opacity=".5"/>
+      <path d="${arc(58,62,38,onA,A1)}" stroke="var(--over)" stroke-width="3" fill="none" opacity=".5"/>
+      <line x1="${o1x}" y1="${o1y}" x2="${o2x}" y2="${o2y}" stroke="var(--mute)" stroke-width="1"/>
+      <line x1="58" y1="62" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="${p.c}" stroke-width="2" class="glow" style="color:${p.c}"/>
+      <circle cx="58" cy="62" r="3" fill="${p.c}"/>
+      <text x="58" y="86" text-anchor="middle" font-size="15" fill="${p.c}">${s.ratio.toFixed(2)}×</text>
+      <text class="lab" x="58" y="100" text-anchor="middle" font-size="9">${s.name}</text>
+    </svg>`;}).join('')+`</div>`;}});
+
+/* 11 — Thermometers */
+P.push({title:'Thermometers', combined:true,
+  desc:'Vertical columns fill bottom-up with spend. A bright <b>tick</b> on the side marks steady spend; mercury above it means you are running hot.',
+  render(){ const H=110; return `<div style="display:flex;gap:46px;width:100%;justify-content:center;align-items:flex-end">`+
+    SLOTS.map(s=>{const p=pace(s);const fh=s.usedFrac*H;const ey=H-s.timeFrac*H;return `
+    <div style="text-align:center">
+      <svg viewBox="0 0 50 ${H+16}" height="150">
+        <rect x="16" y="2" width="18" height="${H}" fill="var(--faint)"/>
+        <rect x="16" y="${(2+H-fh).toFixed(1)}" width="18" height="${fh.toFixed(1)}" fill="${p.c}" class="glow" style="color:${p.c}"/>
+        <line x1="10" y1="${(2+ey).toFixed(1)}" x2="40" y2="${(2+ey).toFixed(1)}" stroke="var(--bright)" stroke-width="1.5"/>
+        <text x="6" y="${(2+ey-2).toFixed(1)}" font-size="7" fill="var(--bright)">exp</text>
+        <text class="lab" x="25" y="${H+13}" text-anchor="middle" font-size="9">${s.name}</text>
+      </svg>
+      <div class="num tiny" style="color:${p.c};margin-top:2px">${sgn(s.delta)}</div>
+    </div>`;}).join('')+`</div>`;}});
+
+/* 12 — Quadrant scatter */
+P.push({title:'Pace Plane', combined:true,
+  desc:'One chart for both. X is time elapsed, Y is budget spent. The diagonal is perfect pace — a dot <b>above</b> the line is overspending, below is surplus.',
+  render(){ const S=130,pad=6; let dots='';
+    SLOTS.forEach(s=>{const p=pace(s);const x=pad+s.timeFrac*S;const y=pad+S-s.usedFrac*S;
+      dots+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${p.c}" class="glow" style="color:${p.c}"/>
+             <text x="${(x+8).toFixed(1)}" y="${(y+3).toFixed(1)}" font-size="8" fill="${p.c}">${s.key.toUpperCase()} ${sgn(s.delta)}</text>`;});
+    return `<svg viewBox="0 0 ${S+pad*2+10} ${S+pad*2+12}" width="100%" style="max-width:260px">
+      <rect x="${pad}" y="${pad}" width="${S}" height="${S}" fill="none" stroke="var(--faint)"/>
+      <line x1="${pad}" y1="${pad+S}" x2="${pad+S}" y2="${pad}" stroke="var(--mute)" stroke-dasharray="3 3"/>
+      ${dots}
+      <text class="lab" x="${pad+S/2}" y="${S+pad+10}" text-anchor="middle" font-size="8">TIME ELAPSED →</text>
+      <text class="lab" x="${pad-2}" y="${pad+S/2}" text-anchor="middle" font-size="8" transform="rotate(-90 ${pad-2} ${pad+S/2})">BUDGET SPENT →</text>
+    </svg>`;}});
+
+/* 13 — Waffle grid */
+P.push({title:'Waffle Grid', combined:true,
+  desc:'A 10×10 grid is the whole budget; filled cells are spent. The <b>bright column</b> is steady-spend — cells filled past it are ahead of pace.',
+  render(){ return `<div style="display:flex;gap:30px;width:100%;justify-content:center">`+
+    SLOTS.map(s=>{const p=pace(s);const lit=Math.round(s.usedFrac*100);const expCol=s.timeFrac*10;let cells='';
+      for(let i=0;i<100;i++){const col=i%10,row=Math.floor(i/10);const on=i<lit;
+        cells+=`<rect x="${col*9}" y="${row*9}" width="7" height="7" fill="${on?p.c:'var(--faint)'}"/>`;}
+      return `<div style="text-align:center">
+        <svg viewBox="-1 -1 92 92" width="118">${cells}
+          <line x1="${(expCol*9-1).toFixed(1)}" y1="-2" x2="${(expCol*9-1).toFixed(1)}" y2="91" stroke="var(--bright)" stroke-width="1"/>
+        </svg>
+        <div class="lbl tiny" style="margin-top:5px">${s.name} · <span style="color:${p.c}">${sgn(s.delta)}</span></div>
+      </div>`;}).join('')+`</div>`;}});
+
+/* 14 — Liquid fill */
+P.push({title:'Liquid Cells', combined:true,
+  desc:'Tanks fill with spend. A dashed <b>target line</b> shows steady spend; liquid above the line is the overspend zone, glowing in the warning colour.',
+  render(){ return `<div style="display:flex;gap:34px;width:100%;justify-content:center;align-items:flex-end">`+
+    SLOTS.map(s=>{const p=pace(s);const H=110,W=58;const fh=s.usedFrac*H;const ty=H-s.timeFrac*H;const id=uid();return `
+    <div style="text-align:center">
+      <svg viewBox="0 0 ${W} ${H+16}" height="146">
+        <clipPath id="${id}"><rect x="2" y="2" width="${W-4}" height="${H}"/></clipPath>
+        <rect x="2" y="2" width="${W-4}" height="${H}" fill="none" stroke="var(--line)"/>
+        <g clip-path="url(#${id})">
+          <rect x="2" y="${(2+H-fh).toFixed(1)}" width="${W-4}" height="${fh.toFixed(1)}" fill="${p.c}" opacity=".85"/>
+          <path d="M2 ${(2+H-fh).toFixed(1)} q ${(W-4)/4} -4 ${(W-4)/2} 0 t ${(W-4)/2} 0 v ${fh.toFixed(1)} h -${W-4} z" fill="${p.c}" opacity=".5"/>
+        </g>
+        <line x1="0" y1="${(2+ty).toFixed(1)}" x2="${W}" y2="${(2+ty).toFixed(1)}" stroke="var(--bright)" stroke-width="1" stroke-dasharray="3 2"/>
+        <text class="lab" x="${W/2}" y="${H+13}" text-anchor="middle" font-size="9">${s.name}</text>
+      </svg>
+      <div class="num tiny" style="color:${p.c}">${pct(s.usedFrac)}% · ${sgn(s.delta)}</div>
+    </div>`;}).join('')+`</div>`;}});
+
+/* 15 — Countdown centric */
+P.push({title:'Countdown', combined:true,
+  desc:'Time-first. The reset countdown is the hero; a thin ring around it shows how much budget remains, tinted by pace.',
+  render(){ const A0=0,SPAN=360; return `<div style="display:flex;gap:24px;width:100%;justify-content:space-around">`+
+    SLOTS.map(s=>{const p=pace(s);const end=A0+SPAN*(1-s.usedFrac);return `
+    <svg viewBox="0 0 130 120" width="160">
+      <circle cx="65" cy="56" r="46" stroke="var(--faint)" stroke-width="3" fill="none"/>
+      <path d="${arc(65,56,46,A0,Math.max(A0+0.1,end))}" stroke="${p.c}" stroke-width="3" fill="none" class="glow" style="color:${p.c}"/>
+      <text x="65" y="52" text-anchor="middle" font-size="17" fill="var(--bright)">${s.resetIn}</text>
+      <text class="lab" x="65" y="66" text-anchor="middle" font-size="8">until reset</text>
+      <text x="65" y="80" text-anchor="middle" font-size="9" fill="${p.c}">${pct(1-s.usedFrac)}% left · ${sgn(s.delta)}</text>
+      <text class="lab" x="65" y="114" text-anchor="middle" font-size="9">${s.name}</text>
+    </svg>`;}).join('')+`</div>`;}});
+
+/* 16 — Comet trail */
+P.push({title:'Comet Trail', combined:true,
+  desc:'A glowing head races along the track by spend, trailing a gradient tail. The notch is steady-spend. Head ahead of the notch means overspending.',
+  render(){ return SLOTS.map(s=>{const p=pace(s);const W=320;const hx=s.usedFrac*W;const ex=s.timeFrac*W;const id=uid();return `
+    <div style="width:100%;margin:13px 0">
+      <div style="display:flex;justify-content:space-between"><span class="lbl">${s.name}</span><span class="num tiny" style="color:${p.c}">${p.k.toUpperCase()}</span></div>
+      <svg viewBox="0 0 ${W} 24" width="100%">
+        <defs><linearGradient id="${id}" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stop-color="${p.c}" stop-opacity="0"/><stop offset="1" stop-color="${p.c}" stop-opacity=".9"/>
+        </linearGradient></defs>
+        <line x1="0" y1="12" x2="${W}" y2="12" stroke="var(--faint)" stroke-width="1"/>
+        <rect x="0" y="10" width="${hx.toFixed(1)}" height="4" fill="url(#${id})"/>
+        <circle cx="${hx.toFixed(1)}" cy="12" r="4.5" fill="${p.c}" class="glow breathe" style="color:${p.c}"/>
+        <path d="M ${ex.toFixed(1)} 4 v 16" stroke="var(--mute)" stroke-width="1" stroke-dasharray="2 2"/>
+      </svg>
+      <div class="num tiny" style="color:var(--dim);margin-top:2px">${s.remaining} left · resets ${s.resetIn}</div>
+    </div>`;}).join('');}});
+
+/* 17 — Minimal ruler */
+P.push({title:'Hairline Ruler', combined:true,
+  desc:'Maximum restraint. A single thin rule per window: a short filled segment is spend, a tiny caret above is steady-spend. Content before chrome.',
+  render(){ return `<div style="width:100%">`+SLOTS.map(s=>{const p=pace(s);const W=320;return `
+    <div style="margin:20px 0">
+      <div style="display:flex;justify-content:space-between;margin-bottom:9px">
+        <span class="lbl">${s.name}</span>
+        <span class="num tiny" style="color:var(--dim)">${pct(1-s.usedFrac)}% left · ${s.resetIn} · <span style="color:${p.c}">${sgn(s.delta)}</span></span>
+      </div>
+      <svg viewBox="0 0 ${W} 8" width="100%">
+        <line x1="0" y1="6" x2="${W}" y2="6" stroke="var(--faint)"/>
+        <line x1="0" y1="6" x2="${(s.usedFrac*W).toFixed(1)}" y2="6" stroke="${p.c}" stroke-width="2"/>
+        <path d="M ${(s.timeFrac*W-3).toFixed(1)} 0 l 3 4 l 3 -4 z" fill="var(--dim)"/>
+      </svg>
+    </div>`;}).join('')+`</div>`;}});
+
+/* 18 — Shared-axis needles */
+P.push({title:'Shared Axis', combined:true,
+  desc:'Both windows on one pace axis. The centre is steady; each labelled needle leans toward surplus or overspend so you compare the two at once.',
+  render(){ const W=320,mid=W/2; return `<svg viewBox="0 0 ${W} 120" width="100%">
+    <line x1="${mid}" y1="14" x2="${mid}" y2="106" stroke="var(--mute)" stroke-width="1"/>
+    <text class="lab" x="14" y="12" font-size="8" fill="var(--under)">← SURPLUS</text>
+    <text class="lab" x="${W-14}" y="12" text-anchor="end" font-size="8" fill="var(--over)">OVERSPEND →</text>
+    ${SLOTS.map((s,i)=>{const p=pace(s);const y=40+i*44;const off=Math.max(-mid+30,Math.min(mid-30,s.delta/100*mid*1.4));const x=mid+off;return `
+      <line x1="${mid}" y1="${y}" x2="${x.toFixed(1)}" y2="${y}" stroke="${p.c}" stroke-width="2"/>
+      <circle cx="${x.toFixed(1)}" cy="${y}" r="5" fill="${p.c}" class="glow" style="color:${p.c}"/>
+      <text x="${x.toFixed(1)}" y="${y-9}" text-anchor="middle" font-size="9" fill="${p.c}">${s.name} ${sgn(s.delta)}</text>
+      <text x="${x.toFixed(1)}" y="${y+15}" text-anchor="middle" font-size="7" fill="var(--dim)">${s.resetIn}</text>`;}).join('')}
+  </svg>`;}});
+
+/* 19 — Hex cells */
+P.push({title:'Hex HUD', combined:true,
+  desc:'A hexagon per window with a spend fill rising inside. A bright steady-spend line crosses it; fill above the line glows as the overspend margin.',
+  render(){ const hex=(cx,cy,r)=>{let pts=[];for(let i=0;i<6;i++){const a=(60*i-90)*Math.PI/180;pts.push(`${(cx+r*Math.cos(a)).toFixed(1)},${(cy+r*Math.sin(a)).toFixed(1)}`);}return pts.join(' ');};
+    return `<div style="display:flex;gap:30px;width:100%;justify-content:center">`+
+    SLOTS.map(s=>{const p=pace(s);const cx=55,cy=58,r=46;const fh=s.usedFrac*(r*2);const ey=cy+r-s.timeFrac*(r*2);const id=uid();return `
+    <div style="text-align:center">
+      <svg viewBox="0 0 110 120" width="138">
+        <clipPath id="${id}"><polygon points="${hex(cx,cy,r)}"/></clipPath>
+        <polygon points="${hex(cx,cy,r)}" fill="none" stroke="var(--line)"/>
+        <g clip-path="url(#${id})">
+          <rect x="0" y="${(cy+r-fh).toFixed(1)}" width="110" height="${fh.toFixed(1)}" fill="${p.c}" opacity=".8"/>
+          <line x1="0" y1="${ey.toFixed(1)}" x2="110" y2="${ey.toFixed(1)}" stroke="var(--bright)" stroke-width="1.5"/>
+        </g>
+        <text x="${cx}" y="${cy+2}" text-anchor="middle" font-size="15" fill="var(--bright)">${pct(s.usedFrac)}%</text>
+        <text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="8" fill="${p.c}">${sgn(s.delta)}</text>
+        <text class="lab" x="${cx}" y="114" text-anchor="middle" font-size="9">${s.name} · ${s.resetIn}</text>
+      </svg>
+    </div>`;}).join('')+`</div>`;}});
+
+/* 20 — Status strip (in-situ) */
+P.push({title:'Status Strip', combined:true,
+  desc:'How it would actually sit in the Clavis status bar: one dense line. Two mini segments, each with a pace caret and a colour-coded delta. Glanceable, zero chrome.',
+  render(){ return `<div style="width:100%;font-family:var(--mono);font-size:11px">
+    <div style="display:flex;align-items:center;gap:12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:9px 4px;background:var(--surface)">
+      ${SLOTS.map(s=>{const p=pace(s);return `
+        <span style="color:var(--mute);letter-spacing:1px" class="lab">${s.key.toUpperCase()}</span>
+        <span style="position:relative;display:inline-block;width:84px;height:7px;background:var(--faint)">
+          <span style="position:absolute;left:0;top:0;height:7px;width:${(s.usedFrac*84).toFixed(1)}px;background:${p.c}"></span>
+          <span style="position:absolute;left:${(s.timeFrac*84).toFixed(1)}px;top:-2px;width:1px;height:11px;background:var(--bright)"></span>
+        </span>
+        <span style="color:${p.c}">${sgn(s.delta)}</span>
+        <span style="color:var(--dim)">${s.resetIn}</span>
+        ${s.key==='5h'?'<span style="color:var(--faint)">|</span>':''}`;}).join('')}
+      <span class="breathe" style="margin-left:auto;width:6px;height:6px;background:var(--clavis)"></span>
+    </div>
+    <div class="lbl tiny" style="margin-top:14px;color:var(--mute);text-align:center">caret = steady spend · fill past caret = overspending</div>
+  </div>`;}});
+
+/* render */
+const grid=document.getElementById('grid');
+P.forEach((p,i)=>{
+  const el=document.createElement('div');el.className='card';
+  el.innerHTML=`<div class="card-head"><span class="card-num">${String(i+1).padStart(2,'0')}</span><span class="card-title">${p.title}</span></div>
+    <div class="card-body">${p.render()}</div>
+    <div class="card-desc">${p.desc}</div>`;
+  grid.appendChild(el);
+});
+</script>
+</body>
+</html>

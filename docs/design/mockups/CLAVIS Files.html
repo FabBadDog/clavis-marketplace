@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CLAVIS · Files</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="clavis-tokens.css">
+<style>
+  @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700&display=swap');
+  html,body{margin:0;background:#070709;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;height:100%}
+  body{display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;
+       background:
+         radial-gradient(circle at 20% 15%, rgba(127,181,216,.045), transparent 55%),
+         radial-gradient(circle at 85% 85%, rgba(94,212,196,.03), transparent 55%),
+         #070709;}
+  #root{width:100%;max-width:1640px;height:min(960px,calc(100vh - 48px));
+        border:1px solid #17171A;
+        box-shadow:0 60px 120px rgba(0,0,0,.6), 0 0 0 1px rgba(127,181,216,.04);
+        display:flex;flex-direction:column;background:#000;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="clavis-components.jsx"></script>
+<script type="text/babel" src="clavis-files.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "density": "dense",
+  "gutterWidth": 90,
+  "focus": "left",
+  "beam": "pane"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  return (
+    <>
+      <ClavisFiles tweaks={t} />
+
+      <TweaksPanel>
+        <TweakSection label="Active pane" />
+        <TweakRadio label="Focus" value={t.focus}
+                    options={['left','right']}
+                    onChange={v=>setTweak('focus',v)} />
+
+        <TweakSection label="Row density" />
+        <TweakRadio label="Density" value={t.density}
+                    options={['dense','compact','comfortable']}
+                    onChange={v=>setTweak('density',v)} />
+
+        <TweakSection label="Gutter" />
+        <TweakSlider label="Width" value={Number(t.gutterWidth)} min={70} max={180} step={10} unit="px"
+                     onChange={v=>setTweak('gutterWidth',v)} />
+
+        <TweakSection label="Scanning beam" />
+        <TweakSelect label="Where" value={t.beam}
+                     options={['pane','spine','titlebar','off']}
+                     onChange={v=>setTweak('beam',v)} />
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

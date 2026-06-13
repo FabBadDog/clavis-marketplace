@@ -22,7 +22,7 @@ clavis-marketplace/
   plugins/<name>/     a PLUGIN - its own collectible load context, reloadable at runtime
   modules/<name>/     a MODULE - loaded into the Default ALC, not unloadable
   tools/              repo scripts (Generate-MessageMap.ps1, run-tests.ps1)
-  docs/               CODEMAP.md (item index), MESSAGE-MAP.md (bus wiring)
+  docs/               CODEMAP.md (item index), MESSAGE-MAP.md (bus wiring), design/ (design language + mockups)
   MARKETPLACE.md      the short catalog/authoring summary (frontmatter overview)
   CLAUDE.md           this file
 ```
@@ -82,6 +82,10 @@ The **catalog is the filesystem**: every immediate child of `plugins/` or `modul
   building a one-off - so every plugin shares one look.
 - **Theme via host resource keys** (`SetResourceReference`), never baked brushes/fonts. The active theme
   lives in `~/.clavis/themes`; plugins must not hardcode colors.
+- **Follow the design language.** UI work must match `docs/design/CLAVIS-DESIGN-LANGUAGE.md` - the canonical
+  spec (content-before-chrome, no rounded corners, color-as-meaning, the three type voices, everything
+  animates), with visual mockups under `docs/design/mockups/`. It moved here from the core repo, which owns
+  no UI; this is the home for all Clavis design language and mockups.
 - **Declare real dependencies** in `PLUGIN.md` so build order is correct; keep them minimal.
 - **Panels** announce a `PanelKindRegistration` and restore via `RestorePanel`; persist per-instance state
   through the workspace contracts rather than inventing storage.

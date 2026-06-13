@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CLAVIS — Events Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@300;400&family=Rajdhani:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0A0C;--surface:#070709;--line:#222228;--faint:#2A2A30;
+  --text:#C8C8D0;--bright:#E8E8EC;--dim:#8A8A94;
+  --clavis:#7FB5D8;--human:#5ED4C4;
+  --output:#7FB5D8;--input:#9B7ED4;--error:#D47070;
+  --rajdhani:'Rajdhani',sans-serif;
+  --inter:'Inter',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--inter);font-weight:300;padding:60px 48px 120px;min-height:100vh}
+h1{font-family:var(--rajdhani);font-size:14px;letter-spacing:5px;text-transform:uppercase;color:#888;margin-bottom:4px;font-weight:500}
+p.lead{font-size:11.5px;color:#777;max-width:820px;margin-bottom:48px;line-height:1.7}
+
+/* ====== Window chrome ====== */
+.win{
+  width:880px;background:#000;position:relative;
+  box-shadow:0 40px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.03);
+}
+.win-title{
+  display:flex;align-items:center;
+  height:28px;padding:0 10px 0 14px;
+  border-bottom:1px solid var(--line);
+  color:var(--dim);
+}
+.win-name{font-family:var(--rajdhani);font-size:9px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase}
+.win-meta{font-family:var(--inter);font-size:9px;font-weight:400;letter-spacing:.3px;margin-left:10px;color:var(--dim)}
+.sp{flex:1}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}
+.win-dot{width:5px;height:5px;margin-left:8px;background:var(--clavis);animation:pulse 1.8s ease-in-out infinite}
+.win-close{display:flex;align-items:center;justify-content:center;width:22px;height:22px;cursor:pointer;opacity:.3;transition:opacity .12s}
+.win-close:hover{opacity:.8}
+.x{position:relative;width:8px;height:8px}
+.x::before,.x::after{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:currentColor}
+.x::before{transform:rotate(45deg)}
+.x::after{transform:rotate(-45deg)}
+
+/* ====== Filter bar ====== */
+.filters{
+  display:flex;align-items:center;gap:12px;
+  padding:6px 20px;border-bottom:1px solid var(--line);
+}
+.filter-chip{
+  font-family:var(--rajdhani);font-size:8.5px;font-weight:500;
+  letter-spacing:1.8px;text-transform:uppercase;
+  padding:2px 8px;cursor:pointer;
+  border:1px solid transparent;
+  transition:all .15s;opacity:.5;
+}
+.filter-chip:hover{opacity:.8}
+.filter-chip.active{opacity:1;border-color:currentColor;border-radius:1px}
+.filter-chip.c-all{color:var(--text)}
+.filter-chip.c-output{color:var(--output)}
+.filter-chip.c-input{color:var(--input)}
+.filter-chip.c-error{color:var(--error)}
+.counter{
+  font-family:var(--mono);font-size:8.5px;color:var(--dim);
+  margin-left:auto;
+}
+
+/* ====== Start time header ====== */
+.start-time{
+  padding:8px 20px 4px;
+  font-family:var(--mono);font-size:9px;color:var(--dim);
+  letter-spacing:.3px;
+}
+
+/* ====== Stream ====== */
+.stream{padding:2px 0 6px}
+
+.entry{
+  display:grid;
+  grid-template-columns:60px 56px 1fr;
+  align-items:first baseline;
+  padding:3px 20px;
+  column-gap:10px;
+  transition:background .1s;
+}
+.entry:hover{background:rgba(255,255,255,.015)}
+
+.delta{
+  font-family:var(--mono);font-size:10px;font-weight:300;
+  color:var(--dim);text-align:right;
+}
+
+.tag{
+  font-family:var(--rajdhani);font-size:8.5px;font-weight:500;
+  letter-spacing:1.8px;text-transform:uppercase;
+}
+.entry.cat-output .tag{color:var(--output)}
+.entry.cat-input .tag{color:var(--input)}
+.entry.cat-error .tag{color:var(--error)}
+
+.detail{
+  font-family:var(--mono);font-size:10px;font-weight:300;
+  color:var(--dim);letter-spacing:.2px;
+  word-break:break-word;
+}
+.detail .val{color:var(--text)}
+.detail .secondary{color:var(--dim)}
+.detail .err-msg{color:var(--error)}
+
+/* Continuation line for multi-field entries */
+.cont{
+  grid-column:3;
+  padding:1px 0 0;
+  font-family:var(--mono);font-size:9.5px;font-weight:300;
+  color:var(--dim);letter-spacing:.2px;
+  word-break:break-word;
+}
+.cont .val{color:var(--text)}
+.cont .label{color:var(--dim);margin-right:4px}
+
+/* ====== Statusbar ====== */
+.statusbar{
+  display:flex;align-items:center;gap:14px;
+  padding:5px 20px;border-top:1px solid var(--faint);
+  font-family:var(--inter);font-size:8.5px;color:var(--dim);
+  letter-spacing:.5px;
+}
+.statusbar .dot{width:3px;height:3px;border-radius:50%;display:inline-block}
+.statusbar .dot.d-output{background:var(--output)}
+.statusbar .dot.d-input{background:var(--input)}
+.statusbar .dot.d-error{background:var(--error)}
+.statusbar .sep{opacity:.4}
+</style>
+</head>
+<body>
+
+<h1>CLAVIS — Events Panel</h1>
+<p class="lead">Real-time event stream showing all StreamEvents (output), SessionInputs (input), and ParsingErrors (error) with relative timestamps. Every field of every type is represented. Relative deltas are from session start.</p>
+
+
+<div class="win">
+  <div class="win-title">
+    <span class="win-name">Events</span>
+    <span class="win-meta">stream · 28 entries</span>
+    <span class="sp"></span>
+    <span class="win-close"><span class="x"></span></span>
+  </div>
+
+  <div class="filters">
+    <div class="filter-chip c-all active">All</div>
+    <div class="filter-chip c-output">Output</div>
+    <div class="filter-chip c-input">Input</div>
+    <div class="filter-chip c-error">Errors</div>
+    <div class="counter">28 entries</div>
+  </div>
+
+  <div class="start-time">started 2026-05-11 14:02:01</div>
+
+  <div class="stream">
+
+    <!-- ─── Init ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 0ms</div>
+      <div class="tag">Output</div>
+      <div class="detail">Init <span class="val">session_abc123</span> · <span class="val">opus 4.6</span></div>
+    </div>
+
+    <!-- ─── SessionInput: Prompt ─── -->
+    <div class="entry cat-input">
+      <div class="delta">+ 2s</div>
+      <div class="tag">Input</div>
+      <div class="detail">Prompt <span class="val">"Implement the NdjsonParser module with Result types and async streaming support"</span></div>
+    </div>
+
+    <!-- ─── Thinking ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 3s</div>
+      <div class="tag">Output</div>
+      <div class="detail">Thinking <span class="val">"Reading existing types for alignment"</span></div>
+    </div>
+
+    <!-- ─── TextDelta ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 4s</div>
+      <div class="tag">Output</div>
+      <div class="detail">TextDelta <span class="val">"I'll create the parser module. Let me read the existing types first."</span></div>
+    </div>
+
+    <!-- ─── ToolUse (all fields: Name, ToolUseId, Input) ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 4s</div>
+      <div class="tag">Output</div>
+      <div class="detail">ToolUse <span class="val">Read</span> · <span class="secondary">toolu_01ABC</span></div>
+      <div class="cont"><span class="label">input</span><span class="val">{"file_path":"src/FabioSoft.Claude/Types.fs"}</span></div>
+    </div>
+
+    <!-- ─── ToolResult (all fields: ToolUseId, Summary, Duration) ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 5s</div>
+      <div class="tag">Output</div>
+      <div class="detail">ToolResult <span class="secondary">toolu_01ABC</span> · <span class="val">142 lines</span> · <span class="val">380ms</span></div>
+    </div>
+
+    <!-- ─── ParsingError: UnknownMessageType ─── -->
+    <div class="entry cat-error">
+      <div class="delta">+ 5s</div>
+      <div class="tag">Error</div>
+      <div class="detail"><span class="err-msg">UnknownMessageType</span> <span class="val">"content_block_delta"</span></div>
+    </div>
+
+    <!-- ─── ParsingError: EmptyInput ─── -->
+    <div class="entry cat-error">
+      <div class="delta">+ 5s</div>
+      <div class="tag">Error</div>
+      <div class="detail"><span class="err-msg">EmptyInput</span></div>
+    </div>
+
+    <!-- ─── ParsingError: JsonError / MalformedJson (all fields: line, position, expected, actual) ─── -->
+    <div class="entry cat-error">
+      <div class="delta">+ 6s</div>
+      <div class="tag">Error</div>
+      <div class="detail"><span class="err-msg">JsonError</span> MalformedJson <span class="val">line 1 pos 14</span> · expected <span class="val">comma, closing brace</span> · got <span class="val">"x"</span></div>
+    </div>
+
+    <!-- ─── ParsingError: JsonError / MissingProperty ─── -->
+    <div class="entry cat-error">
+      <div class="delta">+ 6s</div>
+      <div class="tag">Error</div>
+      <div class="detail"><span class="err-msg">JsonError</span> MissingProperty <span class="val">"subtype"</span></div>
+    </div>
+
+    <!-- ─── ParsingError: JsonError / UnexpectedPropertyType ─── -->
+    <div class="entry cat-error">
+      <div class="delta">+ 6s</div>
+      <div class="tag">Error</div>
+      <div class="detail"><span class="err-msg">JsonError</span> UnexpectedPropertyType <span class="val">"exit_code"</span> · expected <span class="val">Int32</span> · got <span class="val">String</span></div>
+    </div>
+
+    <!-- ─── ParsingError: MissingTypeField ─── -->
+    <div class="entry cat-error">
+      <div class="delta">+ 6s</div>
+      <div class="tag">Error</div>
+      <div class="detail"><span class="err-msg">MissingTypeField</span> <span class="val">{"subtype":"init","session_id":"abc"}</span></div>
+    </div>
+
+    <!-- ─── ParsingError: UnknownSystemSubtype ─── -->
+    <div class="entry cat-error">
+      <div class="delta">+ 6s</div>
+      <div class="tag">Error</div>
+      <div class="detail"><span class="err-msg">UnknownSystemSubtype</span> <span class="val">"token_usage"</span></div>
+    </div>
+
+    <!-- ─── ParsingError: MissingRequiredField ─── -->
+    <div class="entry cat-error">
+      <div class="delta">+ 6s</div>
+      <div class="tag">Error</div>
+      <div class="detail"><span class="err-msg">MissingRequiredField</span> <span class="val">"assistant"</span> · field <span class="val">"content"</span></div>
+    </div>
+
+    <!-- ─── ParsingError: InvalidMessageStructure ─── -->
+    <div class="entry cat-error">
+      <div class="delta">+ 6s</div>
+      <div class="tag">Error</div>
+      <div class="detail"><span class="err-msg">InvalidMessageStructure</span> <span class="val">"result"</span> · content array contains unsupported item type</div>
+    </div>
+
+    <!-- ─── HookStart (all fields: HookId, HookName, HookEvent) ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 7s</div>
+      <div class="tag">Output</div>
+      <div class="detail">HookStart <span class="val">validate-write</span> · <span class="val">PreToolUse</span> · <span class="secondary">hook_1a2b</span></div>
+    </div>
+
+    <!-- ─── HookComplete (all fields: HookId, HookName, HookEvent, Outcome, ExitCode, Stdout, Stderr) ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 7s</div>
+      <div class="tag">Output</div>
+      <div class="detail">HookComplete <span class="val">validate-write</span> · <span class="val">PreToolUse</span> · <span class="val">approved</span> · exit <span class="val">0</span></div>
+      <div class="cont"><span class="label">stdout</span><span class="val">Path allowed: src/FabioSoft.Claude/NdjsonParser.fs</span></div>
+      <div class="cont"><span class="label">stderr</span><span class="secondary">(empty)</span></div>
+    </div>
+
+    <!-- ─── PermissionRequest (all fields: RequestId, ToolName, ToolUseId, Input, DecisionReason, DecisionReasonType) ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 8s</div>
+      <div class="tag">Output</div>
+      <div class="detail">PermissionRequest <span class="val">Write</span> · <span class="secondary">req_4f8a</span> · <span class="secondary">toolu_02DEF</span></div>
+      <div class="cont"><span class="label">input</span><span class="val">{"file_path":"src/FabioSoft.Claude/NdjsonParser.fs","content":"module FabioSoft.Claude\n\nopen System\nopen FabioSoft.Json\n\n[&lt;RequireQualifiedAccess&gt;]\nmodule NdjsonParser =\n\n    let parse (line: string) : Result&lt;StreamEvent, ParsingError&gt; list = ..."}</span></div>
+      <div class="cont"><span class="label">reason</span><span class="val">File write requires approval</span> · <span class="secondary">tool_policy</span></div>
+    </div>
+
+    <!-- ─── SessionInput: PermissionResponse ─── -->
+    <div class="entry cat-input">
+      <div class="delta">+ 10s</div>
+      <div class="tag">Input</div>
+      <div class="detail">PermissionResponse <span class="secondary">req_4f8a</span> · <span class="val">Allow</span></div>
+    </div>
+
+    <!-- ─── Usage (all fields: InputTokens, OutputTokens, CacheReadTokens) ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 11s</div>
+      <div class="tag">Output</div>
+      <div class="detail">Usage <span class="val">in: 2,418</span> · <span class="val">out: 847</span> · <span class="val">cache: 1,204</span></div>
+    </div>
+
+    <!-- ─── Assistant (all fields: Text, IsFinal) ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 12s</div>
+      <div class="tag">Output</div>
+      <div class="detail">Assistant · isFinal: <span class="val">true</span></div>
+      <div class="cont"><span class="label">text</span><span class="val">"Build is clean. The malformed-line case returns Error carrying the raw line and position."</span></div>
+    </div>
+
+    <!-- ─── Result (all fields: SessionId, CostUsd, Duration, Model) ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 12s</div>
+      <div class="tag">Output</div>
+      <div class="detail">Result <span class="val">session_abc123</span> · <span class="val">$0.0284</span> · <span class="val">12.4s</span> · <span class="val">opus 4.6</span></div>
+    </div>
+
+    <!-- ─── ApiCallRetry ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 13s</div>
+      <div class="tag">Output</div>
+      <div class="detail">ApiCallRetry</div>
+    </div>
+
+    <!-- ─── Compacting ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 14s</div>
+      <div class="tag">Output</div>
+      <div class="detail">Compacting</div>
+    </div>
+
+    <!-- ─── LogMessage ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 16s</div>
+      <div class="tag">Output</div>
+      <div class="detail">LogMessage <span class="val">"Warning: token limit approaching, consider compacting"</span></div>
+    </div>
+
+    <!-- ─── SessionInput: Interrupt ─── -->
+    <div class="entry cat-input">
+      <div class="delta">+ 17s</div>
+      <div class="tag">Input</div>
+      <div class="detail">Interrupt</div>
+    </div>
+
+    <!-- ─── Aborted ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 17s</div>
+      <div class="tag">Output</div>
+      <div class="detail">Aborted</div>
+    </div>
+
+    <!-- ─── SessionAlreadyExited ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 18s</div>
+      <div class="tag">Output</div>
+      <div class="detail">SessionAlreadyExited</div>
+    </div>
+
+    <!-- ─── SessionInput: Dispose ─── -->
+    <div class="entry cat-input">
+      <div class="delta">+ 18s</div>
+      <div class="tag">Input</div>
+      <div class="detail">Dispose</div>
+    </div>
+
+    <!-- ─── SessionEnded (all fields: exitCode, detail) ─── -->
+    <div class="entry cat-output">
+      <div class="delta">+ 18s</div>
+      <div class="tag">Output</div>
+      <div class="detail">SessionEnded · exit: <span class="val">0</span></div>
+      <div class="cont"><span class="label">detail</span><span class="val">Process exited normally</span></div>
+    </div>
+
+  </div>
+
+  <div class="statusbar">
+    <span class="dot d-output"></span> 18 output
+    <span class="sep">|</span>
+    <span class="dot d-input"></span> 4 input
+    <span class="sep">|</span>
+    <span class="dot d-error"></span> 9 errors
+    <span class="sep">|</span>
+    elapsed 18s
+  </div>
+</div>
+
+
+</body>
+</html>

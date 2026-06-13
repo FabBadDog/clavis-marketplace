@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CLAVIS - Badge styles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Clavis palette (from wpf-host/Theme/Styles.xaml) */
+    --black: #000000;
+    --panel: #0d0d12;
+    --code-bg: #14141c;
+    --frame: #4a4a52;
+    --line: #222228;
+    --faint: #2a2a30;
+    --text: #c8c8d0;
+    --text-bright: #e8e8ec;
+    --text-dim: #b0b0ba;
+    --clavis: #9fd5f0;
+    --human: #7ee4d4;
+    --input: #9b7ed4;
+    --error: #e47e7e;
+    --warn: #e4c47e;
+    --secondary: #6a6a74;
+    /* level palette */
+    --level-trace: #6a6a74;
+    --level-debug: #7ee4d4;
+    --level-info: #8ab4e8;
+    --level-warn: #e4c47e;
+    --level-error: #e47e7e;
+
+    --ui-font: 'Rajdhani', 'Segoe UI', sans-serif;
+    --agent-font: 'Inter', 'Segoe UI', sans-serif;
+    --mono-font: 'JetBrains Mono', 'Cascadia Code', monospace;
+  }
+
+  * { box-sizing: border-box; border-radius: 0 !important; }
+
+  body {
+    margin: 0;
+    background: #16161b;
+    color: var(--text);
+    font-family: var(--agent-font);
+    font-weight: 300;
+    line-height: 1.5;
+    padding: 48px 56px 80px;
+  }
+
+  h1 {
+    font-family: var(--ui-font);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-bright);
+    font-size: 26px;
+    margin: 0 0 6px;
+  }
+  h1 .accent { color: var(--clavis); }
+
+  .lede { color: var(--text-dim); max-width: 760px; font-size: 14px; margin: 0 0 8px; }
+  .lede code { font-family: var(--mono-font); color: var(--clavis); font-size: 12.5px; }
+
+  h2 {
+    font-family: var(--ui-font);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 56px 0 4px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .count { color: var(--secondary); font-weight: 500; }
+
+  .section-note { color: var(--secondary); font-size: 13px; margin: 0 0 24px; max-width: 760px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 22px 24px 24px;
+    margin: 18px 0;
+  }
+  .card.idea { border-left: 2px solid var(--clavis); }
+
+  .card-title {
+    font-family: var(--ui-font);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text-bright);
+    font-size: 16px;
+    margin: 0 0 2px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .card-title .tag {
+    font-family: var(--mono-font);
+    font-size: 10.5px;
+    color: var(--secondary);
+    letter-spacing: 0;
+  }
+  .card-desc { color: var(--text-dim); font-size: 13px; margin: 0 0 18px; max-width: 720px; }
+  .card-desc b { color: var(--text); font-weight: 500; }
+
+  .row { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: center; }
+  .swatch { display: inline-flex; align-items: center; }
+
+  /* ---- shared chip geometry ---- */
+  .badge {
+    font-family: var(--ui-font);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* current 1: command kind - filled faint chip, coloured text */
+  .b-kind { background: var(--faint); padding: 4px 7px; }
+
+  /* current 2: event level - bare coloured text, no box */
+  .b-level { font-size: 9.5px; font-weight: 500; letter-spacing: 0.08em; }
+
+  /* current 3: tool scope - dim filled chip, semibold */
+  .b-scope { background: #20202a; color: var(--text-dim); padding: 3px 6px; font-size: 9px; font-weight: 600; }
+
+  /* idea A: outlined chip */
+  .b-outline { background: transparent; border: 1px solid currentColor; padding: 3px 7px; }
+
+  /* idea B: left accent bar */
+  .b-bar { display: inline-flex; align-items: center; gap: 7px; color: var(--text); }
+  .b-bar::before { content: ''; width: 3px; height: 13px; background: currentColor; }
+  .b-bar .lbl { color: var(--text); }
+
+  /* idea C: dot + label (the dot is a circle - allowed) */
+  .b-dot { display: inline-flex; align-items: center; gap: 7px; color: var(--text); }
+  .b-dot .dot { width: 7px; height: 7px; border-radius: 50% !important; background: currentColor; flex: none; }
+  .b-dot .lbl { color: var(--text-dim); }
+
+  /* idea D: solid fill, dark text */
+  .b-solid { background: currentColor; padding: 4px 7px; }
+  .b-solid .lbl { color: var(--code-bg); }
+
+  /* idea E: underline accent (mirrors SegmentedSelector's selected underline) */
+  .b-underline { color: var(--text); padding: 0 1px 3px; border-bottom: 2px solid currentColor; }
+  .b-underline .lbl { color: var(--text); }
+
+  /* example host rows so badges are seen in context */
+  .context { margin-top: 22px; background: var(--black); border: 1px solid var(--line); padding: 14px 16px; }
+  .context .lblmini { font-family: var(--mono-font); font-size: 10px; color: var(--secondary); margin-bottom: 10px; letter-spacing: 0.04em; }
+  .ctx-row { display: flex; align-items: center; gap: 12px; padding: 5px 0; font-family: var(--mono-font); font-size: 12px; color: var(--text-dim); }
+  .ctx-row .name { color: var(--text); min-width: 120px; font-family: var(--ui-font); font-weight: 500; }
+  .ctx-row .time { color: var(--secondary); width: 46px; }
+
+  .legend { color: var(--secondary); font-size: 12px; margin-top: 14px; font-family: var(--mono-font); }
+  footer { margin-top: 64px; color: var(--text-dim); font-size: 13px; border-top: 1px solid var(--line); padding-top: 20px; max-width: 820px; }
+  footer code { font-family: var(--mono-font); color: var(--clavis); font-size: 12.5px; }
+  footer b { color: var(--text-bright); font-weight: 600; }
+</style>
+</head>
+<body>
+
+  <h1>CLAVIS <span class="accent">/</span> badge styles</h1>
+  <p class="lede">
+    The three badge shapes in the app today, plus five proposed unified styles. Every option keeps the
+    house rules: <b style="color:var(--text)">square corners only</b> (a dot may be a circle), content
+    before chrome, and colour driven by a theme resource key - so one shared <code>Badge</code> style +
+    <code>IconBadge.create</code> factory can replace all three, configured by an accent key and an optional fill.
+  </p>
+
+  <h2>Current badges <span class="count">- 3 in use</span></h2>
+  <p class="section-note">These diverge today: different backgrounds, fonts, weights, and colour rules. That is what the unification replaces.</p>
+
+  <div class="card">
+    <div class="card-title">Command kind <span class="tag">command-palette / CommandItemTemplate.xaml</span></div>
+    <p class="card-desc">Filled chip on <b>FaintBrush</b>, UI font 11. Text colour encodes the command kind. The only badge with a background fill.</p>
+    <div class="row">
+      <span class="badge b-kind" style="color:var(--clavis)">MESSAGE</span>
+      <span class="badge b-kind" style="color:var(--human)">ALIAS</span>
+      <span class="badge b-kind" style="color:var(--input)">AGENT</span>
+      <span class="badge b-kind" style="color:var(--warn)">SKILL</span>
+      <span class="badge b-kind" style="color:var(--secondary)">CMD</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Event level <span class="tag">events-panel / EventEntryRowTemplate.xaml</span></div>
+    <p class="card-desc">Not a chip at all - <b>bare coloured text</b> (UI font 8.5, medium) on the rising-severity palette. No box, no fill.</p>
+    <div class="row">
+      <span class="badge b-level" style="color:var(--level-trace)">TRACE</span>
+      <span class="badge b-level" style="color:var(--level-debug)">DEBUG</span>
+      <span class="badge b-level" style="color:var(--level-info)">INFO</span>
+      <span class="badge b-level" style="color:var(--level-warn)">WARN</span>
+      <span class="badge b-level" style="color:var(--level-error)">ERROR</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Tool scope <span class="tag">conversation / ToolRowTemplate.xaml</span></div>
+    <p class="card-desc">A small dim filled chip (semibold 9) marking a permission scope. Its <code>ScopeBadgeBrush</code> keys are referenced but currently undefined, so it falls back to defaults - effectively an unstyled chip.</p>
+    <div class="row">
+      <span class="badge b-scope">SESSION</span>
+      <span class="badge b-scope">PROJECT</span>
+      <span class="badge b-scope">ONCE</span>
+    </div>
+  </div>
+
+  <h2>Proposed unified styles <span class="count">- pick one</span></h2>
+  <p class="section-note">
+    Each is shown across the same accent set (clavis / human / input / warn / error / secondary) so you can compare. Whichever you choose becomes the single <code>Badge</code> style; the accent is a resource key, so kind/level/scope all map onto it.
+  </p>
+
+  <div class="card idea">
+    <div class="card-title">A &nbsp;&middot;&nbsp; Outlined chip</div>
+    <p class="card-desc">1px border in the accent colour, transparent fill, accent text. Crisp and low-ink; reads clearly on any panel without a filled block.</p>
+    <div class="row">
+      <span class="badge b-outline" style="color:var(--clavis)">MESSAGE</span>
+      <span class="badge b-outline" style="color:var(--human)">ALIAS</span>
+      <span class="badge b-outline" style="color:var(--input)">AGENT</span>
+      <span class="badge b-outline" style="color:var(--warn)">SKILL</span>
+      <span class="badge b-outline" style="color:var(--error)">ERROR</span>
+      <span class="badge b-outline" style="color:var(--secondary)">CMD</span>
+    </div>
+  </div>
+
+  <div class="card idea">
+    <div class="card-title">B &nbsp;&middot;&nbsp; Left accent bar</div>
+    <p class="card-desc">A 2-3px vertical bar in the accent colour beside neutral text - maximal content-before-chrome. The colour cues the category while the label stays highly readable.</p>
+    <div class="row">
+      <span class="badge b-bar" style="color:var(--clavis)"><span class="lbl">MESSAGE</span></span>
+      <span class="badge b-bar" style="color:var(--human)"><span class="lbl">ALIAS</span></span>
+      <span class="badge b-bar" style="color:var(--input)"><span class="lbl">AGENT</span></span>
+      <span class="badge b-bar" style="color:var(--warn)"><span class="lbl">SKILL</span></span>
+      <span class="badge b-bar" style="color:var(--error)"><span class="lbl">ERROR</span></span>
+      <span class="badge b-bar" style="color:var(--secondary)"><span class="lbl">CMD</span></span>
+    </div>
+  </div>
+
+  <div class="card idea">
+    <div class="card-title">C &nbsp;&middot;&nbsp; Dot + label</div>
+    <p class="card-desc">A small filled circle in the accent colour + dim label. Reuses the Clavis dot idiom (status dots, the breathing pixel) so badges feel part of the same family. Circle is allowed; the rule only forbids rounded rectangles.</p>
+    <div class="row">
+      <span class="badge b-dot" style="color:var(--clavis)"><span class="dot"></span><span class="lbl">MESSAGE</span></span>
+      <span class="badge b-dot" style="color:var(--human)"><span class="dot"></span><span class="lbl">ALIAS</span></span>
+      <span class="badge b-dot" style="color:var(--input)"><span class="dot"></span><span class="lbl">AGENT</span></span>
+      <span class="badge b-dot" style="color:var(--warn)"><span class="dot"></span><span class="lbl">SKILL</span></span>
+      <span class="badge b-dot" style="color:var(--error)"><span class="dot"></span><span class="lbl">ERROR</span></span>
+      <span class="badge b-dot" style="color:var(--secondary)"><span class="dot"></span><span class="lbl">CMD</span></span>
+    </div>
+  </div>
+
+  <div class="card idea">
+    <div class="card-title">D &nbsp;&middot;&nbsp; Solid fill, dark text</div>
+    <p class="card-desc">Square block fully filled in the accent colour with near-black text. The highest-emphasis option - good when a badge should grab attention (errors, active states), perhaps less so for dense lists.</p>
+    <div class="row">
+      <span class="badge b-solid" style="color:var(--clavis)"><span class="lbl">MESSAGE</span></span>
+      <span class="badge b-solid" style="color:var(--human)"><span class="lbl">ALIAS</span></span>
+      <span class="badge b-solid" style="color:var(--input)"><span class="lbl">AGENT</span></span>
+      <span class="badge b-solid" style="color:var(--warn)"><span class="lbl">SKILL</span></span>
+      <span class="badge b-solid" style="color:var(--error)"><span class="lbl">ERROR</span></span>
+      <span class="badge b-solid" style="color:var(--secondary)"><span class="lbl">CMD</span></span>
+    </div>
+  </div>
+
+  <div class="card idea">
+    <div class="card-title">E &nbsp;&middot;&nbsp; Underline accent</div>
+    <p class="card-desc">Neutral text with a 2px accent underline - directly mirrors the <code>SegmentedSelector</code> selected-underline already in Clavis, so the badge language stays consistent with the rest of the UI. Lightest footprint after the bar.</p>
+    <div class="row">
+      <span class="badge b-underline" style="color:var(--clavis)"><span class="lbl">MESSAGE</span></span>
+      <span class="badge b-underline" style="color:var(--human)"><span class="lbl">ALIAS</span></span>
+      <span class="badge b-underline" style="color:var(--input)"><span class="lbl">AGENT</span></span>
+      <span class="badge b-underline" style="color:var(--warn)"><span class="lbl">SKILL</span></span>
+      <span class="badge b-underline" style="color:var(--error)"><span class="lbl">ERROR</span></span>
+      <span class="badge b-underline" style="color:var(--secondary)"><span class="lbl">CMD</span></span>
+    </div>
+  </div>
+
+  <h2>In context</h2>
+  <p class="section-note">The five ideas dropped into a command-palette-like row, so you can judge them at real density rather than as isolated swatches.</p>
+  <div class="context">
+    <div class="lblmini">A - outlined chip</div>
+    <div class="ctx-row"><span class="name">/clear</span><span class="badge b-outline" style="color:var(--clavis)">MESSAGE</span><span class="time">Ctrl+L</span>clears the conversation</div>
+    <div class="ctx-row"><span class="name">/shortcuts</span><span class="badge b-outline" style="color:var(--human)">ALIAS</span><span class="time"></span>opens the keymap panel</div>
+    <div class="ctx-row"><span class="name">deep-research</span><span class="badge b-outline" style="color:var(--input)">AGENT</span><span class="time"></span>multi-source research harness</div>
+  </div>
+  <div class="context">
+    <div class="lblmini">C - dot + label</div>
+    <div class="ctx-row"><span class="name">/clear</span><span class="badge b-dot" style="color:var(--clavis)"><span class="dot"></span><span class="lbl">MESSAGE</span></span><span class="time">Ctrl+L</span>clears the conversation</div>
+    <div class="ctx-row"><span class="name">/shortcuts</span><span class="badge b-dot" style="color:var(--human)"><span class="dot"></span><span class="lbl">ALIAS</span></span><span class="time"></span>opens the keymap panel</div>
+    <div class="ctx-row"><span class="name">deep-research</span><span class="badge b-dot" style="color:var(--input)"><span class="dot"></span><span class="lbl">AGENT</span></span><span class="time"></span>multi-source research harness</div>
+  </div>
+  <div class="context">
+    <div class="lblmini">E - underline accent</div>
+    <div class="ctx-row"><span class="name">/clear</span><span class="badge b-underline" style="color:var(--clavis)"><span class="lbl">MESSAGE</span></span><span class="time">Ctrl+L</span>clears the conversation</div>
+    <div class="ctx-row"><span class="name">/shortcuts</span><span class="badge b-underline" style="color:var(--human)"><span class="lbl">ALIAS</span></span><span class="time"></span>opens the keymap panel</div>
+    <div class="ctx-row"><span class="name">deep-research</span><span class="badge b-underline" style="color:var(--input)"><span class="lbl">AGENT</span></span><span class="time"></span>multi-source research harness</div>
+  </div>
+
+  <footer>
+    <b>Next step:</b> tell me which style (A-E) you want and I'll implement it as a single shared <code>Badge</code> XAML style plus an <code>IconBadge.create(text, accentKey, ?fillKey)</code> factory in <code>clavis-controls</code>, then point the command-palette kind badge, the events level badge, and the tool-row scope badge at it - one implementation, one look. You can also mix (e.g. "A but with the dot from C") and I'll combine them.
+  </footer>
+
+</body>
+</html>

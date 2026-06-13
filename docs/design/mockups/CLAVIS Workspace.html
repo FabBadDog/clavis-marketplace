@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CLAVIS · Workspace Variations</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="clavis-tokens.css">
+<style>
+  /* Satoshi via fontshare */
+  @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700&display=swap');
+  html,body{margin:0;background:#f0eee9;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif}
+  body{min-height:100vh}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="clavis-components.jsx"></script>
+<script type="text/babel" src="clavis-content.jsx"></script>
+<script type="text/babel" src="clavis-variations.jsx"></script>
+<script type="text/babel" src="clavis-log.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "status": "idle",
+  "density": "comfortable",
+  "gutterWidth": 140,
+  "beam": "tab",
+  "wsBar": "hidden",
+  "typeMode": "sans"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const state = {
+    status: t.status,
+    density: t.density,
+    gutterWidth: Number(t.gutterWidth),
+    beam: t.beam,
+    wsBar: t.wsBar,
+    typeMode: t.typeMode,
+  };
+
+  return (
+    <>
+      <DesignCanvas>
+        <DCSection id="ref" title="01 · Reference"
+                   subtitle="The system applied as specified — the baseline against which the rest are read.">
+          <DCArtboard id="spec" label="Spec — by-the-book" width={920} height={680}>
+            <VariationSpec state={state} />
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="composition" title="02 · Composition"
+                   subtitle="Same chrome, different layout. The window restructured around panes and spines.">
+          <DCArtboard id="tiled" label="Tiled — 3-pane with live editor" width={1180} height={680}>
+            <VariationTiled state={state} />
+          </DCArtboard>
+          <DCArtboard id="spine" label="Spine — vertical workspace bar" width={920} height={680}>
+            <VariationSpine state={state} />
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="register" title="03 · Register"
+                   subtitle="Same components, different voice. Editorial vs. machine-room.">
+          <DCArtboard id="margin" label="Margin — wide narrative gutter" width={920} height={680}>
+            <VariationMargin state={state} />
+          </DCArtboard>
+          <DCArtboard id="type" label="Type — Garamond-forward" width={920} height={680}>
+            <VariationType state={state} />
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="motion" title="04 · Motion"
+                   subtitle="What if every working surface earned a beam?">
+          <DCArtboard id="beam" label="Beam — living edges everywhere" width={920} height={680}>
+            <VariationBeam state={state} />
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="telemetry" title="05 · Telemetry"
+                   subtitle="The wire format read aloud. NDJSON events as typeset prose — click any row to see the JSON underneath.">
+          <DCArtboard id="log" label="Log — NDJSON event stream, humanised" width={1100} height={720}>
+            <VariationLog state={state} />
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel>
+        <TweakSection label="Session state" />
+        <TweakRadio label="Status" value={t.status}
+                    options={['working','waiting','error','idle']}
+                    onChange={v=>setTweak('status',v)} />
+
+        <TweakSection label="Density" />
+        <TweakRadio label="Row density" value={t.density}
+                    options={['dense','compact','comfortable']}
+                    onChange={v=>setTweak('density',v)} />
+
+        <TweakSection label="Margin gutter" />
+        <TweakSlider label="Width" value={t.gutterWidth} min={80} max={200} step={10} unit="px"
+                     onChange={v=>setTweak('gutterWidth',v)} />
+
+        <TweakSection label="Type register" />
+        <TweakRadio label="Keyword voice" value={t.typeMode}
+                    options={['sans','serif']}
+                    onChange={v=>setTweak('typeMode',v)} />
+
+        <TweakSection label="Scanning beam" />
+        <TweakSelect label="Where" value={t.beam}
+                     options={['card','titlebar','tab','off']}
+                     onChange={v=>setTweak('beam',v)} />
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

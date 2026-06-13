@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CLAVIS · PowerShell Console</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="clavis-tokens.css">
+<style>
+  @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700&display=swap');
+  html,body{margin:0;background:#070709;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;height:100%}
+  body{display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;
+       background:
+         radial-gradient(circle at 30% 20%, rgba(127,181,216,.04), transparent 50%),
+         radial-gradient(circle at 80% 80%, rgba(94,212,196,.025), transparent 50%),
+         #070709;}
+  #root{width:100%;max-width:1480px;height:min(900px,calc(100vh - 48px));
+        border:1px solid #17171A;
+        box-shadow:0 60px 120px rgba(0,0,0,.6), 0 0 0 1px rgba(127,181,216,.04);
+        display:flex;}
+  #root > *{flex:1;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="clavis-components.jsx"></script>
+<script type="text/babel" src="clavis-pwsh.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+  ReactDOM.createRoot(document.getElementById('root')).render(<PowerShellConsole />);
+</script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAVIS — Outline Margin</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,300;1,400&family=Satoshi:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Rajdhani:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#000;--surface:#070709;--line:#17171A;--faint:#1E1E22;
+  --text:#A8A8B0;--bright:#DADADE;--dim:#4A4A52;
+  --clavis:#7FB5D8;--human:#5ED4C4;
+  --garamond:'EB Garamond',serif;
+  --sans:'Satoshi',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0A0A0C;color:var(--text);font-family:var(--sans);font-weight:300;padding:50px 40px 120px}
+.page-title{font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:4px;text-transform:uppercase;color:#555;margin-bottom:6px}
+.page-desc{font-size:11.5px;color:#444;line-height:1.6;max-width:850px;margin-bottom:40px;font-weight:300}
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}
+
+/* ===== WINDOW ===== */
+.win{
+  width:740px;background:#000;position:relative;
+  box-shadow:0 40px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.03);
+}
+.win-title{
+  display:flex;align-items:center;
+  height:28px;padding:0 10px 0 14px;
+  cursor:grab;user-select:none;
+  border-bottom:1px solid var(--line);
+  color:var(--dim);
+}
+.win-title:active{cursor:grabbing}
+.grip{display:flex;gap:2px;flex-direction:column;opacity:.15;margin-right:12px}
+.grip-row{display:flex;gap:2px}
+.grip-dot{width:2px;height:2px;background:currentColor}
+.win-name{font-family:var(--sans);font-size:9px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase}
+.win-meta{font-family:var(--sans);font-size:9px;font-weight:400;letter-spacing:.3px;margin-left:10px;opacity:.5}
+.win-dot{width:5px;height:5px;margin-left:10px;background:var(--clavis);animation:pulse 1.8s ease-in-out infinite}
+.sp{flex:1}
+.win-close{display:flex;align-items:center;justify-content:center;width:22px;height:22px;cursor:pointer;opacity:.3;transition:opacity .12s}
+.win-close:hover{opacity:.8}
+.x{position:relative;width:8px;height:8px}
+.x::before,.x::after{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:currentColor}
+.x::before{transform:rotate(45deg)}
+.x::after{transform:rotate(-45deg)}
+.win-resize{position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;opacity:.2;color:var(--dim)}
+.win-resize::before{content:'';position:absolute;bottom:2px;right:2px;width:1px;height:8px;background:currentColor;transform:rotate(-45deg);transform-origin:bottom right}
+.win-resize::after{content:'';position:absolute;bottom:2px;right:5px;width:1px;height:5px;background:currentColor;transform:rotate(-45deg);transform-origin:bottom right}
+
+/* ===== CONTENT ===== */
+.content{padding:10px 0}
+.row{display:grid;grid-template-columns:120px 1fr;padding:11px 28px;column-gap:22px;align-items:start}
+.row.tool-row{padding:4px 28px;align-items:center}
+.col-gutter{text-align:right;align-self:start;padding-top:2px}
+.col-body{min-width:0}
+
+/* Margin content */
+.m-keyword{
+  font-family:var(--sans);font-size:9px;font-weight:600;
+  letter-spacing:2px;text-transform:uppercase;
+  line-height:1.2;
+}
+.row.human-row .m-keyword{color:var(--human);opacity:.85}
+.row.agent-row .m-keyword{color:var(--clavis);opacity:.85}
+
+.m-summary{
+  font-family:var(--sans);font-size:10px;font-weight:300;
+  color:var(--dim);line-height:1.4;letter-spacing:.1px;
+  margin-top:4px;
+}
+
+.m-stats{
+  display:flex;gap:10px;justify-content:flex-end;align-items:center;
+  font-family:var(--mono);font-size:9px;font-weight:400;
+  color:var(--dim);opacity:.6;margin-top:6px;
+}
+.m-stat{display:inline-flex;align-items:center;gap:4px}
+.m-stat svg{width:10px;height:10px;display:block;opacity:.7;flex-shrink:0}
+.m-stats .sep{opacity:.4}
+
+/* Content text */
+.human-txt{font-family:var(--garamond);font-size:13px;font-weight:400;font-style:italic;color:var(--bright);line-height:1.55}
+.agent-txt{font-family:var(--sans);font-size:13px;font-weight:300;color:var(--text);line-height:1.75;letter-spacing:.1px}
+.code{font-family:var(--mono);font-size:11px;font-weight:400;color:var(--bright);background:var(--surface);padding:1px 5px}
+
+/* Tool */
+.tool-text{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;font-weight:400;color:var(--dim)}
+.tool-text .ok{color:var(--clavis);opacity:.55;font-size:9px}
+.tool-name{font-family:var(--sans);font-size:9px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase}
+.tool-dur{font-family:var(--mono);font-size:9px;color:var(--dim);opacity:.5;margin-left:auto}
+
+/* Input */
+.input-row{display:grid;grid-template-columns:120px 1fr;padding:14px 28px;column-gap:22px;border-top:1px solid var(--line);align-items:center}
+.input-gutter{text-align:right}
+.input-gutter .m-keyword{color:var(--human);opacity:.4}
+.ib{display:flex;align-items:center;gap:10px}
+.input-mark{font-family:var(--garamond);font-size:20px;color:var(--human);opacity:.35}
+.caret{width:1px;height:14px;background:var(--human);opacity:.5;animation:blink 1.1s step-end infinite}
+
+/* Status bar */
+.statusbar{
+  padding:5px 28px 5px 170px;border-top:1px solid var(--faint);
+  font-family:var(--sans);font-size:8.5px;color:var(--dim);letter-spacing:.8px;
+  display:flex;gap:14px;font-weight:400;
+}
+</style>
+</head>
+<body>
+
+<div class="page-title">CLAVIS — Outline Margin</div>
+<div class="page-desc">Refined variant 04. Accent keyword in caps + descriptive summary below + duration and tokens at the bottom of each margin block. Only the keyword carries the accent color.</div>
+
+
+<div class="win">
+  <div class="win-title">
+    <span class="grip">
+      <span class="grip-row"><span class="grip-dot"></span><span class="grip-dot"></span></span>
+      <span class="grip-row"><span class="grip-dot"></span><span class="grip-dot"></span></span>
+      <span class="grip-row"><span class="grip-dot"></span><span class="grip-dot"></span></span>
+    </span>
+    <span class="win-name">Corvus</span>
+    <span class="win-meta">opus 4.6 · working</span>
+    <span class="win-dot"></span>
+    <span class="sp"></span>
+    <span class="win-close"><span class="x"></span></span>
+  </div>
+
+  <div class="content">
+
+    <!-- Human prompt -->
+    <div class="row human-row">
+      <div class="col-gutter">
+        <div class="m-keyword">Implement</div>
+        <div class="m-summary">Parser module with Result types</div>
+        <div class="m-stats">
+          <span class="m-stat">
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><circle cx="3.5" cy="5" r="2"/><circle cx="6.5" cy="5" r="2"/></svg>
+            42
+          </span>
+        </div>
+      </div>
+      <div class="col-body">
+        <div class="human-txt">Implement the NdjsonParser module in Corvus. Handle malformed lines with Result types and support async streaming.</div>
+      </div>
+    </div>
+
+    <!-- Agent plan -->
+    <div class="row agent-row">
+      <div class="col-gutter">
+        <div class="m-keyword">Explore</div>
+        <div class="m-summary">Read existing types for alignment</div>
+        <div class="m-stats">
+          <span class="m-stat">
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="5" r="4"/><path d="M5 3 L5 5 L6.5 6"/></svg>
+            3.1s
+          </span>
+          <span class="m-stat">
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><circle cx="3.5" cy="5" r="2"/><circle cx="6.5" cy="5" r="2"/></svg>
+            312
+          </span>
+        </div>
+      </div>
+      <div class="col-body">
+        <div class="agent-txt">I'll create the parser module. Let me read the existing types first to ensure the <span class="code">StreamEvent</span> union aligns with the parser output.</div>
+      </div>
+    </div>
+
+    <!-- Tool: Read -->
+    <div class="row tool-row">
+      <div class="col-gutter"></div>
+      <div class="col-body tool-text">
+        <span class="ok">✓</span>
+        <span class="tool-name">Read</span>
+        src/Corvus/Types.fs
+        <span class="tool-dur">0.4s</span>
+      </div>
+    </div>
+
+    <!-- Tool: Write -->
+    <div class="row tool-row">
+      <div class="col-gutter"></div>
+      <div class="col-body tool-text">
+        <span class="ok">✓</span>
+        <span class="tool-name">Write</span>
+        src/Corvus/NdjsonParser.fs — new, 48 lines
+        <span class="tool-dur">1.2s</span>
+      </div>
+    </div>
+
+    <!-- Agent summary -->
+    <div class="row agent-row">
+      <div class="col-gutter">
+        <div class="m-keyword">Build</div>
+        <div class="m-summary">Three functions complete, compiling</div>
+        <div class="m-stats">
+          <span class="m-stat">
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="5" r="4"/><path d="M5 3 L5 5 L6.5 6"/></svg>
+            4.7s
+          </span>
+          <span class="m-stat">
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><circle cx="3.5" cy="5" r="2"/><circle cx="6.5" cy="5" r="2"/></svg>
+            584
+          </span>
+        </div>
+      </div>
+      <div class="col-body">
+        <div class="agent-txt">The parser has three functions: <span class="code">tryParseLine</span>, <span class="code">parseStream</span> for async sequences, and <span class="code">parseBatch</span>. Building to verify.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Input -->
+  <div class="input-row">
+    <div class="input-gutter">
+      <div class="m-keyword">Reply</div>
+    </div>
+    <div class="ib">
+      <span class="input-mark">›</span>
+      <span class="caret"></span>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="statusbar">
+    <span>Turn 4</span>
+    <span>$0.18</span>
+    <span>Context 28%</span>
+    <span class="sp"></span>
+    <span>+48 lines</span>
+  </div>
+
+  <div class="win-resize"></div>
+</div>
+
+</body>
+</html>
