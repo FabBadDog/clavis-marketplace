@@ -1,7 +1,7 @@
 ---
 name: http
 pluginId: Http
-version: 1.0.119
+version: 1.0.120
 apiVersion: 1.0.0
 description: http(s):// resource read.
 projectFile: ./Http.csproj
