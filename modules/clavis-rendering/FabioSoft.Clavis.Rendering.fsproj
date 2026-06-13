@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>2.4.0</Version>
+    <RootNamespace>FabioSoft.Clavis.Rendering</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <!-- Produced into ~/.clavis/modules and loaded into the Default ALC, so its bin must carry its private
+         NuGet deps (Markdig); the deploy routes those to ~/.clavis/libraries. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Theme.fs" />
+    <Compile Include="FocusOverlay.fs" />
+    <Compile Include="Motion.fs" />
+    <Compile Include="CloseButton.fs" />
+    <Compile Include="SegmentedSelector.fs" />
+    <Compile Include="Selector.fs" />
+    <Compile Include="LimitWindow.fs" />
+    <Compile Include="LimitsPlane.fs" />
+    <Compile Include="StatIcon.fs" />
+    <Compile Include="StatIconConverter.fs" />
+    <Compile Include="PlaceholderStrip.fs" />
+    <Compile Include="CopyMenu.fs" />
+    <Compile Include="MarkdownPresenter.fs" />
+    <Compile Include="DockingSurface.fs" />
+    <Compile Include="KeyGestureReader.fs" />
+    <Compile Include="ShortcutHelpOverlay.fs" />
+    <Compile Include="SlideInHost.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="1.1.2" />
+  </ItemGroup>
+  <!-- FabioSoft.Process is owned by Clavis core and shipped in the host's exe-dir closure; it resolves at
+       runtime as a file reference injected by the runtime Directory.Build.props. It is not a marketplace
+       shared item. -->
+</Project>

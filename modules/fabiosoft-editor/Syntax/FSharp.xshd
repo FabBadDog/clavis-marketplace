@@ -1,0 +1,97 @@
+<?xml version="1.0"?>
+<!-- Minimal F# highlighting for AvalonEdit (which ships no F# definition). Colors target a dark
+     background to match the Clavis palette. Extend as needed; this is a pragmatic first cut. -->
+<SyntaxDefinition name="F#" extensions=".fs;.fsi;.fsx"
+                  xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+
+  <Color name="Comment" foreground="#6A9955" />
+  <Color name="String" foreground="#CE9178" />
+  <Color name="Char" foreground="#CE9178" />
+  <Color name="Keyword" foreground="#9FD5F0" fontWeight="normal" />
+  <Color name="Number" foreground="#B5CEA8" />
+  <Color name="Preprocessor" foreground="#C586C0" />
+  <Color name="Attribute" foreground="#C586C0" />
+
+  <RuleSet ignoreCase="false">
+
+    <Span color="Comment" multiline="true" begin="\(\*" end="\*\)" />
+    <Span color="Comment" begin="//" />
+
+    <Span color="String" begin="@&quot;" end="&quot;" />
+    <Span color="String" begin="&quot;&quot;&quot;" end="&quot;&quot;&quot;" multiline="true" />
+    <Span color="String" begin="&quot;" end="&quot;">
+      <RuleSet>
+        <Span begin="\\" end="." />
+      </RuleSet>
+    </Span>
+    <Span color="Char" begin="'" end="'">
+      <RuleSet>
+        <Span begin="\\" end="." />
+      </RuleSet>
+    </Span>
+
+    <Span color="Attribute" begin="\[&lt;" end="&gt;\]" />
+
+    <Keywords color="Keyword">
+      <Word>let</Word>
+      <Word>rec</Word>
+      <Word>in</Word>
+      <Word>and</Word>
+      <Word>match</Word>
+      <Word>with</Word>
+      <Word>when</Word>
+      <Word>if</Word>
+      <Word>then</Word>
+      <Word>else</Word>
+      <Word>elif</Word>
+      <Word>for</Word>
+      <Word>to</Word>
+      <Word>downto</Word>
+      <Word>while</Word>
+      <Word>do</Word>
+      <Word>done</Word>
+      <Word>fun</Word>
+      <Word>function</Word>
+      <Word>type</Word>
+      <Word>member</Word>
+      <Word>module</Word>
+      <Word>namespace</Word>
+      <Word>open</Word>
+      <Word>mutable</Word>
+      <Word>new</Word>
+      <Word>of</Word>
+      <Word>abstract</Word>
+      <Word>override</Word>
+      <Word>default</Word>
+      <Word>interface</Word>
+      <Word>inherit</Word>
+      <Word>static</Word>
+      <Word>val</Word>
+      <Word>internal</Word>
+      <Word>private</Word>
+      <Word>public</Word>
+      <Word>try</Word>
+      <Word>finally</Word>
+      <Word>raise</Word>
+      <Word>failwith</Word>
+      <Word>yield</Word>
+      <Word>return</Word>
+      <Word>use</Word>
+      <Word>begin</Word>
+      <Word>end</Word>
+      <Word>as</Word>
+      <Word>not</Word>
+      <Word>true</Word>
+      <Word>false</Word>
+      <Word>null</Word>
+      <Word>async</Word>
+      <Word>task</Word>
+      <Word>lazy</Word>
+    </Keywords>
+
+    <Rule color="Number">
+      \b0[xX][0-9a-fA-F]+|\b\d+(\.[0-9]+)?([eE][+-]?[0-9]+)?
+    </Rule>
+
+  </RuleSet>
+</SyntaxDefinition>

@@ -1,0 +1,117 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:FabioSoft.Nucleus.Plugins.EventsPanel">
+
+    <BooleanToVisibilityConverter x:Key="EventsBoolToVis" />
+
+    <!-- A continuation line (input / stdout / reason / ...): a small label and its value, wrapped in full. -->
+    <DataTemplate DataType="{x:Type vm:ContinuationLine}">
+        <Grid Margin="0,2,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
+                       Text="{Binding Label}"
+                       FontFamily="{DynamicResource MonoFont}"
+                       FontSize="8.5"
+                       Foreground="{DynamicResource SecondaryBrush}"
+                       Margin="0,0,8,0" />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Text}"
+                       FontFamily="{DynamicResource MonoFont}"
+                       FontSize="9"
+                       Foreground="{DynamicResource TextDimBrush}"
+                       TextWrapping="Wrap" />
+        </Grid>
+    </DataTemplate>
+
+    <!-- One event row laid out as aligned columns: relative time | severity | source | message. The first
+         three are fixed-width so they line up across every row; the message fills the rest and wraps only
+         when it does not fit. Content before chrome: no selection, no hover frame. -->
+    <DataTemplate DataType="{x:Type vm:EventEntryViewModel}">
+        <Border Padding="16,4,12,4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="58" />
+                    <ColumnDefinition Width="64" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Relative time. -->
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="{Binding DeltaText}"
+                           FontFamily="{DynamicResource MonoFont}"
+                           FontSize="9"
+                           Foreground="{DynamicResource TextDimBrush}"
+                           VerticalAlignment="Top"
+                           Margin="0,1,8,0" />
+
+                <!-- Severity badge, coloured by level to match the filter palette. -->
+                <Border Grid.Row="0" Grid.Column="1"
+                        Style="{DynamicResource Badge}"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Margin="0,1,8,0">
+                    <TextBlock Text="{Binding LevelLabel}"
+                               FontFamily="{DynamicResource UiFont}"
+                               FontSize="11">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Level}" Value="Trace">
+                                        <Setter Property="Foreground" Value="{DynamicResource LevelTraceBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Level}" Value="Debug">
+                                        <Setter Property="Foreground" Value="{DynamicResource LevelDebugBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Level}" Value="Info">
+                                        <Setter Property="Foreground" Value="{DynamicResource LevelInfoBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Level}" Value="Warn">
+                                        <Setter Property="Foreground" Value="{DynamicResource LevelWarnBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Level}" Value="Error">
+                                        <Setter Property="Foreground" Value="{DynamicResource LevelErrorBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Border>
+
+                <!-- Source, trimmed with an ellipsis if it overruns its column. -->
+                <TextBlock Grid.Row="0" Grid.Column="2"
+                           Text="{Binding SourceLabel}"
+                           FontFamily="{DynamicResource MonoFont}"
+                           FontSize="9"
+                           Foreground="{DynamicResource SecondaryBrush}"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Top"
+                           Margin="0,1,8,0" />
+
+                <!-- The message, wrapped only when it does not fit the column. -->
+                <TextBlock Grid.Row="0" Grid.Column="3"
+                           Text="{Binding SummaryText}"
+                           FontFamily="{DynamicResource MonoFont}"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextBrush}"
+                           TextWrapping="Wrap" />
+
+                <!-- Continuation lines (input / stdout / stderr / reason), aligned under the message column. -->
+                <ItemsControl Grid.Row="1" Grid.Column="3"
+                              ItemsSource="{Binding ContinuationLines}"
+                              Margin="0,1,0,0"
+                              Visibility="{Binding HasContinuations, Converter={StaticResource EventsBoolToVis}}" />
+            </Grid>
+        </Border>
+    </DataTemplate>
+
+</ResourceDictionary>

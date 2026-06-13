@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>1.0.1</Version>
+    <RootNamespace>FabioSoft.Nucleus.Plugins.KeymapPanel</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Include="FabioSoft.Nucleus.Contracts" />
+    <Using Include="FabioSoft.Contracts.Keymap" />
+    <Using Include="FabioSoft.Contracts.Workspace" />
+  </ItemGroup></Project>

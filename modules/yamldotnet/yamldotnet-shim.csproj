@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- A NuGet passthrough: no source of its own. The compiler builds this on launch; the build restores
+       YamlDotNet and CopyLocalLockFileAssemblies drops YamlDotNet.dll into the output, from where the
+       promotion step copies the `produces` set into ~/.clavis/shared. -->
+  <PropertyGroup>
+    <Version>1.0.1</Version>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="18.0.0" />
+  </ItemGroup>
+</Project>

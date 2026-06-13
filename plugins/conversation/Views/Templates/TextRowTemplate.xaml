@@ -1,0 +1,14 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:FabioSoft.Nucleus.Plugins.Conversation.ViewModels"
+    xmlns:rendering="clr-namespace:FabioSoft.Clavis.Rendering;assembly=FabioSoft.Clavis.Rendering">
+
+    <!-- An assistant text block, interleaved with the tool/hook rows in arrival order. Rendered as
+         markdown - the same presentation the single bottom response used to have, now repeated per block so
+         the agent's narration between tool calls is never lost. -->
+    <DataTemplate DataType="{x:Type vm:TextItemViewModel}">
+        <rendering:MarkdownPresenter Markdown="{Binding Markdown}" Margin="0,2,0,4" />
+    </DataTemplate>
+
+</ResourceDictionary>

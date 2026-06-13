@@ -1,0 +1,88 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:FabioSoft.Nucleus.Plugins.Conversation.ViewModels">
+
+    <BooleanToVisibilityConverter x:Key="BoolToVisPhase" />
+
+    <DataTemplate DataType="{x:Type vm:StartupPhaseViewModel}">
+        <StackPanel Orientation="Horizontal" Margin="0,5,0,5" VerticalAlignment="Center">
+            <StackPanel.RenderTransform>
+                <TranslateTransform x:Name="RowSlide" Y="6" />
+            </StackPanel.RenderTransform>
+            <StackPanel.Triggers>
+                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                             From="0" To="1" Duration="0:0:0.25">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                            <DoubleAnimation Storyboard.TargetName="RowSlide" Storyboard.TargetProperty="Y"
+                                             From="6" To="0" Duration="0:0:0.25">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </StackPanel.Triggers>
+            <Ellipse Width="4" Height="4"
+                     Fill="{DynamicResource ClavisBrush}"
+                     VerticalAlignment="Center" Margin="0,0,6,0">
+                <Ellipse.Style>
+                    <Style TargetType="Ellipse">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard x:Name="PhaseBreathe">
+                                        <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                            <DoubleAnimation
+                                                Storyboard.TargetProperty="Opacity"
+                                                From="0.15" To="1.0" Duration="0:0:0.6">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <SineEase EasingMode="EaseInOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <StopStoryboard BeginStoryboardName="PhaseBreathe" />
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Ellipse.Style>
+            </Ellipse>
+
+            <TextBlock Text="&#x2713;"
+                       FontSize="9" FontFamily="{DynamicResource MonoFont}"
+                       Foreground="{DynamicResource ClavisBrush}"
+                       Opacity="0.8" VerticalAlignment="Center"
+                       Margin="0,0,5,0"
+                       Visibility="{Binding Succeeded, Converter={StaticResource BoolToVisPhase}}" />
+
+            <TextBlock Text="{Binding DisplayName}"
+                       FontSize="9.5" FontFamily="{DynamicResource MonoFont}"
+                       Foreground="{DynamicResource TextDimBrush}"
+                       VerticalAlignment="Center" Margin="0,0,12,0" />
+
+            <TextBlock Text="{Binding DetailText}"
+                       FontSize="9" FontFamily="{DynamicResource MonoFont}"
+                       Foreground="{DynamicResource TextDimBrush}"
+                       Opacity="0.6" VerticalAlignment="Center" Margin="0,0,12,0" />
+
+            <TextBlock Text="{Binding DurationText}"
+                       FontSize="9" FontFamily="{DynamicResource MonoFont}"
+                       Foreground="{DynamicResource TextDimBrush}"
+                       Opacity="0.5" VerticalAlignment="Center" />
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

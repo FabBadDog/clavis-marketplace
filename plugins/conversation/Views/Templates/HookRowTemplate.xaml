@@ -1,0 +1,64 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:FabioSoft.Nucleus.Plugins.Conversation.ViewModels">
+
+    <BooleanToVisibilityConverter x:Key="BoolToVisHook" />
+
+    <DataTemplate DataType="{x:Type vm:HookItemViewModel}">
+        <StackPanel Orientation="Horizontal" Margin="0,1,0,1" VerticalAlignment="Center">
+            <StackPanel.RenderTransform>
+                <TranslateTransform x:Name="RowSlide" Y="6" />
+            </StackPanel.RenderTransform>
+            <StackPanel.Triggers>
+                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                             From="0" To="1" Duration="0:0:0.25">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                            <DoubleAnimation Storyboard.TargetName="RowSlide" Storyboard.TargetProperty="Y"
+                                             From="6" To="0" Duration="0:0:0.25">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </StackPanel.Triggers>
+            <TextBlock Text="{Binding IndicatorText}"
+                       FontSize="11" FontWeight="Bold"
+                       FontFamily="{DynamicResource MonoFont}"
+                       Opacity="{Binding IndicatorOpacity}"
+                       VerticalAlignment="Center">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsSucceeded}" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource ClavisBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <TextBlock Text="{Binding DisplayName}"
+                       FontSize="9.5" FontFamily="{DynamicResource MonoFont}"
+                       Foreground="{DynamicResource TextDimBrush}"
+                       Margin="0,0,12,0" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding DurationText}"
+                       FontSize="9" FontFamily="{DynamicResource MonoFont}"
+                       Foreground="{DynamicResource TextDimBrush}"
+                       Opacity="0.5" VerticalAlignment="Center"
+                       Visibility="{Binding ShowDuration, Converter={StaticResource BoolToVisHook}}" />
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

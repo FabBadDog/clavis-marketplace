@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>FabioSoft.Clavis.IntegrationTests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <!-- Framework + modules resolve as file references injected by the runtime
+       Directory.Build.props (and are copied into this Tests project's output). The plugins under test and
+       the testkit are local ProjectReferences. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.0" />
+    <PackageReference Include="Faqt" Version="5.1.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\testkit\FabioSoft.Clavis.TestKit.fsproj" />
+    <ProjectReference Include="..\..\plugins\claude-bridge\ClaudeBridge.csproj" />
+    <ProjectReference Include="..\..\plugins\conversation\Conversation.csproj" />
+    <ProjectReference Include="..\..\plugins\panel-registry\PanelRegistry.csproj" />
+    <ProjectReference Include="..\..\plugins\configuration\Configuration.csproj" />
+    <ProjectReference Include="..\..\plugins\resource-broker\ResourceBroker.csproj" />
+    <ProjectReference Include="..\..\plugins\file-system\FileSystem.csproj" />
+    <ProjectReference Include="..\..\plugins\keymap\KeyMap.csproj" />
+    <ProjectReference Include="..\..\plugins\command-palette\CommandPalette.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ConversationHarness.fs" />
+    <Compile Include="AgentLoopTests.fs" />
+    <Compile Include="PanelRegistryTests.fs" />
+    <Compile Include="ConfigurationTests.fs" />
+    <Compile Include="ResourceTests.fs" />
+    <Compile Include="KeymapTests.fs" />
+    <Compile Include="CommandPaletteTests.fs" />
+  </ItemGroup>
+</Project>

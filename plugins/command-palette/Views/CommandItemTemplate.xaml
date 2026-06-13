@@ -1,0 +1,86 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <DataTemplate x:Key="CommandItemTemplate">
+        <Grid Margin="0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="120" />
+                <ColumnDefinition Width="64" />
+                <ColumnDefinition Width="104" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="{Binding DisplayName}"
+                       FontSize="15"
+                       FontWeight="Medium"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,0,12,0"
+                       Foreground="{DynamicResource TextBrightBrush}"
+                       FontFamily="{DynamicResource UiFont}" />
+
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Path=Source}"
+                       FontSize="12"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,1,12,0"
+                       Foreground="{DynamicResource SecondaryBrush}"
+                       FontFamily="{DynamicResource UiFont}" />
+
+            <Border Grid.Column="2"
+                    Style="{DynamicResource Badge}"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top">
+                <TextBlock Text="{Binding KindLabel}"
+                           FontSize="11"
+                           FontFamily="{DynamicResource UiFont}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource SecondaryBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Kind}" Value="Message">
+                                    <Setter Property="Foreground" Value="{DynamicResource ClavisBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="Alias">
+                                    <Setter Property="Foreground" Value="{DynamicResource HumanBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="Agent">
+                                    <Setter Property="Foreground" Value="{DynamicResource InputBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="Skill">
+                                    <Setter Property="Foreground" Value="{DynamicResource WarnBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Border>
+
+            <TextBlock Grid.Column="3"
+                       Text="{Binding Shortcut}"
+                       FontSize="12"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,1,12,0"
+                       Foreground="{DynamicResource ClavisBrush}"
+                       FontFamily="{DynamicResource MonoFont}" />
+
+            <TextBlock Grid.Column="4"
+                       Text="{Binding Description}"
+                       Margin="12,0,0,0"
+                       FontSize="13"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextDimBrush}" />
+        </Grid>
+    </DataTemplate>
+
+</ResourceDictionary>

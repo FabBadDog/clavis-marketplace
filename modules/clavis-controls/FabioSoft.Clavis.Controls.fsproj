@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>1.0.1</Version>
+    <RootNamespace>FabioSoft.Clavis.Controls</RootNamespace>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <!-- WPF form/input/layout widgets shared by the plugins. A standalone Default-ALC module with no
+       NuGet or Clavis dependencies: it consumes theme look entirely through host resource keys
+       (SetResourceReference) so it never bakes brushes or fonts and carries nothing to deploy beside its dll. -->
+  <ItemGroup>
+    <Compile Include="Inputs.fs" />
+    <Compile Include="ActionButton.fs" />
+    <Compile Include="IconButton.fs" />
+    <Compile Include="LabeledField.fs" />
+    <Compile Include="SectionHeader.fs" />
+    <Compile Include="MetadataText.fs" />
+    <Compile Include="StatusDot.fs" />
+    <Compile Include="TreeBrowser.fs" />
+  </ItemGroup>
+</Project>

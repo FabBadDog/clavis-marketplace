@@ -1,0 +1,7 @@
+bin/
+obj/
+.compiled/
+
+
+# Local Claude worktrees / settings
+.claude/

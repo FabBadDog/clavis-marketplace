@@ -1,0 +1,28 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="CLAVIS"
+    Width="740"
+    Height="640"
+    MinWidth="400"
+    MinHeight="260"
+    Background="#000000"
+    Foreground="#A8A8B0"
+    BorderBrush="{DynamicResource FrameBrush}"
+    BorderThickness="1"
+    WindowStyle="None"
+    AllowsTransparency="True"
+    ResizeMode="CanResizeWithGrip">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="28"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="0" />
+    </WindowChrome.WindowChrome>
+
+    <ContentControl
+        HorizontalContentAlignment="Stretch"
+        VerticalContentAlignment="Stretch" />
+
+</Window>

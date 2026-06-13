@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>FabioSoft.Nucleus.Conversation.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <!-- Runtime-form test build: the framework (Bus, Contracts) and shared contracts resolve as file
+       references from the exe dir + ~/.clavis/shared, injected by the runtime Directory.Build.props (the
+       same one that compiles the plugins). Only the local plugin under test is a ProjectReference; the test
+       packages are pinned because the runtime build has no central package management. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.0" />
+    <PackageReference Include="Faqt" Version="5.1.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Conversation.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="CollectionSyncTests.fs" />
+    <Compile Include="ContextWindowTests.fs" />
+    <Compile Include="AgentValuesTests.fs" />
+    <Compile Include="StatsColumnTests.fs" />
+    <Compile Include="ConversationUpdateTests.fs" />
+    <Compile Include="PermissionNavigateTests.fs" />
+    <Compile Include="ConversationPluginTests.fs" />
+  </ItemGroup>
+</Project>

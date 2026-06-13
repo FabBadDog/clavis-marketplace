@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>1.0.62</Version>
+    <RootNamespace>FabioSoft.Nucleus.Plugins.MarketplacePlugin</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Include="FabioSoft.Contracts.Marketplace" />
+  </ItemGroup>
+  <!-- In-solution builds use ProjectReferences. Runtime (compile-on-launch) builds set
+       PluginRuntimeBuild=true via the deployed plugins/Directory.Build.props, which supplies DLL
+       references to the host's assemblies instead (the contract group, Marketplace.Io and its Core
+       dependency, all beside the exe). This plugin is host infrastructure (the marketplace client's
+       interactive surface), not marketplace content; it ships in the bundle and compiles on launch. -->
+  <ItemGroup Condition="'$(PluginRuntimeBuild)' != 'true'">
+    <ProjectReference Include="..\..\nucleus\FabioSoft.Nucleus.Contracts\FabioSoft.Nucleus.Contracts.fsproj" />
+    <ProjectReference Include="..\..\contracts\FabioSoft.Contracts.Marketplace\FabioSoft.Contracts.Marketplace.fsproj" />
+    <ProjectReference Include="..\..\libraries\FabioSoft.Marketplace.Io\FabioSoft.Marketplace.Io.fsproj" />
+  </ItemGroup>
+</Project>

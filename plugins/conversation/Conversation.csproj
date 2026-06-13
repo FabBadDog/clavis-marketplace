@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>7.1.0</Version>
+    <RootNamespace>FabioSoft.Nucleus.Plugins.Conversation</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Include="FabioSoft.Contracts.Session" />
+    <Using Include="FabioSoft.Contracts.Host" />
+    <Using Include="FabioSoft.Contracts.Keymap" />
+    <Using Include="FabioSoft.Contracts.Placeholders" />
+    <Using Include="FabioSoft.Contracts.Services" />
+    <Using Include="FabioSoft.Contracts.Workspace" />
+  </ItemGroup></Project>

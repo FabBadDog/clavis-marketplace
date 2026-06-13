@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>FabioSoft.Nucleus.ClaudeBridge.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <!-- Runtime-form test build: framework + modules come from the runtime Directory.Build.props
+       (copied into this Tests project's output); only the local item under test is a ProjectReference. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.0" />
+    <PackageReference Include="Faqt" Version="5.1.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ClaudeBridge.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ClaudeCatalogTests.fs" />
+    <Compile Include="StreamEventMapperTests.fs" />
+    <Compile Include="UsageReportMappingTests.fs" />
+    <Compile Include="ClaudeBridgePluginTests.fs" />
+    <Compile Include="EditorContextTests.fs" />
+  </ItemGroup>
+</Project>

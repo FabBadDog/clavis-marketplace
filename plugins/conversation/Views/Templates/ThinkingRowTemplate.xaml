@@ -1,0 +1,38 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:FabioSoft.Nucleus.Plugins.Conversation.ViewModels">
+
+    <BooleanToVisibilityConverter x:Key="ThinkingBoolToVis" />
+
+    <!-- A reasoning (thinking) block: dimmed, collapsed by default; click to reveal the full text. -->
+    <DataTemplate DataType="{x:Type vm:ThinkingItemViewModel}">
+        <StackPanel Margin="0,2,0,3">
+            <ToggleButton Style="{DynamicResource ChromeFreeToggle}"
+                          HorizontalContentAlignment="Left"
+                          IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                          HorizontalAlignment="Left">
+                <TextBlock TextWrapping="Wrap" Opacity="0.6">
+                    <Run Text="&#x2731; thinking"
+                         FontSize="9" FontWeight="Medium"
+                         Foreground="{DynamicResource TextDimBrush}"
+                         FontFamily="{DynamicResource UiFont}" />
+                    <Run Text="   " FontSize="9" />
+                    <Run Text="{Binding Preview, Mode=OneWay}"
+                         FontSize="9.5" FontStyle="Italic"
+                         Foreground="{DynamicResource TextDimBrush}"
+                         FontFamily="{DynamicResource AgentFont}" />
+                </TextBlock>
+            </ToggleButton>
+
+            <TextBox Text="{Binding Text, Mode=OneWay}"
+                     Style="{DynamicResource ReadOnlyCodeTextBox}"
+                     Visibility="{Binding IsExpanded, Converter={StaticResource ThinkingBoolToVis}}"
+                     FontStyle="Italic"
+                     FontFamily="{DynamicResource AgentFont}"
+                     Opacity="0.7"
+                     Margin="14,3,0,2" />
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

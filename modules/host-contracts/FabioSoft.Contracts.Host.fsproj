@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>1.2.0</Version>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>FabioSoft.Contracts.Host</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="HostMessages.fs" />
+  </ItemGroup>
+</Project>

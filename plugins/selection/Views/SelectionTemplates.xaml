@@ -1,0 +1,158 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Model row: display name, version, context size, description. The internal id is deliberately
+         not rendered (it is carried on the row for the accept message only). -->
+    <DataTemplate x:Key="ModelItemTemplate">
+        <Grid Margin="0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="170" />
+                <ColumnDefinition Width="56" />
+                <ColumnDefinition Width="64" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="{Binding Name}"
+                       FontSize="15"
+                       FontWeight="Medium"
+                       VerticalAlignment="Top"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,0,12,0"
+                       Foreground="{DynamicResource TextBrightBrush}"
+                       FontFamily="{DynamicResource UiFont}" />
+
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Version}"
+                       FontSize="12"
+                       VerticalAlignment="Top"
+                       Margin="0,1,12,0"
+                       Foreground="{DynamicResource SecondaryBrush}"
+                       FontFamily="{DynamicResource MonoFont}" />
+
+            <TextBlock Grid.Column="2"
+                       Text="{Binding Context}"
+                       FontSize="12"
+                       VerticalAlignment="Top"
+                       Margin="0,1,12,0"
+                       Foreground="{DynamicResource ClavisBrush}"
+                       FontFamily="{DynamicResource MonoFont}" />
+
+            <TextBlock Grid.Column="3"
+                       Text="{Binding Description}"
+                       FontSize="13"
+                       VerticalAlignment="Top"
+                       TextWrapping="Wrap"
+                       Margin="12,0,0,0"
+                       Foreground="{DynamicResource TextDimBrush}" />
+        </Grid>
+    </DataTemplate>
+
+    <!-- Effort row: the level name in its provider color, then the short description. -->
+    <DataTemplate x:Key="EffortItemTemplate">
+        <Grid Margin="0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="{Binding Name}"
+                       FontSize="15"
+                       FontWeight="Medium"
+                       VerticalAlignment="Top"
+                       Margin="0,0,12,0"
+                       Foreground="{Binding Brush}"
+                       FontFamily="{DynamicResource UiFont}" />
+
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Description}"
+                       FontSize="13"
+                       VerticalAlignment="Top"
+                       TextWrapping="Wrap"
+                       Margin="12,0,0,0"
+                       Foreground="{DynamicResource TextDimBrush}" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ModeItemTemplate">
+        <Grid Margin="0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="{Binding Name}"
+                       FontSize="15"
+                       FontWeight="Medium"
+                       VerticalAlignment="Top"
+                       Margin="0,0,12,0"
+                       Foreground="{DynamicResource TextBrightBrush}"
+                       FontFamily="{DynamicResource UiFont}" />
+
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Description}"
+                       FontSize="13"
+                       VerticalAlignment="Top"
+                       TextWrapping="Wrap"
+                       Margin="12,0,0,0"
+                       Foreground="{DynamicResource TextDimBrush}" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="PanelItemTemplate">
+        <Grid Margin="0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="{Binding Title}"
+                       FontSize="15"
+                       FontWeight="Medium"
+                       VerticalAlignment="Top"
+                       Margin="0,0,12,0"
+                       Foreground="{DynamicResource TextBrightBrush}"
+                       FontFamily="{DynamicResource UiFont}" />
+
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Kind}"
+                       FontSize="12"
+                       VerticalAlignment="Top"
+                       Margin="12,1,0,0"
+                       Foreground="{DynamicResource SecondaryBrush}"
+                       FontFamily="{DynamicResource MonoFont}" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="OptionItemTemplate">
+        <Grid Margin="0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="{Binding Label}"
+                       FontSize="15"
+                       FontWeight="Medium"
+                       VerticalAlignment="Top"
+                       TextWrapping="Wrap"
+                       Margin="0,0,12,0"
+                       Foreground="{DynamicResource TextBrightBrush}"
+                       FontFamily="{DynamicResource UiFont}" />
+
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Description}"
+                       FontSize="13"
+                       VerticalAlignment="Top"
+                       TextWrapping="Wrap"
+                       Margin="12,0,0,0"
+                       Foreground="{DynamicResource TextDimBrush}" />
+        </Grid>
+    </DataTemplate>
+
+</ResourceDictionary>

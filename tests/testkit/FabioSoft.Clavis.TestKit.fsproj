@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>FabioSoft.Clavis.TestKit</RootNamespace>
+  </PropertyGroup>
+  <!-- A test-support library (the agent mock + bus probe + harness), not a test project. Claude (shared),
+       and the framework Contracts/Bus (exe dir) resolve as file references injected by the runtime
+       Directory.Build.props - no ProjectReferences, which assumed a host-repo src/ layout. -->
+  <ItemGroup>
+    <Compile Include="MockAgent.fs" />
+    <Compile Include="BusProbe.fs" />
+    <Compile Include="Harness.fs" />
+  </ItemGroup>
+</Project>
