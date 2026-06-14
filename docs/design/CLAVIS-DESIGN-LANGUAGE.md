@@ -56,7 +56,7 @@ runtime). The shipped theme is `~/.clavis/themes/default.yaml`.
   in `~/.clavis/configuration.yaml` (defaults to `default`); that selection goes through the Configuration
   plugin. The theme *content* is read directly by the host (via the `FabioSoft.Marketplace.Io` YAML
   bridge) **before the bus exists**, so the splash and `Application.Resources` are themed from the very start.
-- **Single source of truth**: a theme defines fonts, the six type roles, the colour palette, the semantic
+- **Single source of truth**: a theme defines fonts, the seven type roles, the colour palette, the semantic
   meaning→token map, the one line, the one tint, the icon set, and motion tuning. No view hardcodes a colour,
   font or size - it references a resource key the loader populates from the theme.
 - **Format**: see `~/.clavis/themes/default.yaml` for the annotated schema.
@@ -82,6 +82,15 @@ accents carry meaning; three signals communicate status. A body-prose tone and a
 | `green` | `#7BD49B` | Signal: ok / added |
 | `red` | `#E47E7E` | Signal: problem |
 | `yellow` | `#E4C47E` | Signal: warning |
+
+**Implementation tokens.** Three derived greys the renderer needs but views never pick by hand - they belong
+to a specific surface, not the open palette. They live in the theme so a theme can retune them:
+
+| Token | Value | Use |
+|---|---|---|
+| `code-bg` | `#14141C` | Code-block / inline-code fill (a touch above `surface`) |
+| `code-border` | `#282834` | Code-block border |
+| `rail` | `#1B1B22` | The turn rail's resting background track |
 
 ### Accent semantics
 
@@ -111,30 +120,56 @@ keeps "black tint only" true.
 
 ## 4. Typography
 
-Three voices (section 1), **six roles**, four sizes (`14 / 16 / 20` for text, `12` code-mono, `14` meta-mono),
-three weights (`Normal / Medium / SemiBold`). Accent colour is an **optional overlay** on any role, never part
-of it.
+Three voices (section 1), **seven roles**, three weights (`Normal / Medium / SemiBold`). Accent colour is an
+**optional overlay** on any role, never part of it.
 
-| Role | Font | Size | Weight | Use |
-|---|---|---|---|---|
-| `title` | Rajdhani | 20 | SemiBold | Window / splash / screen titles |
-| `heading` | Inter | 16 | SemiBold | Document & section headings |
-| `body` | Inter | 16 | Normal | Responses, descriptions, body copy |
-| `label` | Rajdhani | 14 | Medium | Chrome labels, badges, buttons, section heads |
-| `mono` | JetBrains Mono | 12 | Normal | Code blocks, commits, events |
-| `meta` | JetBrains Mono | 14 | Normal | Durations, counts, timestamps |
+The roles split into two tiers, and that split is the most important typographic rule:
 
-The `mono` (code) size is deliberately one step **below** body: code is dense reference material, not prose.
-In the WPF implementation it is centralised as the `CodeFontSize` resource (WpfHost `Theme/Styles.xaml`)
-mirrored by `MarkdownPresenter.baseCodeSize` (clavis-rendering) - change the two together.
+- **Prose** - language you *read*: agent responses, document headings, descriptions. Set in **Inter**, kept
+  **generous** so it stays comfortable.
+- **Chrome** - UI you *scan*: titles, labels, buttons, badges, metadata, code/data. Set in **Rajdhani** /
+  **JetBrains Mono**, kept **compact** so dense panels stay information-rich.
+
+A single uniform scale can't serve both (a log wants tight rows; a description wants room), so prose and chrome
+are sized independently.
+
+| Role | Font | Tier | Size | Weight | Use |
+|---|---|---|---|---|---|
+| `title` | Rajdhani | chrome | 20 | SemiBold | Splash / window / screen titles (prominent, sparse) |
+| `heading` | Inter | **prose** | 16 | SemiBold | Document & section headings |
+| `body` | Inter | **prose** | 14 | Normal | Responses, descriptions, body copy |
+| `label` | Rajdhani | chrome | 11 | Medium | Chrome labels, buttons, tabs, section heads, badges |
+| `mono` | JetBrains Mono | chrome | 11.5 | Normal | Code, data, identifiers, log detail, commits |
+| `meta` | JetBrains Mono | chrome | 11 | Normal | Durations, counts, timestamps |
+| `micro` | Rajdhani | chrome | 9 | Medium | Severity tags, dense status/kind labels |
+
+Code inline & blocks render at `mono` (with the slightly raised `code-bg`/`code-border`). In the WPF
+implementation every role is a shared `Style` (`Clavis.Text.*`, section 10) whose size comes from a
+theme-driven resource key (`BodyFontSize`, `LabelFontSize`, …) - never a literal in a view. `MarkdownPresenter`
+mirrors `body`/`mono`/heading sizes; change the role keys and the presenter together.
+
+> Note: the WPF host renders in DIPs while the mockups are CSS px; treat the numbers above as the *rendered
+> intent* and calibrate the DIP values to match it visually, rather than copying 1:1.
+
+### Density & spacing
+
+Dense application UI (lists, tables, panels) uses one compact rhythm; prose blocks keep their natural leading.
+
+| Context | Value |
+|---|---|
+| Dense list / table row padding | `5px` vertical, `14px` horizontal |
+| Card / form-row padding | `11px` |
+| Control gap (label↔control, button row) | `10px` |
+| Prose line-height (`body`/`heading`) | `1.5` |
+| Chrome line-height (`label`/`meta`/`mono`) | `1.3-1.45` |
 
 **Modifiers** (not new roles): **bold → `text`** (bright), *italic → `text-dim`* (thinking / quotes),
 accent → `primary` / `secondary` per the semantics above.
 
 **Markdown mapping**: H1 → `primary`, H2 → `text` (bright), H3 → `secondary`, links → `primary`,
-strong → `text`, emphasis → italic `text-dim`, inline code & code blocks → `mono` on `surface`.
+strong → `text`, emphasis → italic `text-dim`, inline code & code blocks → `mono` on `code-bg`.
 
-**Letter-spacing**: uppercase labels get `1-2px` tracking; body and mono get `0`.
+**Letter-spacing**: uppercase chrome (`label` / `micro`) gets `0.7-1.5px` tracking; prose and `mono` get `0`.
 
 **No 700+ weights** - heavy weights fight the editorial feel.
 
@@ -192,8 +227,11 @@ phase dot (circles only).
 
 These are the deliberate animations that mark CLAVIS. Tunings live in the theme's `motion` block.
 
-**Row entrance.** Every row (turn, tool, hook, error, permission, phase) enters with **fade + slide-up**
-(8px for a turn, 6px for the rest), 250ms. Disappearance animates too (fade + slight scale, 250ms).
+**Row entrance.** Every row (turn, tool, hook, error, permission, phase, list item) enters with **fade +
+slide-up** (8px for a turn, 6px for the rest), 250ms. Disappearance animates too (fade + slight scale, 250ms).
+The 250ms floor governs each *individual* row's transition; a list of rows may **stagger** their starts so a
+reveal cascades. The per-row stagger step shrinks as the count grows (capped, like the line-fall), so even a
+long list settles in under ~2s rather than each row waiting its full turn.
 
 **Text reveal.** Agent / markdown text never just appears. It reveals:
 - **≤ 3 wrapped lines** - a **char wave**: each character fades 0→1 over a fixed window, starts staggered so a
@@ -245,18 +283,70 @@ request) uses the legacy 3-column layout.
 
 ## 9. Components & patterns
 
-Components inherit the tokens above; only the deviations are noted here.
+Components inherit the tokens above; only the deviations are noted here. Each has **one** canonical treatment -
+no per-panel variants. The shared implementations live in `clavis-controls` / `clavis-rendering` (section 10);
+build a new one there rather than hand-rolling it in a panel. The companion `clavis-design-system.html` renders
+every component below at its real size.
+
+### Structure & containers
 
 - **Window** - background `black`; title bar 28px with a 1px `line` bottom; grip dots (circles) at low opacity;
   close = the thin-cross icon. Falls in on launch (section 7).
-- **Input bar** - bottom of the conversation; 1px `line` top that recolours to `primary` on focus; the cursor
-  is a 1px `primary` caret. Send triggers the rail charge.
-- **Status / activity** - a circle (`Ellipse`), accent or signal colour, breathing when live.
-- **List item** - selection via a 1.5px `primary` left border + a brightening of text from `text-dim` to
-  `text`; hover uses the `surface` fill. No heavy highlight.
+- **Popup / overlay** - the one `tint` (black 85%) behind it; a 1px `line` frame only where black-on-black
+  needs separating.
+- **Master-detail / nav** - a `surface` sidebar separated by a single 1px `line`; the active nav item carries a
+  2px `primary` left edge and brightens to `text`; counts sit in `meta`. Detail/content fills the rest on
+  `black`. One divider colour only (`line`); never stack greys.
+- **Scrollbar** - thin, chromeless: a `line`-toned thumb at low opacity that brightens on hover, no track fill,
+  no arrows.
+
+### Lists & data
+
+- **List row** - dense: `5px / 14px` padding, the `body` role for the primary text, `meta`/`micro` for
+  trailing data, an optional leading status dot (a circle). Row separators are the `line` colour at ~28%
+  opacity, or omitted in favour of spacing.
+- **Selection & hover** - selection = a 1.5px `primary` left border + text brightening from `text-dim`/`body`
+  to `text`; hover = the `surface` fill. No heavy highlight, no full-row accent wash.
+- **Table** - column headers in the `micro` role (uppercase, `text-dim`); the active sort column shows a
+  `primary` caret; cells in `mono`; the same `line`-at-28% row separators. Right-align numeric columns.
 - **Tool / hook / phase rows** - share the turn grid; expand via the large chevron icon (hover → `primary`).
-- **Badge** - a small square `surface` chip holding a `label`-role caption whose colour carries the category.
-- **Popup / overlay** - the one `tint` behind it; a 1px `line` frame only where black-on-black needs separating.
+
+### Navigation & input
+
+- **Tabs** - underline-active: `label`-role captions, the active tab brightens to `text` and carries a 2px
+  `primary` bottom border; an optional count in `micro`. (Underline, not chips - matches the SegmentedSelector.)
+- **Input bar (conversation)** - bottom of the conversation; 1px `line` top that recolours to `primary` on
+  focus; the cursor is a 1px `primary` caret. Send triggers the rail charge.
+- **Search / filter field** - `black` fill, 1px `line`, `mono` text; focus recolours the line to `primary` +
+  the soft glow (section 5). Optional leading magnifier (a geometric circle + handle), never a font glyph.
+- **Select / dropdown** - `black` field, 1px `line`, `mono` text, a small geometric caret at the right; the
+  popup list reuses the List-row + selection treatment on a `black` fill with a 1px `line` frame.
+- **Toggle** - a **square** 40×20 track (no rounded corners) with a square knob; off = `line` border + `text-dim`
+  knob, on = `primary` border, faint `primary` fill, `primary` knob. A `meta` on/off label sits beside it.
+- **Checkbox** - a 14px square, 1px `line`; checked fills the inner square with `primary`. (Never a rounded box;
+  the check may be the geometric check glyph or a filled square.)
+
+### Actions & feedback
+
+- **Button** - `label` role, uppercase, ~0.7px tracking, square, `black` fill + 1px `line`. **Neutral**: `body`
+  text, hover brightens to `text` + `text-dim` border. **Primary**: `primary` border + text, hover adds a faint
+  `primary` fill. **Danger**: neutral at rest, reveals `red` border + text on hover. Disabled = ~30% opacity
+  (the capability-gated state).
+- **Badge** - a small square chip in the `micro` role, no rounded corners. Four forms, by meaning:
+  **kind / identity** → `secondary` outline (1px, tinted) + `secondary` text; **neutral category** → `surface`
+  fill + `body` text; **signal** → a coloured outline (`green` / `yellow` / `red`) + matching text (e.g.
+  `added`, `admin`, `deprecated`); **status** → a leading dot (circle) + `text-dim` label (e.g. `deactivated`).
+- **Status / activity** - a circle (`Ellipse`), accent or signal colour, breathing (600ms) when live.
+- **Progress / operation** - a 4px bar: `surface` track + `primary` fill (turns `green` on done, `red` on
+  fail); paired with a breathing `primary` dot and a `meta` phase label. This is the visual for the
+  `MarketplaceProgress` lifecycle. No percentages unless the source reports them.
+- **Dialog / confirm** - on the one `tint`; `black` fill, 1px `line`; a `label`-uppercase title with a leading
+  signal dot, `body` prose, and a right-aligned button row (neutral + primary, or neutral + danger for a
+  destructive confirm).
+- **Toast** - a `surface` chip, 1px `line`, a leading dot whose colour carries the kind (`primary` ok /
+  `yellow` warn); slides up and auto-dismisses.
+- **Empty state** - centred: a `label`-role uppercase line in the dim `line` colour over a `body` sub-line.
+  No illustration.
 
 The defining conversation pattern remains the **Stats / Rail / Content** grid (section 8): metadata sits in the
 gutter, the rail connects request to response, the content fills.
@@ -274,8 +364,10 @@ re-population, not a recompile. `Styles.xaml` (in WpfHost) holds the control tem
 the theme.
 
 **Resource keys.** Brushes and fonts are referenced by key (e.g. `{DynamicResource TextBrush}`,
-`{DynamicResource MonoFont}`); never hardcode a colour, size or font in a view. The six type roles are shared
-`Style`s (`Clavis.Text.Title`, `.Heading`, `.Body`, `.Label`, `.Mono`, `.Meta`).
+`{DynamicResource MonoFont}`); never hardcode a colour, size or font in a view. The seven type roles are shared
+`Style`s (`Clavis.Text.Title`, `.Heading`, `.Body`, `.Label`, `.Mono`, `.Meta`, `.Micro`), each pulling its
+size from a theme-driven key (`TitleFontSize`, `BodyFontSize`, `LabelFontSize`, `MonoFontSize`, `MetaFontSize`,
+`MicroFontSize`) so a theme swap rescales without recompiling.
 
 **Icons.** A shared Icon factory in `clavis-rendering` draws the geometric glyphs as `Path` geometry (good /
 problem / warning / chevron / close / dot), themed via resource keys - not per-plugin glyph literals.

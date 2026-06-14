@@ -26,3 +26,15 @@ module Inputs =
         let box = ComboBox(Height = fieldHeight)
         box.SetResourceReference(FrameworkElement.StyleProperty, "InputComboBox")
         box
+
+    /// A search / filter field: the shared input chrome but on the black canvas with mono text, per the
+    /// design language's search-field treatment. Reuses InputTextBox's template (which binds Background /
+    /// FontFamily / FontSize), overriding those for the search look. Focus recolours the line via the
+    /// app-wide focus overlay. The placeholder shows as a tooltip.
+    let search (placeholder: string) : TextBox =
+        let box = TextBox(Height = fieldHeight, ToolTip = placeholder)
+        box.SetResourceReference(FrameworkElement.StyleProperty, "InputTextBox")
+        box.SetResourceReference(Control.BackgroundProperty, "BlackBrush")
+        box.SetResourceReference(Control.FontFamilyProperty, "MonoFont")
+        box.SetResourceReference(Control.FontSizeProperty, "MonoFontSize")
+        box

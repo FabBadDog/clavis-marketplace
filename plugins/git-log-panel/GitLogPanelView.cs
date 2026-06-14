@@ -103,7 +103,7 @@ internal static class GitLogPanelView
         DockPanel.SetDock(dot, Dock.Left);
         header.Children.Add(dot);
 
-        var hash = MetadataText.accentSized(commit.Hash, 11);
+        var hash = MetadataText.accent(commit.Hash);
         hash.Margin = new Thickness(0, 0, 10, 0);
         DockPanel.SetDock(hash, Dock.Left);
         header.Children.Add(hash);
@@ -111,11 +111,11 @@ internal static class GitLogPanelView
         var message = new TextBlock
         {
             Text = commit.Message,
-            FontSize = 11,
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center
         };
         message.SetResourceReference(TextBlock.FontFamilyProperty, "MonoFont");
+        message.SetResourceReference(TextBlock.FontSizeProperty, "MonoFontSize");
         message.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
         header.Children.Add(message);
 
@@ -123,11 +123,11 @@ internal static class GitLogPanelView
 
         var meta = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12, 2, 0, 0) };
 
-        var author = MetadataText.sized(commit.Author, 9.5);
+        var author = MetadataText.create(commit.Author);
         author.Margin = new Thickness(0, 0, 6, 0);
         meta.Children.Add(author);
 
-        var time = MetadataText.sized($"· {commit.RelativeTime}", 9.5);
+        var time = MetadataText.create($"· {commit.RelativeTime}");
         meta.Children.Add(time);
 
         row.Children.Add(meta);

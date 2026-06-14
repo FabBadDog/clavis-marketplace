@@ -100,6 +100,29 @@ module Motion =
         fadeTo outgoing 0.0
         appear incoming
 
+    /// The breathing pulse duration: a 600ms opacity oscillation, the one timing besides Standard. Reserved
+    /// for live status / phase dots (circles only) per the design language's motion tokens.
+    let BreathingDuration = Duration(TimeSpan.FromMilliseconds 600.0)
+
+    /// Start the live-state breathing pulse on an element: its opacity oscillates between dim and full,
+    /// forever, with a SineEase in/out. Used on the active turn / phase dot while it is live. Call
+    /// `stopBreathing` to end it and restore full opacity.
+    let breathe (element: UIElement) =
+        let animation =
+            DoubleAnimation(
+                0.45,
+                1.0,
+                BreathingDuration,
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = SineEase(EasingMode = EasingMode.EaseInOut))
+        element.BeginAnimation(UIElement.OpacityProperty, animation)
+
+    /// Stop the breathing pulse and restore the element to full opacity.
+    let stopBreathing (element: UIElement) =
+        element.BeginAnimation(UIElement.OpacityProperty, null)
+        element.Opacity <- 1.0
+
     /// Fade a whole window to a target opacity (quick), then run onDone - secondary windows open and close
     /// with this. Windows are AllowsTransparency, so opacity animates cleanly.
     let fadeWindow (window: Window) (target: float) (onDone: Action) =

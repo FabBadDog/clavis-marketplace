@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clavis · Type-scale comparison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;border-radius:0}
+body{background:#141418;color:#C8C8D0;font-family:'Inter',sans-serif;font-weight:300;padding:40px 36px 80px}
+h1{font-family:'Rajdhani';font-weight:600;font-size:22px;letter-spacing:3px;text-transform:uppercase;color:#E8E8EC;margin-bottom:6px}
+.lead{font-size:13px;color:#9A9AA4;max-width:1100px;line-height:1.65;margin-bottom:6px}
+.lead b{color:#C8C8D0;font-weight:500}
+.lead code{font-family:'JetBrains Mono';font-size:12px;color:#ADA6F2}
+
+/* column legend */
+.cols-key{display:flex;gap:0;max-width:1280px;margin:22px 0 30px;border:1px solid #2A2A30}
+.ck{flex:1;padding:12px 16px;border-right:1px solid #2A2A30}
+.ck:last-child{border-right:none}
+.ck h3{font-family:'Rajdhani';font-weight:600;font-size:13px;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px}
+.ck.cur h3{color:#E47E7E}.ck.doc h3{color:#E4C47E}.ck.cmp h3{color:#7BD49B}
+.ck p{font-size:11.5px;color:#9A9AA4;line-height:1.5}
+.ck .sizes{font-family:'JetBrains Mono';font-size:10.5px;color:#6A6A74;margin-top:5px}
+
+/* panel section */
+.panel-section{margin-bottom:42px;max-width:1280px}
+.panel-title{font-family:'Rajdhani';font-weight:600;font-size:15px;letter-spacing:1.5px;text-transform:uppercase;color:#E8E8EC;margin-bottom:4px;display:flex;align-items:center;gap:10px}
+.panel-title .tag{font-family:'JetBrains Mono';font-size:11px;font-weight:400;color:#9A9AA4;text-transform:none;letter-spacing:0}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:14px}
+.variant{display:flex;flex-direction:column}
+.vhead{font-family:'Rajdhani';font-weight:600;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;padding:0 0 7px 2px}
+.cur .vhead{color:#E47E7E}.doc .vhead{color:#E4C47E}.cmp .vhead{color:#7BD49B}
+.vnote{font-size:11px;color:#8A8A94;line-height:1.45;padding:8px 2px 0;font-family:'JetBrains Mono'}
+.vnote b{color:#C8C8D0;font-weight:500}
+
+/* ---- the mock window (reads CSS vars set per .variant) ---- */
+.variant{
+  --bg:#000; --surface:#0E0E14; --line:#5A5A66; --faint:#2A2A30;
+  --text:#E8E8EC; --body:#C8C8D0; --dim:#9A9AA4;
+  --primary:#9FD5F0; --secondary:#ADA6F2; --green:#7BD49B; --yellow:#E4C47E; --red:#E47E7E;
+  --fs-title:20px; --fs-heading:16px; --fs-body:16px; --fs-label:14px; --fs-mono:13px; --fs-meta:14px; --fs-micro:11px;
+  --lh:1.5; --rowpad:9px; --gap:14px; --badge-bg:var(--surface); --badge-bd:transparent;
+}
+/* PER-DOCUMENT column = defaults above (14/16 scale) */
+/* COMPACT column */
+.variant.cmp{
+  --fs-title:16px; --fs-heading:14px; --fs-body:14px; --fs-label:11px; --fs-mono:11.5px; --fs-meta:11px; --fs-micro:9px;
+  --lh:1.4; --rowpad:5px; --gap:10px;
+}
+/* CURRENT column — per panel below (each panel today is its own island) */
+
+.win{background:var(--bg);border:1px solid var(--line);position:relative;overflow:hidden}
+.win-title{display:flex;align-items:center;height:26px;padding:0 10px 0 12px;border-bottom:1px solid var(--line);color:var(--dim)}
+.win-name{font-family:'Rajdhani';font-weight:500;font-size:9px;letter-spacing:2.5px;text-transform:uppercase}
+.win-meta{font-family:'Inter';font-size:9px;margin-left:9px;color:var(--dim)}
+.win-sp{flex:1}
+.win-dot{width:5px;height:5px;border-radius:50%;background:var(--primary)}
+.body{height:300px;overflow:hidden;position:relative}
+.fade{position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(0deg,var(--bg),transparent);pointer-events:none}
+.fitline{font-family:'JetBrains Mono';font-size:9.5px;color:var(--dim);padding:5px 12px;border-top:1px solid var(--faint)}
+.fitline b{color:var(--body)}
+
+/* ===== EVENT LOG ===== */
+.log{padding:4px 0}
+.lrow{display:grid;grid-template-columns:50px 62px 1fr;column-gap:10px;align-items:baseline;padding:var(--rowpad) 14px}
+.lrow:hover{background:rgba(255,255,255,.015)}
+.ldelta{font-family:'JetBrains Mono';font-size:var(--fs-meta);color:var(--dim);text-align:right;font-weight:300}
+.ltag{font-family:'Rajdhani';font-size:var(--fs-micro);font-weight:500;letter-spacing:1.6px;text-transform:uppercase}
+.lrow.out .ltag{color:var(--primary)} .lrow.in .ltag{color:var(--secondary)} .lrow.err .ltag{color:var(--red)}
+.ldetail{font-family:'JetBrains Mono';font-size:var(--fs-mono);color:var(--dim);font-weight:300;line-height:var(--lh);word-break:break-word}
+.ldetail .v{color:var(--body)} .ldetail .s{color:var(--secondary)} .ldetail .e{color:var(--red)}
+/* current event log = OLD palette + ultra-dense */
+.panel-events .cur{
+  --bg:#0A0A0C; --surface:#070709; --line:#222228; --faint:#2A2A30;
+  --text:#C8C8D0; --body:#C8C8D0; --dim:#8A8A94;
+  --primary:#7FB5D8; --secondary:#9B7ED4;
+  --fs-mono:10px; --fs-meta:10px; --fs-micro:8.5px; --rowpad:3px; --lh:1.4;
+}
+
+/* ===== COMMAND PALETTE ===== */
+.pal{padding:8px 12px}
+.palsearch{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);font-family:'JetBrains Mono';font-size:var(--fs-mono);padding:7px 10px;outline:none;margin-bottom:8px}
+.crow{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:var(--rowpad) 8px;border-left:1.5px solid transparent}
+.crow.sel{border-left-color:var(--primary);background:var(--surface)}
+.crow:hover:not(.sel){background:rgba(255,255,255,.015)}
+.cleft{display:flex;align-items:center;gap:9px;min-width:0}
+.cname{font-family:'Inter';font-weight:500;font-size:var(--fs-body);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow.sel .cname{color:var(--text)} .crow:not(.sel) .cname{color:var(--body)}
+.ckind{font-family:'Rajdhani';font-size:var(--fs-micro);font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:var(--secondary);background:var(--badge-bg);border:1px solid var(--badge-bd);padding:1px 6px;white-space:nowrap}
+.cshort{font-family:'JetBrains Mono';font-size:var(--fs-meta);color:var(--secondary);white-space:nowrap}
+.panel-palette .cur{ --fs-body:15px; --fs-meta:12px; --fs-micro:11px; --rowpad:5px; --badge-bg:var(--surface); --badge-bd:transparent; }
+/* doc & cmp use spec badge: small surface chip, no border (already default) */
+
+/* ===== SETTINGS CARDS ===== */
+.setbody{padding:10px 16px}
+.sechead{font-family:'Rajdhani';font-weight:500;font-size:var(--fs-label);letter-spacing:1.4px;text-transform:uppercase;color:var(--dim);padding:6px 0 4px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.card{display:grid;grid-template-columns:1fr 150px;gap:8px 18px;padding:var(--rowpad) 2px;border-bottom:1px solid rgba(90,90,102,.3);align-items:start}
+.cinfo{min-width:0}
+.crowname{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.sname{font-family:'Inter';font-weight:600;font-size:var(--fs-body);color:var(--text)}
+.skey{font-family:'JetBrains Mono';font-size:var(--fs-mono);color:var(--secondary)}
+.sbadges{display:flex;gap:6px;margin:5px 0 6px;flex-wrap:wrap}
+.sbadge{font-family:'Rajdhani';font-size:var(--fs-micro);letter-spacing:.6px;text-transform:uppercase;padding:1px 6px;color:var(--dim);background:var(--badge-bg);border:1px solid var(--badge-bd)}
+.sbadge.type{color:var(--secondary)}
+.sdesc{font-family:'Inter';font-size:var(--fs-body);color:var(--body);line-height:var(--lh)}
+.sctl-sel{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);font-family:'JetBrains Mono';font-size:var(--fs-mono);padding:7px 9px}
+.toggle{display:inline-flex;align-items:center;gap:9px}
+.track{width:40px;height:20px;border:1px solid var(--primary);background:rgba(159,213,240,.12);position:relative}
+.knob{position:absolute;top:2px;left:21px;width:14px;height:14px;background:var(--primary)}
+.tstate{font-family:'JetBrains Mono';font-size:var(--fs-meta);color:var(--primary)}
+/* current settings: bordered badges, its own sizes */
+.panel-settings .cur{ --fs-body:15px; --fs-label:11px; --fs-mono:12px; --fs-micro:11px; --rowpad:11px; --badge-bg:transparent; --badge-bd:var(--line); }
+.panel-settings .cur .sdesc{font-size:13px}
+/* doc & cmp: spec badge = filled surface chip, no border */
+.panel-settings .doc .sbadge, .panel-settings .cmp .sbadge{--badge-bg:var(--surface);--badge-bd:transparent}
+.panel-settings .doc .sbadge, .panel-settings .cmp .sbadge{border-color:transparent}
+
+.foot{max-width:1280px;margin-top:20px;font-size:12.5px;color:#9A9AA4;line-height:1.6;border-top:1px solid #2A2A30;padding-top:16px}
+.foot b{color:#C8C8D0;font-weight:500}
+.foot .em{color:#7BD49B}
+</style>
+</head>
+<body>
+
+<h1>Clavis — Type-scale &amp; density comparison</h1>
+<p class="lead">Three representative panels, each rendered three ways. <b>Left</b> = how it looks in the code today.
+<b>Middle</b> = exactly what the written design-language doc prescribes today (<code>body 16 / label 14 / mono 13</code>, one palette, the spec's list-item &amp; badge rules).
+<b>Right</b> = a proposed <b>compact UI scale</b> (prose stays readable, chrome/labels tighten). Each window is the same fixed height — watch how much content fits.</p>
+
+<div class="cols-key">
+  <div class="ck cur"><h3>Current (today)</h3><p>Each panel is its own island: the event log is still on an <b>older palette</b> (#7FB5D8 blue), settings uses bordered badges and 15px titles, sizes range 8.5–15px with no shared roles.</p><div class="sizes">mixed · 8.5–15px · 2 palettes</div></div>
+  <div class="ck doc"><h3>Per the document (14 / 16)</h3><p>One palette, the six type roles at their <b>written sizes</b>, spec list-item selection (1.5px primary edge + brighten), spec badge (surface chip). Consistent — but loose for dense data.</p><div class="sizes">title 20 · body 16 · label 14 · mono 13 · meta 14</div></div>
+  <div class="ck cmp"><h3>Compact UI scale (proposed)</h3><p>Same palette &amp; rules, but a tighter chrome tier. <b>Agent/body prose stays ~14</b>; labels/mono/meta drop to ~11; micro-labels ~9. Consistent <em>and</em> dense.</p><div class="sizes">title 16 · body 14 · label 11 · mono 11.5 · meta 11 · micro 9</div></div>
+</div>
+
+<!-- ============ EVENT LOG ============ -->
+<div class="panel-section panel-events">
+  <div class="panel-title">Event log <span class="tag">machine-dense · the hardest case for a loose scale</span></div>
+  <div class="row3" id="events"></div>
+</div>
+
+<!-- ============ COMMAND PALETTE ============ -->
+<div class="panel-section panel-palette">
+  <div class="panel-title">Command palette <span class="tag">selectable list · name + kind + shortcut</span></div>
+  <div class="row3" id="palette"></div>
+</div>
+
+<!-- ============ SETTINGS ============ -->
+<div class="panel-section panel-settings">
+  <div class="panel-title">Settings cards <span class="tag">prose-ish · descriptions legitimately want to read well</span></div>
+  <div class="row3" id="settings"></div>
+</div>
+
+<div class="foot">
+  <b>What to look for.</b> In the <b>event log</b>, the document's 16px scale shows only a handful of lines — a log wants density, so the compact tier wins.
+  In <b>settings</b>, the 16px <b>body</b> actually reads better for the descriptions — prose wants room.
+  That split is the whole decision: a single scale can't serve both, which is why the <span class="em">"compact UI scale"</span> option keeps <b>prose (agent/body) generous</b> while tightening <b>chrome (label/mono/meta/micro)</b>.
+  Pick a column per panel and notice which feels right — that tells us whether to codify the dual scale, add switchable density tiers, or raise everything to 14/16.
+</div>
+
+<script>
+const VARIANTS=[
+  {cls:'cur', label:'Current (today)'},
+  {cls:'doc', label:'Per the document (14 / 16)'},
+  {cls:'cmp', label:'Compact UI scale'},
+];
+
+/* ---- content renderers (identical content across the 3 variants) ---- */
+function eventsBody(){
+  const rows=[
+    ['+0ms','out','Init <span class="v">session_abc123</span> · <span class="v">opus 4.6</span>'],
+    ['+2s','in','Prompt <span class="v">"Implement the NdjsonParser with Result types"</span>'],
+    ['+3s','out','Thinking <span class="v">"Reading existing types for alignment"</span>'],
+    ['+4s','out','ToolUse <span class="v">Read</span> · <span class="s">toolu_01ABC</span>'],
+    ['+5s','out','ToolResult <span class="s">toolu_01ABC</span> · <span class="v">142 lines</span> · <span class="v">380ms</span>'],
+    ['+5s','err','<span class="e">JsonError</span> MalformedJson <span class="v">line 1 pos 14</span>'],
+    ['+7s','out','HookComplete <span class="v">validate-write</span> · <span class="v">approved</span> · exit <span class="v">0</span>'],
+    ['+8s','out','PermissionRequest <span class="v">Write</span> · <span class="s">req_4f8a</span>'],
+    ['+11s','out','Usage <span class="v">in 2,418</span> · <span class="v">out 847</span> · <span class="v">cache 1,204</span>'],
+    ['+12s','out','Result <span class="v">session_abc123</span> · <span class="v">$0.0284</span> · <span class="v">12.4s</span>'],
+    ['+13s','out','TextDelta <span class="v">"Build is clean. Malformed lines return Error."</span>'],
+    ['+14s','out','Compacting'],
+  ];
+  const r=rows.map(([d,k,t])=>`<div class="lrow ${k}"><div class="ldelta">${d}</div><div class="ltag">${k==='in'?'Input':k==='err'?'Error':'Output'}</div><div class="ldetail">${t}</div></div>`).join('');
+  return `<div class="log">${r}</div>`;
+}
+function paletteBody(){
+  const rows=[
+    ['Open Panel','command','Ctrl+Shift+P',true],
+    ['Toggle Events Panel','panel','',false],
+    ['Set Session Model','session','⌘ M',false],
+    ['Search Marketplace','command','',false],
+    ['Reload Plugin','lifecycle','',false],
+    ['Focus Input','command','Esc',false],
+    ['Open Settings','panel','',false],
+    ['Rescan Inventory','command','',false],
+  ];
+  const r=rows.map(([n,k,s,sel])=>`<div class="crow ${sel?'sel':''}"><div class="cleft"><span class="cname">${n}</span><span class="ckind">${k}</span></div><span class="cshort">${s||''}</span></div>`).join('');
+  return `<div class="pal"><input class="palsearch" value="" placeholder="Type a command…"/>${r}</div>`;
+}
+function settingsBody(){
+  return `<div class="setbody">
+    <div class="sechead">Model &amp; Reasoning</div>
+    <div class="card">
+      <div class="cinfo">
+        <div class="crowname"><span class="sname">Default model</span><span class="skey">model</span></div>
+        <div class="sbadges"><span class="sbadge type">choice · 5</span><span class="sbadge">json or env</span></div>
+        <div class="sdesc">The model Clavis uses by default. The ANTHROPIC_MODEL environment variable overrides this when set.</div>
+      </div>
+      <div><select class="sctl-sel"><option>opus</option></select></div>
+    </div>
+    <div class="card">
+      <div class="cinfo">
+        <div class="crowname"><span class="sname">Extended thinking</span><span class="skey">alwaysThinkingEnabled</span></div>
+        <div class="sbadges"><span class="sbadge type">on / off</span><span class="sbadge">settings.json</span></div>
+        <div class="sdesc">Turn on extended thinking for every turn without asking. Set MAX_THINKING_TOKENS to 0 to force it off.</div>
+      </div>
+      <div><span class="toggle"><span class="track"><span class="knob"></span></span><span class="tstate">on</span></span></div>
+    </div>
+    <div class="card">
+      <div class="cinfo">
+        <div class="crowname"><span class="sname">Reasoning effort</span><span class="skey">effortLevel</span></div>
+        <div class="sbadges"><span class="sbadge type">choice · 6</span><span class="sbadge">json or env</span></div>
+        <div class="sdesc">How much reasoning depth the model spends per turn. Higher levels think longer and cost more.</div>
+      </div>
+      <div><select class="sctl-sel"><option>auto</option></select></div>
+    </div>
+  </div>`;
+}
+
+const NOTES={
+  events:{cur:'compact — but on the <b>old palette</b>, doesn\'t match the family',doc:'consistent, but 16px → only <b>~7 events</b> fit',cmp:'consistent + dense → <b>~13 events</b> fit'},
+  palette:{cur:'own spacing, 15px names',doc:'roomy; <b>fewer commands</b> per screen',cmp:'tighter; <b>more commands</b>, still clear'},
+  settings:{cur:'bordered badges, 15px titles',doc:'16px body <b>reads well</b> for descriptions',cmp:'14px body — tighter, still legible'},
+};
+
+function build(panelId, bodyFn, name, meta){
+  const host=document.getElementById(panelId);
+  VARIANTS.forEach(v=>{
+    const el=document.createElement('div');
+    el.className='variant '+v.cls;
+    el.innerHTML=`<div class="vhead">${v.label}</div>
+      <div class="win">
+        <div class="win-title"><span class="win-name">${name}</span><span class="win-meta">${meta}</span><span class="win-sp"></span><span class="win-dot"></span></div>
+        <div class="body">${bodyFn()}<div class="fade"></div></div>
+      </div>
+      <div class="vnote">${NOTES[panelId][v.cls]}</div>`;
+    host.appendChild(el);
+  });
+}
+build('events', eventsBody, 'Events', 'stream · 24 entries');
+build('palette', paletteBody, 'Commands', 'palette');
+build('settings', settingsBody, 'Settings', 'model & reasoning');
+</script>
+</body>
+</html>

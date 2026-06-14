@@ -13,6 +13,18 @@
          cannot read a resource); change both together. See design/CLAVIS-DESIGN-LANGUAGE.md "Typography". -->
     <sys:Double x:Key="CodeFontSize">7.5</sys:Double>
 
+    <!-- Type-role sizes (the dual scale; see design/CLAVIS-DESIGN-LANGUAGE.md §4). PROSE (body / heading)
+         stays generous, CHROME (label / mono / meta / micro) is compact. Kept in sync with the theme's
+         `typography` block; the theme loader may override these from the active theme. Consumed by the
+         Clavis.Text.* role styles below so a size change is one edit, not a hunt through views. -->
+    <sys:Double x:Key="TitleFontSize">20</sys:Double>
+    <sys:Double x:Key="HeadingFontSize">16</sys:Double>
+    <sys:Double x:Key="BodyFontSize">14</sys:Double>
+    <sys:Double x:Key="LabelFontSize">11</sys:Double>
+    <sys:Double x:Key="MonoFontSize">11.5</sys:Double>
+    <sys:Double x:Key="MetaFontSize">11</sys:Double>
+    <sys:Double x:Key="MicroFontSize">9</sys:Double>
+
     <!-- These values are the CLAVIS "default" theme palette and are kept in sync with
          ~/.clavis/themes/default.yaml. At runtime the host's theme loader overrides every one of these keys
          from the active theme file (own keys on Application.Resources win over this merged dictionary), so
@@ -40,6 +52,60 @@
     <SolidColorBrush x:Key="GreenBrush" Color="#7BD49B" />
     <SolidColorBrush x:Key="RedBrush" Color="#E47E7E" />
     <SolidColorBrush x:Key="YellowBrush" Color="#E4C47E" />
+
+    <!-- Implementation tokens (derived greys; documented in default.yaml + CLAVIS-DESIGN-LANGUAGE.md §3). -->
+    <SolidColorBrush x:Key="CodeBgBrush" Color="#14141C" />
+    <SolidColorBrush x:Key="CodeBorderBrush" Color="#282834" />
+    <SolidColorBrush x:Key="RailBrush" Color="#1B1B22" />
+
+    <!-- The seven type roles as shared TextBlock styles (CLAVIS-DESIGN-LANGUAGE.md §4 + §10). Each sets the
+         role's voice (font), size (from the *FontSize keys above), weight and a sensible default foreground;
+         a consumer overlays an accent / bright foreground locally. Views reference these by key instead of
+         hardcoding a font/size, so the dual scale is enforced in one place. (Letter-spacing/tracking and
+         uppercasing are applied by the consumer - WPF TextBlock has no first-class letter-spacing.) -->
+    <Style x:Key="Clavis.Text.Title" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{DynamicResource HumanFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource TitleFontSize}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}" />
+    </Style>
+    <Style x:Key="Clavis.Text.Heading" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{DynamicResource AgentFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource HeadingFontSize}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}" />
+    </Style>
+    <Style x:Key="Clavis.Text.Body" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{DynamicResource AgentFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource BodyFontSize}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{DynamicResource BodyBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style x:Key="Clavis.Text.Label" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{DynamicResource HumanFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource LabelFontSize}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}" />
+    </Style>
+    <Style x:Key="Clavis.Text.Mono" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource MonoFontSize}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{DynamicResource BodyBrush}" />
+    </Style>
+    <Style x:Key="Clavis.Text.Meta" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource MetaFontSize}" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}" />
+    </Style>
+    <Style x:Key="Clavis.Text.Micro" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{DynamicResource HumanFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource MicroFontSize}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}" />
+    </Style>
 
     <!-- Log-severity palette, shared by the events-panel filter and the log rows so a level reads the same
          colour in both places. Reuses the palette: dim trace, green debug, blue info, yellow warn, red error.
@@ -70,7 +136,7 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="6,2,6,2" />
         <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="{DynamicResource LabelFontSize}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template">
             <Setter.Value>
@@ -94,7 +160,7 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="10,2,10,2" />
         <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="{DynamicResource LabelFontSize}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
@@ -118,12 +184,60 @@
         </Setter>
     </Style>
 
+    <!-- Primary action: clavis border + text at rest, a faint clavis fill on hover. The affirmative button
+         (Install, Apply, Confirm). Same square chrome as ActionButton; colour carries the "primary" intent. -->
+    <Style x:Key="ActionButtonPrimary" TargetType="{x:Type Button}" BasedOn="{StaticResource ActionButton}">
+        <Setter Property="Foreground" Value="{DynamicResource ClavisBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ClavisBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#1A9FD5F0" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Danger action: neutral at rest, reveals red border + text + a faint red fill on hover. Destructive
+         buttons (Uninstall, Delete). The hover is the warning, so the rest state stays calm. -->
+    <Style x:Key="ActionButtonDanger" TargetType="{x:Type Button}" BasedOn="{StaticResource ActionButton}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource RedBrush}" />
+                            <Setter TargetName="border" Property="Background" Value="#12E47E7E" />
+                            <Setter Property="Foreground" Value="{DynamicResource RedBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="InputComboBoxItem" TargetType="{x:Type ComboBoxItem}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         <Setter Property="Padding" Value="6,3,6,3" />
         <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="{DynamicResource LabelFontSize}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ComboBoxItem}">
@@ -145,7 +259,7 @@
         <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="{DynamicResource LabelFontSize}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="ItemContainerStyle" Value="{StaticResource InputComboBoxItem}" />
         <Setter Property="Template">

@@ -15,13 +15,13 @@
             <TextBlock Grid.Column="0"
                        Text="{Binding Label}"
                        FontFamily="{DynamicResource MonoFont}"
-                       FontSize="8.5"
+                       FontSize="{DynamicResource MicroFontSize}"
                        Foreground="{DynamicResource SecondaryBrush}"
                        Margin="0,0,8,0" />
             <TextBlock Grid.Column="1"
                        Text="{Binding Text}"
                        FontFamily="{DynamicResource MonoFont}"
-                       FontSize="9"
+                       FontSize="{DynamicResource MetaFontSize}"
                        Foreground="{DynamicResource TextDimBrush}"
                        TextWrapping="Wrap" />
         </Grid>
@@ -48,7 +48,7 @@
                 <TextBlock Grid.Row="0" Grid.Column="0"
                            Text="{Binding DeltaText}"
                            FontFamily="{DynamicResource MonoFont}"
-                           FontSize="9"
+                           FontSize="{DynamicResource MetaFontSize}"
                            Foreground="{DynamicResource TextDimBrush}"
                            VerticalAlignment="Top"
                            Margin="0,1,8,0" />
@@ -61,7 +61,7 @@
                         Margin="0,1,8,0">
                     <TextBlock Text="{Binding LevelLabel}"
                                FontFamily="{DynamicResource UiFont}"
-                               FontSize="11">
+                               FontSize="{DynamicResource MicroFontSize}">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -91,7 +91,7 @@
                 <TextBlock Grid.Row="0" Grid.Column="2"
                            Text="{Binding SourceLabel}"
                            FontFamily="{DynamicResource MonoFont}"
-                           FontSize="9"
+                           FontSize="{DynamicResource MetaFontSize}"
                            Foreground="{DynamicResource SecondaryBrush}"
                            TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Top"
@@ -101,7 +101,7 @@
                 <TextBlock Grid.Row="0" Grid.Column="3"
                            Text="{Binding SummaryText}"
                            FontFamily="{DynamicResource MonoFont}"
-                           FontSize="10"
+                           FontSize="{DynamicResource MonoFontSize}"
                            Foreground="{DynamicResource TextBrush}"
                            TextWrapping="Wrap" />
 

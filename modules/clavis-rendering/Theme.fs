@@ -20,7 +20,7 @@ module internal Colors =
 
     let text       = brushFromRgb 0xC8uy 0xC8uy 0xD0uy
     let textBright = brushFromRgb 0xE8uy 0xE8uy 0xECuy
-    let textDim    = brushFromRgb 0xB0uy 0xB0uy 0xBAuy
+    let textDim    = brushFromRgb 0x9Auy 0x9Auy 0xA4uy
     let clavis     = brushFromRgb 0x9Fuy 0xD5uy 0xF0uy
     let codeBg     = brushFromRgb 0x14uy 0x14uy 0x1Cuy
     let codeBorder = brushFromRgb 0x28uy 0x28uy 0x34uy
