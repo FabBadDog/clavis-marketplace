@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clavis · Packages (mock)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ---- Clavis "default" theme tokens (from ~/.clavis/themes/default.yaml) ---- */
+:root{
+  --black:#000000; --white:#FFFFFF;
+  --text:#E8E8EC; --text-dim:#9A9AA4; --body:#C8C8D0;
+  --line:#5A5A66; --surface:#0E0E14;
+  --primary:#9FD5F0;   /* state: active / focus / installed-ok / link */
+  --secondary:#ADA6F2; /* identity: kind labels / authors / source */
+  --green:#7BD49B; --red:#E47E7E; --yellow:#E4C47E;
+  --human:'Rajdhani',sans-serif;
+  --agent:'Inter',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;border-radius:0;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--black);color:var(--text);
+  font-family:var(--agent);font-size:14px;line-height:1.45;
+  display:flex;flex-direction:column;height:100vh;overflow:hidden;
+}
+.dot{border-radius:50%}            /* status dots are circles (Ellipse), never boxes */
+::selection{background:rgba(159,213,240,.22)}
+@keyframes breathe{0%,100%{opacity:.45}50%{opacity:1}}
+
+/* ---- top bar ---- */
+.topbar{
+  flex:0 0 auto;border-bottom:1px solid var(--line);
+  padding:13px 22px 12px;display:flex;align-items:center;gap:16px;
+  background:linear-gradient(180deg,var(--surface),var(--black));
+}
+.crumb{font-family:var(--human);font-weight:600;letter-spacing:2px;
+  font-size:20px;text-transform:uppercase;color:var(--text);white-space:nowrap}
+.crumb .sep{color:var(--line);margin:0 10px;font-weight:500}
+.crumb .leaf{color:var(--primary)}
+.broker{
+  display:flex;align-items:center;gap:8px;border:1px solid var(--line);
+  padding:5px 11px;font-family:var(--human);font-size:13px;letter-spacing:.5px;color:var(--body);cursor:default;
+}
+.broker .dot{width:8px;height:8px;background:var(--green);box-shadow:0 0 8px var(--green);animation:breathe 2.4s ease-in-out infinite}
+.broker b{color:var(--text);font-weight:600}
+.broker .muted{color:var(--text-dim)}
+.facade-note{flex:1;font-size:12px;color:var(--text-dim);text-align:right}
+.facade-note code{font-family:var(--mono);color:var(--secondary);font-size:11.5px}
+.facade-note b{color:var(--body);font-weight:500}
+
+/* ---- body split: nav | center | detail ---- */
+.split{flex:1 1 auto;display:flex;min-height:0}
+
+/* nav (sources) */
+.nav{flex:0 0 232px;border-right:1px solid var(--line);overflow-y:auto;padding:12px 0 24px;background:var(--surface)}
+.nav h4{font-family:var(--human);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);padding:10px 18px 4px;font-weight:500}
+.nav-item{display:flex;align-items:center;gap:10px;padding:7px 18px;cursor:pointer;color:var(--body);border-left:2px solid transparent;font-family:var(--human);font-size:14px;letter-spacing:.4px}
+.nav-item:hover{background:rgba(159,213,240,.05);color:var(--text)}
+.nav-item.active{border-left-color:var(--primary);color:var(--text);background:rgba(159,213,240,.07)}
+.nav-item .src-dot{width:7px;height:7px;flex:0 0 auto}
+.src-dot.ok{background:var(--green)} .src-dot.warn{background:var(--yellow)}
+.src-dot.reload{background:var(--secondary)} .src-dot.off{background:var(--line)}
+.nav-item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-item .count{font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+.nav-item.active .count{color:var(--primary)}
+.nav-item.unavailable{opacity:.5}
+.nav-item.unavailable .nm{text-decoration:line-through;text-decoration-color:var(--line)}
+.nav-filters{padding:10px 18px 6px;border-top:1px solid var(--line);margin-top:10px}
+.checkrow{display:flex;align-items:center;gap:9px;cursor:pointer;color:var(--body);font-size:13px;padding:4px 0}
+.checkrow input{appearance:none;width:14px;height:14px;border:1px solid var(--line);background:var(--black);cursor:pointer;position:relative;flex:0 0 auto}
+.checkrow input:checked{border-color:var(--primary)}
+.checkrow input:checked:after{content:"";position:absolute;inset:2px;background:var(--primary)}
+.nav-refresh{margin:12px 18px 0;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--black);color:var(--body);font-family:var(--human);font-size:12px;letter-spacing:.8px;text-transform:uppercase;padding:7px 10px;cursor:pointer;width:calc(100% - 36px);justify-content:center}
+.nav-refresh:hover{color:var(--text);border-color:var(--text-dim)}
+.nav-refresh .rdot{width:6px;height:6px;background:var(--text-dim)}
+.scan-note{padding:8px 18px 0;font-family:var(--mono);font-size:10px;color:var(--text-dim)}
+
+/* center column */
+.center{flex:1 1 auto;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
+.tabs{display:flex;align-items:flex-end;gap:0;border-bottom:1px solid var(--line);padding:0 18px;flex:0 0 auto;background:var(--surface)}
+.tab{font-family:var(--human);font-size:14px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-dim);padding:12px 16px 10px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--body)}
+.tab.active{color:var(--text);border-bottom-color:var(--primary)}
+.tab .tcount{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-left:7px}
+.tab.active .tcount{color:var(--primary)}
+.toolbar{display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid rgba(90,90,102,.32);flex:0 0 auto}
+.search-wrap{position:relative;flex:1;min-width:0}
+.search{width:100%;background:var(--black);border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:13px;padding:8px 30px;outline:none}
+.search:focus{border-color:var(--primary)}
+.search-wrap .ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:12px;height:12px;border:1.6px solid var(--text-dim);border-radius:50%}
+.search-wrap .ico:after{content:"";position:absolute;width:6px;height:1.6px;background:var(--text-dim);right:-5px;bottom:-1px;transform:rotate(45deg)}
+.sortsel{display:flex;align-items:center;gap:7px;font-family:var(--human);font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--text-dim)}
+.sortsel select{background:var(--black);border:1px solid var(--line);color:var(--body);font-family:var(--mono);font-size:12px;padding:7px 26px 7px 9px;outline:none;cursor:pointer;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--text-dim) 50%),linear-gradient(135deg,var(--text-dim) 50%,transparent 50%);
+  background-position:calc(100% - 14px) 51%,calc(100% - 9px) 51%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.sortsel select:focus{border-color:var(--primary)}
+.list{flex:1 1 auto;overflow-y:auto;padding:2px 0 130px}
+.discover-hint{padding:30px 22px;font-size:13px;color:var(--text-dim)}
+.discover-hint b{color:var(--body)}
+
+/* flat package row */
+.pkg{display:grid;grid-template-columns:14px 1fr 96px 132px 120px;align-items:center;gap:0 14px;
+  padding:10px 18px;border-bottom:1px solid rgba(90,90,102,.28);border-left:2px solid transparent;cursor:pointer;transition:background .16s,border-color .16s}
+.pkg:hover{background:rgba(255,255,255,.014)}
+.pkg.selected{background:rgba(159,213,240,.06);border-left-color:var(--primary)}
+.pkg.outdated:not(.selected){border-left-color:rgba(228,196,126,.7)}
+.pkg.deactivated{opacity:.5}
+.pkg .st{display:flex;justify-content:center}
+.pkg .st .dot{width:9px;height:9px}
+.st .dot.installed{background:var(--green)}
+.st .dot.outdated{background:var(--yellow);box-shadow:0 0 7px rgba(228,196,126,.5)}
+.st .dot.available{background:transparent;border:1.4px solid var(--line)}
+.st .dot.deactivated{background:transparent;border:1.4px solid var(--secondary)}
+.pkg .info{min-width:0}
+.pkg .nrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pkg .name{font-family:var(--agent);font-weight:600;font-size:14px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kind{font-family:var(--human);font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;padding:1px 5px;border:1px solid rgba(173,166,242,.4);color:var(--secondary);white-space:nowrap}
+.pkg .author{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srcbadge{font-family:var(--human);font-size:11px;letter-spacing:.7px;text-transform:uppercase;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ver{font-family:var(--mono);font-size:11.5px;color:var(--body);white-space:nowrap}
+.ver .arrow{color:var(--text-dim);margin:0 4px}.ver .new{color:var(--yellow)}.ver .none{color:var(--text-dim)}
+.rmeta{font-family:var(--mono);font-size:11px;color:var(--text-dim);text-align:right;white-space:nowrap}
+.rmeta b{color:var(--body);font-weight:500}.rmeta .na{color:var(--line)}.rmeta .stars{color:var(--yellow)}
+.flag{font-family:var(--human);font-size:9.5px;letter-spacing:.7px;text-transform:uppercase;padding:1px 5px;border:1px solid var(--line);white-space:nowrap}
+.flag.admin{color:var(--yellow);border-color:rgba(228,196,126,.45)}
+.flag.deact{color:var(--secondary);border-color:rgba(173,166,242,.4)}
+
+/* detail pane */
+.detail{flex:0 0 372px;overflow-y:auto;padding:20px 22px 130px;background:linear-gradient(180deg,rgba(14,14,20,.5),var(--black) 120px)}
+.detail .empty{color:var(--text-dim);font-size:13px;margin-top:30px;text-align:center}
+.detail .empty .big{font-family:var(--human);font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--line);margin-bottom:10px}
+.dh-name{font-family:var(--agent);font-weight:600;font-size:20px;color:var(--text);line-height:1.2}
+.dh-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.dh-state{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px}
+.dh-state .dot{width:9px;height:9px}
+.dh-state.installed{color:var(--green)} .dh-state.installed .dot{background:var(--green)}
+.dh-state.outdated{color:var(--yellow)} .dh-state.outdated .dot{background:var(--yellow);box-shadow:0 0 7px rgba(228,196,126,.5)}
+.dh-state.available{color:var(--text-dim)} .dh-state.available .dot{background:transparent;border:1.4px solid var(--line)}
+.dh-state.deactivated{color:var(--secondary)} .dh-state.deactivated .dot{background:transparent;border:1.4px solid var(--secondary)}
+.dh-author{font-family:var(--mono);font-size:12px;color:var(--text-dim);margin-top:8px}
+.dh-author b{color:var(--secondary);font-weight:400}
+.dstats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:16px 0}
+.dstat{background:var(--black);padding:9px 11px}
+.dstat .k{font-family:var(--human);font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim)}
+.dstat .v{font-family:var(--mono);font-size:13px;color:var(--text);margin-top:3px}
+.dstat .v.na{color:var(--line)}
+.dstat .v .new{color:var(--yellow)} .dstat .v .arrow{color:var(--text-dim);margin:0 4px}
+.dstat .v .stars{color:var(--yellow);letter-spacing:1px}
+.ddesc{font-family:var(--agent);font-size:13.5px;color:var(--body);margin:6px 0 16px}
+.dsection{font-family:var(--human);font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text-dim);margin:16px 0 8px;border-bottom:1px solid rgba(90,90,102,.3);padding-bottom:5px}
+.item{display:flex;align-items:center;gap:10px;padding:7px 4px;border-left:1px solid var(--line);margin-bottom:3px;padding-left:10px}
+.item .idot{width:6px;height:6px;flex:0 0 auto;background:var(--green)}
+.item.off .idot{background:transparent;border:1.3px solid var(--secondary)}
+.item.off{opacity:.6}
+.item .iname{font-family:var(--agent);font-size:13px;color:var(--text);font-weight:500;white-space:nowrap}
+.item .ikind{font-family:var(--human);font-size:9px;letter-spacing:.6px;text-transform:uppercase;color:var(--secondary);border:1px solid rgba(173,166,242,.35);padding:0 4px}
+.item .ispacer{flex:1}
+.item .itoggle{font-family:var(--human);font-size:10px;letter-spacing:.6px;text-transform:uppercase;border:1px solid var(--line);background:var(--black);color:var(--text-dim);padding:3px 8px;cursor:pointer}
+.item .itoggle:hover{color:var(--text);border-color:var(--text-dim)}
+.item.off .itoggle{color:var(--secondary);border-color:rgba(173,166,242,.4)}
+.dlinks{font-family:var(--mono);font-size:11.5px;color:var(--text-dim);margin-top:6px;display:flex;flex-direction:column;gap:6px}
+.dlinks a{color:var(--primary);text-decoration:none}.dlinks a:hover{text-decoration:underline}
+.dlinks .k{color:var(--text-dim);margin-right:6px}
+.detail-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+.act{font-family:var(--human);font-size:12px;letter-spacing:.7px;text-transform:uppercase;border:1px solid var(--line);background:var(--black);color:var(--body);padding:8px 16px;cursor:pointer}
+.act:hover{color:var(--text);border-color:var(--text-dim)}
+.act.install{border-color:rgba(159,213,240,.5);color:var(--primary)}.act.install:hover{background:rgba(159,213,240,.1)}
+.act.update{border-color:rgba(228,196,126,.5);color:var(--yellow)}.act.update:hover{background:rgba(228,196,126,.1)}
+.act.remove:hover{color:var(--red);border-color:rgba(228,126,126,.5);background:rgba(228,126,126,.07)}
+.act.ghost{color:var(--text-dim)}
+.act:disabled{opacity:.28;cursor:default}.act:disabled:hover{color:var(--text-dim);border-color:var(--line);background:var(--black)}
+.cap-hint{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-top:10px}
+.cap-hint .ad{color:var(--yellow)}
+
+/* footer ops bar */
+.footer{position:fixed;left:232px;right:0;bottom:0;border-top:1px solid var(--line);background:linear-gradient(0deg,var(--surface),rgba(14,14,20,.96));padding:10px 22px;display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(3px)}
+.ops{display:flex;flex-direction:column;gap:7px}
+.op{display:flex;align-items:center;gap:12px;font-size:13px}
+.op .odot{width:9px;height:9px;flex:0 0 auto;background:var(--primary);box-shadow:0 0 8px var(--primary);animation:breathe 1.4s ease-in-out infinite}
+.op.done .odot{background:var(--green);box-shadow:0 0 8px var(--green);animation:none}
+.op.fail .odot{background:var(--red);box-shadow:0 0 8px var(--red);animation:none}
+.op .otitle{color:var(--text);font-weight:500}
+.op .otitle .src{font-family:var(--mono);font-size:11px;color:var(--secondary);margin-left:6px}
+.op .ophase{font-family:var(--mono);font-size:11.5px;color:var(--text-dim)}
+.op .admin{font-family:var(--human);font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:var(--yellow);border:1px solid rgba(228,196,126,.45);padding:1px 6px}
+.op .bar{flex:1;max-width:240px;height:4px;background:var(--surface);border:1px solid var(--line);position:relative;overflow:hidden}
+.op .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--primary);width:0;transition:width .4s ease}
+.op.done .bar i{background:var(--green)}
+.op .ospacer{flex:1}
+.op .ocancel{font-family:var(--human);font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--text-dim);border:1px solid var(--line);background:var(--black);padding:3px 9px;cursor:pointer}
+.op .ocancel:hover{color:var(--red);border-color:rgba(228,126,126,.5)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--text-dim);border-top:1px solid rgba(90,90,102,.3);padding-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend .sw{width:9px;height:9px;display:inline-block;flex:0 0 auto}
+.legend .sw.hollow{background:transparent;border:1.4px solid var(--line)}
+.legend .sw.hollow.sec{border-color:var(--secondary)}
+.idle{font-size:12px;color:var(--text-dim)}.idle b{color:var(--body);font-weight:500}
+
+/* confirm dialog */
+.veil{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:40}
+.veil.show{display:flex}
+.dialog{width:440px;background:var(--black);border:1px solid var(--line);padding:22px 24px}
+.dialog h3{font-family:var(--human);font-size:16px;letter-spacing:1px;text-transform:uppercase;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.dialog h3 .wdot{width:9px;height:9px;background:var(--red)}
+.dialog p{font-size:13.5px;color:var(--body);margin-bottom:8px}
+.dialog .tgt{font-family:var(--mono);font-size:12.5px;color:var(--text)}
+.dialog .adminline{font-family:var(--mono);font-size:12px;color:var(--yellow);margin:10px 0 16px;display:flex;align-items:center;gap:8px}
+.dialog .adminline .ad{width:7px;height:7px;background:var(--yellow)}
+.dialog .row{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.dialog .btn{font-family:var(--human);font-size:13px;letter-spacing:.8px;text-transform:uppercase;border:1px solid var(--line);background:var(--black);color:var(--body);padding:8px 18px;cursor:pointer}
+.dialog .btn:hover{color:var(--text);border-color:var(--text-dim)}
+.dialog .btn.danger{border-color:rgba(228,126,126,.55);color:var(--red)}
+.dialog .btn.danger:hover{background:rgba(228,126,126,.1)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="crumb">Clavis<span class="sep">›</span><span class="leaf">Packages</span></div>
+  <div class="broker" title="The package-broker plugin aggregates one provider plugin per manager. Each provider is its own collectible plugin — reloadable / disablable at runtime.">
+    <span class="dot"></span>Broker:&nbsp;<b>9</b>&nbsp;<span class="muted">providers · 2 reloadable · 1 unavailable</span>
+  </div>
+  <div class="facade-note">Each manager is a <b>provider plugin</b> behind the <b>package-broker</b>; reads come from the broker's merged cache (<code>EnumerateInstalled</code>), mutations report via <code>MarketplaceProgress</code>.</div>
+</header>
+
+<div class="split">
+  <aside class="nav" id="nav"></aside>
+
+  <section class="center">
+    <div class="tabs">
+      <div class="tab active" data-tab="installed">Installed<span class="tcount" id="tc-installed"></span></div>
+      <div class="tab" data-tab="discover">Discover<span class="tcount" id="tc-discover"></span></div>
+    </div>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="ico"></span>
+        <input id="search" class="search" type="text" autocomplete="off" />
+      </div>
+      <div class="sortsel">sort
+        <select id="sort">
+          <option value="name">name</option>
+          <option value="outdated">updates first</option>
+          <option value="downloads">downloads</option>
+          <option value="size">size on disk</option>
+        </select>
+      </div>
+    </div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <aside class="detail" id="detail"></aside>
+</div>
+
+<footer class="footer">
+  <div class="ops" id="ops"></div>
+  <div class="legend">
+    <span><i class="sw dot" style="background:var(--green)"></i> installed</span>
+    <span><i class="sw dot" style="background:var(--yellow)"></i> update available</span>
+    <span><i class="sw dot hollow"></i> not installed</span>
+    <span><i class="sw dot hollow sec"></i> deactivated</span>
+    <span><i class="sw" style="border:1px solid var(--secondary)"></i> kind</span>
+    <span><i class="sw" style="border:1px solid var(--yellow)"></i> needs admin</span>
+  </div>
+</footer>
+
+<div class="veil" id="veil">
+  <div class="dialog">
+    <h3><span class="wdot dot"></span> Confirm uninstall</h3>
+    <p>This removes the package from your system. It cannot be undone from here.</p>
+    <p class="tgt" id="confirmTgt"></p>
+    <div class="adminline hidden" id="confirmAdmin"><span class="ad dot"></span> Requires administrator — a Windows UAC prompt (via gsudo) will appear.</div>
+    <div class="row">
+      <button class="btn" id="confirmCancel">Cancel</button>
+      <button class="btn danger" id="confirmOk">Uninstall</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================================
+   PACKAGE INVENTORY (mock). In the real plugin each provider plugin pushes a
+   PackageSnapshot; the package-broker merges + caches them and answers reads.
+   capabilities drive the UI — actions/columns light up ONLY where supported.
+============================================================================ */
+const SOURCES = [
+  {id:"winget", name:"winget", type:"Windows Package Manager", status:"warn", reputation:96, packages:142, activity:90, size:"— (system)", caps:{search:1,install:1,uninstall:1,update:1,deactivate:0,remoteMeta:1}, elevation:"some"},
+  {id:"scoop", name:"scoop", type:"Scoop buckets", status:"ok", reputation:88, packages:37, activity:74, size:"612 MB", caps:{search:1,install:1,uninstall:1,update:1,deactivate:0,remoteMeta:0}, elevation:"never"},
+  {id:"choco", name:"chocolatey", type:"Chocolatey community feed", status:"ok", reputation:84, packages:11, activity:62, size:"— (system)", caps:{search:1,install:1,uninstall:1,update:1,deactivate:0,remoteMeta:1}, elevation:"always"},
+  {id:"npm", name:"npm (global)", type:"npm registry", status:"warn", reputation:90, packages:14, activity:85, size:"318 MB", caps:{search:1,install:1,uninstall:1,update:1,deactivate:0,remoteMeta:1}, elevation:"some"},
+  {id:"pip", name:"pip", type:"PyPI", status:"warn", reputation:90, packages:46, activity:88, size:"540 MB", caps:{search:0,install:1,uninstall:1,update:1,deactivate:0,remoteMeta:1}, elevation:"some"},
+  {id:"dotnet", name:"dotnet tools", type:"NuGet global tools", status:"ok", reputation:92, packages:6, activity:70, size:"96 MB", caps:{search:1,install:1,uninstall:1,update:1,deactivate:0,remoteMeta:1}, elevation:"never"},
+  {id:"msi", name:"Installed software", type:"Windows Installer / registry", status:"ok", reputation:-1, packages:88, activity:-1, size:"34.2 GB", caps:{search:0,install:0,uninstall:1,update:0,deactivate:0,remoteMeta:0}, elevation:"always"},
+  {id:"store", name:"Microsoft Store", type:"Appx / MSIX", status:"ok", reputation:-1, packages:22, activity:-1, size:"3.1 GB", caps:{search:0,install:0,uninstall:1,update:0,deactivate:0,remoteMeta:0}, elevation:"some"},
+  {id:"psmod", name:"PowerShell modules", type:"PSGallery", status:"reload", reputation:86, packages:19, activity:68, size:"410 MB", caps:{search:1,install:1,uninstall:1,update:1,deactivate:1,remoteMeta:1}, elevation:"some"},
+  {id:"claude", name:"Claude Code", type:"~/.claude skills · agents · plugins", status:"reload", reputation:-1, packages:8, activity:-1, size:"24 MB", caps:{search:0,install:0,uninstall:1,update:0,deactivate:1,remoteMeta:0}, elevation:"never"},
+  {id:"clavis", name:"Clavis plugins", type:"clavis-marketplace", status:"ok", reputation:80, packages:23, activity:95, size:"58 MB", caps:{search:1,install:1,uninstall:1,update:1,deactivate:1,remoteMeta:1}, elevation:"never"},
+  {id:"nuget-feed", name:"nuget.org (feed)", type:"NuGet v3 feed", status:"off", reputation:94, packages:0, activity:80, size:"—", caps:{search:1,install:0,uninstall:0,update:0,deactivate:0,remoteMeta:1}, elevation:"never"},
+];
+const PKGS = [
+  {src:"winget", name:"Microsoft PowerToys", kind:"app", author:"Microsoft", state:"outdated", cur:"0.78.0", latest:"0.81.1", dl:48000000, rev:4.6, bytes:520e6, desc:"A set of utilities for power users to tune and streamline Windows — FancyZones, PowerToys Run, keyboard remapping and more.", home:"https://aka.ms/powertoys"},
+  {src:"winget", name:"Git", kind:"app", author:"Git for Windows", state:"installed", cur:"2.45.2", latest:"2.45.2", dl:120000000, rev:4.8, bytes:380e6, desc:"Distributed version control system."},
+  {src:"winget", name:"Mozilla Firefox", kind:"app", author:"Mozilla", state:"installed", cur:"126.0", latest:"126.0", dl:90000000, rev:4.5, bytes:240e6, desc:"Open-source web browser."},
+  {src:"winget", name:"VLC media player", kind:"app", author:"VideoLAN", state:"available", cur:null, latest:"3.0.21", dl:200000000, rev:4.7, desc:"Free and open-source cross-platform multimedia player."},
+  {src:"scoop", name:"ripgrep", kind:"cli", author:"BurntSushi", state:"installed", cur:"14.1.0", latest:"14.1.0", dl:null, rev:null, bytes:18e6, desc:"Recursively search directories for a regex pattern, fast."},
+  {src:"scoop", name:"fzf", kind:"cli", author:"junegunn", state:"installed", cur:"0.53.0", latest:"0.53.0", dl:null, rev:null, bytes:9e6, desc:"A command-line fuzzy finder."},
+  {src:"scoop", name:"neovim", kind:"cli", author:"neovim", state:"available", cur:null, latest:"0.10.0", dl:null, rev:null, desc:"Hyperextensible Vim-based text editor."},
+  {src:"choco", name:"7-Zip", kind:"app", author:"Igor Pavlov", state:"installed", cur:"24.05", latest:"24.05", dl:9400000, rev:4.8, admin:true, bytes:5e6, desc:"File archiver with a high compression ratio."},
+  {src:"choco", name:"Node.js LTS", kind:"app", author:"Node.js", state:"outdated", cur:"20.12.2", latest:"20.15.0", dl:7100000, rev:4.6, admin:true, bytes:90e6, desc:"JavaScript runtime built on Chrome's V8 engine."},
+  {src:"npm", name:"typescript", kind:"tool", author:"Microsoft", state:"installed", cur:"5.4.5", latest:"5.4.5", dl:62000000, rev:null, bytes:22e6, desc:"TypeScript compiler, tsc."},
+  {src:"npm", name:"prettier", kind:"tool", author:"Prettier", state:"outdated", cur:"3.2.5", latest:"3.3.2", dl:41000000, rev:null, bytes:8e6, desc:"Opinionated code formatter."},
+  {src:"npm", name:"@anthropic-ai/claude-code", kind:"tool", author:"Anthropic", state:"installed", cur:"1.0.44", latest:"1.0.44", dl:1200000, rev:null, bytes:60e6, desc:"Claude Code CLI."},
+  {src:"pip", name:"black", kind:"tool", author:"PSF", state:"installed", cur:"24.4.2", latest:"24.4.2", dl:54000000, rev:null, bytes:12e6, desc:"The uncompromising Python code formatter."},
+  {src:"pip", name:"requests", kind:"package", author:"Kenneth Reitz", state:"outdated", cur:"2.31.0", latest:"2.32.3", dl:300000000, rev:null, bytes:1e6, desc:"HTTP library for humans."},
+  {src:"dotnet", name:"dotnet-ef", kind:"tool", author:"Microsoft", state:"installed", cur:"8.0.6", latest:"8.0.6", dl:38000000, rev:null, bytes:30e6, desc:"Entity Framework Core command-line tools."},
+  {src:"dotnet", name:"dotnet-format", kind:"tool", author:"Microsoft", state:"outdated", cur:"7.0.360", latest:"8.0.453", dl:12000000, rev:null, bytes:24e6, desc:"Code formatter for dotnet projects."},
+  {src:"msi", name:"Visual Studio 2022", kind:"app", author:"Microsoft", state:"installed", cur:"17.10.3", latest:null, dl:null, rev:null, admin:true, size:"42.0 GB", bytes:42e9, desc:"Microsoft Visual Studio 2022 (Enterprise)."},
+  {src:"msi", name:"Docker Desktop", kind:"app", author:"Docker Inc.", state:"installed", cur:"4.31.0", latest:null, dl:null, rev:null, admin:true, size:"2.4 GB", bytes:2.4e9, desc:"Containerization platform for Windows."},
+  {src:"store", name:"WhatsApp", kind:"app", author:"WhatsApp LLC", state:"installed", cur:"2.2425.3", latest:null, dl:null, rev:null, bytes:180e6, desc:"Desktop messaging client (auto-updates via Store)."},
+  {src:"store", name:"Spotify", kind:"app", author:"Spotify AB", state:"installed", cur:"1.2.40", latest:null, dl:null, rev:null, bytes:300e6, desc:"Music streaming (auto-updates via Store)."},
+  {src:"psmod", name:"Az", kind:"module", author:"Microsoft", state:"outdated", cur:"11.5.0", latest:"12.1.0", dl:84000000, rev:null, bytes:210e6, desc:"Azure PowerShell — manage Azure from PowerShell.", items:[{name:"Connect-AzAccount",kind:"cmdlet",on:true,desc:"Authenticate to Azure."},{name:"Get-AzResource",kind:"cmdlet",on:true,desc:"List Azure resources."}]},
+  {src:"psmod", name:"PSReadLine", kind:"module", author:"Microsoft", state:"installed", cur:"2.3.5", latest:"2.3.5", dl:60000000, rev:null, bytes:4e6, desc:"Command-line editing experience for PowerShell."},
+  {src:"psmod", name:"Pester", kind:"module", author:"Pester Team", state:"deactivated", cur:"5.5.0", latest:"5.6.1", dl:30000000, rev:null, bytes:6e6, desc:"Test and mock framework for PowerShell (kept installed, not auto-loaded)."},
+  {src:"claude", name:"plugin-dev", kind:"plugin", author:"local", state:"installed", cur:"—", latest:null, dl:null, rev:null, bytes:2e6, desc:"Plugin authoring toolkit: skill, agent and validator capabilities.", items:[{name:"agent-creator",kind:"agent",on:true,desc:"Generate agents for plugins."},{name:"plugin-validator",kind:"agent",on:true,desc:"Validate plugin structure."},{name:"skill-reviewer",kind:"agent",on:false,desc:"Review skill quality (disabled)."}]},
+  {src:"claude", name:"manage-credentials", kind:"skill", author:"local", state:"installed", cur:"—", latest:null, dl:null, rev:null, bytes:1e5, desc:"Store / retrieve / rotate secrets via Windows Credential Manager."},
+  {src:"claude", name:"todos", kind:"skill", author:"local", state:"deactivated", cur:"—", latest:null, dl:null, rev:null, bytes:1e5, desc:"Todoist workflow helpers (moved to .disabled/, not loaded)."},
+  {src:"clavis", name:"git-log-panel", kind:"plugin", author:"FabioSoft", state:"installed", cur:"1.4.0", latest:"1.4.0", dl:340, rev:null, bytes:2e6, desc:"Live git log panel.", reloadable:true},
+  {src:"clavis", name:"events-panel", kind:"plugin", author:"FabioSoft", state:"outdated", cur:"2.0.1", latest:"2.1.0", dl:410, rev:null, bytes:2e6, desc:"Bus activity firehose with keyboard filters.", reloadable:true},
+  {src:"clavis", name:"markdown-panel", kind:"plugin", author:"FabioSoft", state:"deactivated", cur:"1.1.0", latest:"1.1.0", dl:280, rev:null, bytes:1e6, desc:"Editable markdown note panel (unloaded).", reloadable:true},
+  {src:"clavis", name:"weather-panel", kind:"plugin", author:"community", state:"available", cur:null, latest:"0.3.0", dl:52, rev:null, desc:"A small weather panel from the marketplace."},
+];
+
+const srcById = Object.fromEntries(SOURCES.map(s=>[s.id,s]));
+function fmtDl(n){ if(n==null) return null; if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1)+"M"; if(n>=1e3) return (n/1e3).toFixed(0)+"k"; return String(n); }
+function fmtBytes(b){ if(b==null) return null; if(b>=1e9) return (b/1e9).toFixed(1)+" GB"; if(b>=1e6) return (b/1e6).toFixed(0)+" MB"; if(b>=1e3) return (b/1e3).toFixed(0)+" KB"; return b+" B"; }
+function stars(r){ if(r==null) return null; const f=Math.round(r); return "★".repeat(f)+"☆".repeat(5-f); }
+const STATUS_TITLE={ok:"loaded · up to date",warn:"loaded · updates available",reload:"reloadable provider plugin (live-loaded)",off:"provider not loaded / CLI missing"};
+const STATE_LABEL={installed:"installed",outdated:"update available",deactivated:"deactivated",available:"not installed"};
+
+let tab="installed", selectedSource="all", sortBy="name", query="", selectedPkgId=null;
+const filters={outdated:false, installed:false, showDeact:true};
+const localState={};
+PKGS.forEach((p,i)=>p._id="p"+i);
+const pkgState=p=>localState[p._id]||p.state;
+
+/* ---------- nav ---------- */
+const nav=document.getElementById('nav');
+function renderNav(){
+  let html='<h4>Sources</h4>'+navItem("all","All sources",PKGS.length,"ok");
+  SOURCES.forEach(s=>{ const count=s.id==="nuget-feed"?"feed":PKGS.filter(p=>p.src===s.id).length; html+=navItem(s.id,s.name,count,s.status); });
+  html+=`<div class="nav-filters">
+    <label class="checkrow"><input type="checkbox" id="f-outdated"><span>Updates available only</span></label>
+    <label class="checkrow"><input type="checkbox" id="f-installed"><span>Installed only</span></label>
+    <label class="checkrow"><input type="checkbox" id="f-deact" checked><span>Show deactivated</span></label>
+  </div>
+  <button class="nav-refresh" id="refresh"><span class="rdot dot"></span> Rescan inventory</button>
+  <div class="scan-note">last scan 3 min ago · auto every 30 min</div>`;
+  nav.innerHTML=html;
+  nav.querySelectorAll('.nav-item').forEach(el=>el.onclick=()=>{selectedSource=el.dataset.src;renderNav();render();});
+  f_outdated.checked=filters.outdated; f_installed.checked=filters.installed; f_deact.checked=filters.showDeact;
+  f_outdated.onchange=e=>{filters.outdated=e.target.checked;render();};
+  f_installed.onchange=e=>{filters.installed=e.target.checked;render();};
+  f_deact.onchange=e=>{filters.showDeact=e.target.checked;render();};
+  refresh.onclick=()=>startOp("Rescan","all","scan",false);
+}
+function navItem(id,name,count,status){
+  const active=selectedSource===id?" active":""; const unavail=status==="off"?" unavailable":"";
+  return `<div class="nav-item${active}${unavail}" data-src="${id}" title="${STATUS_TITLE[status]||''}"><span class="src-dot dot ${status}"></span><span class="nm">${name}</span><span class="count">${count}</span></div>`;
+}
+
+/* ---------- tabs + toolbar ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{ tab=t.dataset.tab; selectedPkgId=null; document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t)); search.value=""; query=""; render(); });
+const search=document.getElementById('search'), sortEl=document.getElementById('sort');
+search.oninput=()=>{query=search.value.trim().toLowerCase();render();};
+sortEl.onchange=()=>{sortBy=sortEl.value;render();};
+
+/* ---------- filtering + sorting ---------- */
+function visiblePkgs(){
+  let list=PKGS.filter(p=>{
+    if(selectedSource!=="all"&&p.src!==selectedSource) return false;
+    const st=pkgState(p);
+    if(tab==="discover"){ if(st!=="available") return false; }
+    else { if(st==="available") return false;
+      if(filters.outdated&&st!=="outdated") return false;
+      if(filters.installed&&!(st==="installed"||st==="outdated")) return false;
+      if(!filters.showDeact&&st==="deactivated") return false;
+    }
+    if(query){ const hay=(p.name+" "+p.author+" "+srcById[p.src].name+" "+p.kind).toLowerCase(); if(!hay.includes(query)) return false; }
+    return true;
+  });
+  const rank=p=>({outdated:0,installed:1,deactivated:2,available:3})[pkgState(p)];
+  list.sort((a,b)=>{
+    if(sortBy==="name") return a.name.localeCompare(b.name);
+    if(sortBy==="outdated"){ const d=rank(a)-rank(b); return d||a.name.localeCompare(b.name); }
+    if(sortBy==="downloads") return (b.dl||0)-(a.dl||0);
+    if(sortBy==="size") return (b.bytes||0)-(a.bytes||0);
+    return 0;
+  });
+  return list;
+}
+
+/* ---------- render list ---------- */
+const listEl=document.getElementById('list');
+function render(){
+  // tab placeholders + counts
+  const installedCount=PKGS.filter(p=>pkgState(p)!=="available").length;
+  document.getElementById('tc-installed').textContent=installedCount;
+  document.getElementById('tc-discover').textContent="";
+  search.placeholder = tab==="discover" ? "Search registries to install  ·  winget, npm, pip, PSGallery…" : "Filter installed  ·  name, author, source…";
+
+  const list=visiblePkgs();
+  listEl.innerHTML="";
+
+  if(tab==="discover" && !query){
+    const h=document.createElement('div'); h.className='discover-hint';
+    h.innerHTML=`<b>Discover new packages.</b> Type above to search the remote registries of ${selectedSource==="all"?"every source that supports search":srcById[selectedSource].name}. Results you don't have yet appear here, ready to install.`;
+    listEl.appendChild(h); renderDetail(); return;
+  }
+  if(!list.length){
+    const e=document.createElement('div'); e.className='discover-hint';
+    e.innerHTML = tab==="discover" ? "No remote results for that query." : "Nothing matches the current filters.";
+    listEl.appendChild(e); renderDetail(); return;
+  }
+  list.forEach(p=>listEl.appendChild(pkgRow(p)));
+  renderDetail();
+}
+
+function pkgRow(p){
+  const s=srcById[p.src], st=pkgState(p);
+  const row=document.createElement('div');
+  row.className=`pkg ${st}${selectedPkgId===p._id?' selected':''}`; row.dataset.id=p._id;
+  const dotClass=st==="outdated"?"outdated":st==="deactivated"?"deactivated":st==="available"?"available":"installed";
+  let flags=`<span class="kind">${p.kind}</span>`;
+  if(p.admin) flags+=`<span class="flag admin" title="mutations require administrator">admin</span>`;
+  if(st==="deactivated") flags+=`<span class="flag deact">off</span>`;
+  let ver = st==="available" ? `<span class="none">${p.latest}</span>`
+          : st==="outdated" ? `${p.cur}<span class="arrow">→</span><span class="new">${p.latest}</span>` : p.cur;
+  let rm;
+  if(s.caps.remoteMeta){ const dl=fmtDl(p.dl), rv=stars(p.rev); rm = dl?`<b>${dl}</b> dl`:(rv?`<span class="stars">${rv}</span>`:'<span class="na">—</span>'); }
+  else { rm = p.bytes?`<b>${fmtBytes(p.bytes)}</b>`:'<span class="na">—</span>'; }
+  row.innerHTML=`
+    <div class="st"><span class="dot ${dotClass}"></span></div>
+    <div class="info"><div class="nrow"><span class="name">${p.name}</span>${flags}</div><div class="author">by ${p.author}</div></div>
+    <div class="srcbadge">${s.name}</div>
+    <div class="ver">${ver}</div>
+    <div class="rmeta">${rm}</div>`;
+  row.onclick=()=>{ selectedPkgId=p._id; render(); };
+  return row;
+}
+
+/* ---------- render detail pane ---------- */
+const detailEl=document.getElementById('detail');
+function renderDetail(){
+  const p=PKGS.find(x=>x._id===selectedPkgId);
+  if(!p){ detailEl.innerHTML=`<div class="empty"><div class="big">No selection</div>Select a package to see its details, items and actions.</div>`; return; }
+  const s=srcById[p.src], st=pkgState(p), c=s.caps;
+
+  let verVal = st==="available" ? `<span class="none">not installed → ${p.latest}</span>`
+             : st==="outdated" ? `${p.cur}<span class="arrow">→</span><span class="new">${p.latest}</span>` : (p.cur||"—");
+  const dl=c.remoteMeta?fmtDl(p.dl):null, rv=c.remoteMeta?stars(p.rev):null;
+  const sizeVal = p.bytes?fmtBytes(p.bytes):(p.size||null);
+
+  let stats=`
+    <div class="dstat"><div class="k">Version</div><div class="v">${verVal}</div></div>
+    <div class="dstat"><div class="k">Source</div><div class="v">${s.name}</div></div>
+    <div class="dstat"><div class="k">Downloads</div><div class="v ${dl?'':'na'}">${dl||'—'}</div></div>
+    <div class="dstat"><div class="k">Rating</div><div class="v ${rv?'':'na'}">${rv?`<span class="stars">${rv}</span> ${p.rev.toFixed(1)}`:'—'}</div></div>
+    <div class="dstat"><div class="k">On disk</div><div class="v ${sizeVal?'':'na'}">${sizeVal||'—'}</div></div>
+    <div class="dstat"><div class="k">Kind</div><div class="v">${p.kind}</div></div>`;
+
+  let items="";
+  if(p.items&&p.items.length){
+    items=`<div class="dsection">Items · ${p.items.length}</div>`+p.items.map(it=>`
+      <div class="item ${it.on?'':'off'}"><span class="idot dot"></span><span class="iname">${it.name}</span><span class="ikind">${it.kind}</span><span class="ispacer"></span><button class="itoggle">${it.on?'Deactivate':'Activate'}</button></div>`).join("");
+  }
+  let links=`<div class="dsection">Links</div><div class="dlinks"><span><span class="k">source</span>${s.name} · ${s.type}</span>`;
+  if(p.home) links+=`<span><span class="k">home</span><a href="${p.home}" onclick="return false">${p.home}</a></span>`;
+  if(c.deactivate) links+=`<span><span class="k">deactivate</span>${deactExplain(s.id)}</span>`;
+  links+=`</div>`;
+
+  // actions
+  const acts=detailActions(p,s,st);
+  let capHint="";
+  if(s.elevation!=="never") capHint=`<div class="cap-hint"><span class="ad">▲ admin</span> — mutations ${s.elevation==="always"?"require":"may require"} a UAC prompt (gsudo).</div>`;
+  else if(st==="installed"&&!c.update&&!c.deactivate) capHint=`<div class="cap-hint">This source supports uninstall only.</div>`;
+
+  detailEl.innerHTML=`
+    <div class="dh-name">${p.name}</div>
+    <div class="dh-row"><span class="dh-state ${st}"><span class="dot"></span>${STATE_LABEL[st]}</span>${p.admin?'<span class="flag admin">admin</span>':''}${p.reloadable?'<span class="flag deact">reloadable</span>':''}</div>
+    <div class="dh-author">by <b>${p.author}</b></div>
+    <div class="dstats">${stats}</div>
+    <div class="ddesc">${p.desc}</div>
+    ${items}${links}
+    <div class="detail-actions">${acts}</div>${capHint}`;
+
+  detailEl.querySelectorAll('.act[data-do]').forEach(b=>b.onclick=()=>doAction(b.dataset.do,p));
+  detailEl.querySelectorAll('.itoggle').forEach((b,i)=>b.onclick=()=>{p.items[i].on=!p.items[i].on;renderDetail();});
+}
+function detailActions(p,s,st){
+  const c=s.caps; let out="";
+  if(st==="available"){ return c.install?`<button class="act install" data-do="install">Install</button>`:`<button class="act install" disabled title="this source can't install new packages">Install</button>`; }
+  if(st==="outdated"&&c.update) out+=`<button class="act update" data-do="update">Update</button>`;
+  if(st==="deactivated") out+=`<button class="act" data-do="reactivate">Reactivate</button>`;
+  else if(c.deactivate) out+=`<button class="act ghost" data-do="deactivate" title="keep installed but stop loading">Deactivate</button>`;
+  out+= c.uninstall?`<button class="act remove" data-do="uninstall">Uninstall</button>`:`<button class="act remove" disabled>Uninstall</button>`;
+  return out;
+}
+function deactExplain(id){ return id==="psmod"?"rename out of PSModulePath":id==="claude"?"move to ~/.claude/…/.disabled/":id==="clavis"?"UnloadPlugin (dll stays on disk)":""; }
+
+/* ---------- actions → simulated ops ---------- */
+let confirmTarget=null;
+function doAction(kind,p){
+  const s=srcById[p.src];
+  if(kind==="uninstall"){
+    confirmTarget={p,s};
+    document.getElementById('confirmTgt').textContent=`${p.name}  ·  ${s.name}${p.cur&&p.cur!=='—'?'  '+p.cur:''}`;
+    document.getElementById('confirmAdmin').classList.toggle('hidden',!(p.admin||s.elevation==="always"));
+    document.getElementById('veil').classList.add('show'); return;
+  }
+  if(kind==="deactivate"){ localState[p._id]="deactivated"; startOp(`Deactivate ${p.name}`,p.src,"deactivate",false); render(); return; }
+  if(kind==="reactivate"){ localState[p._id]="installed"; startOp(`Reactivate ${p.name}`,p.src,"reactivate",false); render(); return; }
+  if(kind==="install"){ startOp(`Install ${p.name}`,p.src,"install",s.elevation!=="never",()=>{localState[p._id]="installed";render();}); return; }
+  if(kind==="update"){ startOp(`Update ${p.name}`,p.src,"update",s.elevation==="always",()=>{localState[p._id]="installed";render();}); return; }
+}
+document.getElementById('confirmCancel').onclick=()=>document.getElementById('veil').classList.remove('show');
+document.getElementById('veil').onclick=e=>{if(e.target.id==='veil')document.getElementById('veil').classList.remove('show');};
+document.getElementById('confirmOk').onclick=()=>{ document.getElementById('veil').classList.remove('show'); const {p,s}=confirmTarget; startOp(`Uninstall ${p.name}`,p.src,"uninstall",p.admin||s.elevation==="always",()=>{localState[p._id]="available"; if(selectedPkgId===p._id&&tab==="installed")selectedPkgId=null; render();}); };
+
+/* ---------- footer ops ---------- */
+const opsEl=document.getElementById('ops'); let ops=[],opSeq=0;
+const PHASES={install:["resolving","downloading","installing","verifying"],update:["resolving","downloading","updating","verifying"],uninstall:["stopping","removing","cleaning up"],deactivate:["unloading"],reactivate:["loading"],scan:["winget","scoop","npm","pip","PSGallery","~/.claude","clavis"]};
+function renderOps(){
+  if(!ops.length){ opsEl.innerHTML=`<div class="idle"><b>No operations running.</b> Installs, updates and uninstalls report progress here.</div>`; return; }
+  opsEl.innerHTML=ops.map(o=>{
+    const cls=o.status==='done'?'done':o.status==='fail'?'fail':'';
+    const admin=o.admin&&o.status==='run'?`<span class="admin">UAC</span>`:"";
+    const cancel=o.status==='run'?`<button class="ocancel" data-c="${o.id}">Cancel</button>`:"";
+    const phase=o.status==='done'?'done':o.status==='fail'?'cancelled':o.phase;
+    return `<div class="op ${cls}"><span class="odot dot"></span><span class="otitle">${o.title}<span class="src">${srcById[o.src]?srcById[o.src].name:o.src}</span></span>${admin}<span class="ophase">${phase}</span><span class="bar"><i style="width:${o.pct}%"></i></span><span class="ospacer"></span>${cancel}</div>`;
+  }).join("");
+  opsEl.querySelectorAll('.ocancel').forEach(b=>b.onclick=()=>{const o=ops.find(x=>x.id==+b.dataset.c);if(o){o.status='fail';renderOps();clearLater(o);}});
+}
+function startOp(title,src,kind,admin,onDone){
+  const phases=PHASES[kind]||["working"];
+  const o={id:++opSeq,title,src,kind,admin,phase:phases[0],pct:6,status:'run',onDone};
+  ops.unshift(o); if(ops.length>3)ops=ops.slice(0,3); renderOps();
+  let i=0; const step=()=>{ if(o.status!=='run')return; i++; o.pct=Math.min(100,Math.round(i/phases.length*100)); o.phase=phases[Math.min(i,phases.length-1)]; renderOps();
+    if(i>=phases.length){o.status='done';o.pct=100;renderOps();if(o.onDone)o.onDone();clearLater(o);return;} setTimeout(step,admin&&i===1?1100:620); };
+  setTimeout(step,520);
+}
+function clearLater(o){ setTimeout(()=>{ops=ops.filter(x=>x.id!==o.id);renderOps();},2600); }
+
+/* ---------- boot ---------- */
+renderNav(); render(); renderOps();
+</script>
+</body>
+</html>
