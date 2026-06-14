@@ -18,7 +18,7 @@ let ``resolves a registered kind into a ready instance`` () =
     // Arrange
     let catalog = PanelCatalog()
     let sentinel = obj ()
-    catalog.Register(registration "git-log" "git log" (fun _ -> sentinel))
+    catalog.Register(registration "git-log" "git log" (fun _ -> sentinel)) |> ignore
     let instanceId = Guid.NewGuid()
 
     // Act
@@ -38,7 +38,7 @@ let ``threads the instance id, saved state, and state callback into the panel co
     // Arrange
     let catalog = PanelCatalog()
     let mutable captured = Unchecked.defaultof<PanelInstanceContext>
-    catalog.Register(registration "markdown" "Notes" (fun context -> captured <- context; obj ()))
+    catalog.Register(registration "markdown" "Notes" (fun context -> captured <- context; obj ())) |> ignore
     let instanceId = Guid.NewGuid()
     let mutable stateSeen = ""
     let callback = Func<Guid, Action<string>>(fun _ -> Action<string>(fun state -> stateSeen <- state))
@@ -73,11 +73,39 @@ let ``lists the registered kinds`` () =
 
     // Arrange
     let catalog = PanelCatalog()
-    catalog.Register(registration "a" "A" (fun _ -> obj ()))
-    catalog.Register(registration "b" "B" (fun _ -> obj ()))
+    catalog.Register(registration "a" "A" (fun _ -> obj ())) |> ignore
+    catalog.Register(registration "b" "B" (fun _ -> obj ())) |> ignore
 
     // Act
     let kinds = catalog.Kinds
 
     // Assert
     %kinds.Count.Should().Be(2)
+
+[<Fact>]
+let ``buffers an open for an unregistered kind and replays it on registration`` () =
+
+    // Arrange
+    let catalog = PanelCatalog()
+    let instanceId = Guid.NewGuid()
+    catalog.Buffer("git-log", instanceId, "saved-blob")
+
+    // Act
+    let pending = catalog.Register(registration "git-log" "git log" (fun _ -> obj ()))
+
+    // Assert
+    %pending.Count.Should().Be(1)
+    %pending[0].InstanceId.Should().Be(instanceId)
+    %pending[0].SavedState.Should().Be("saved-blob")
+
+[<Fact>]
+let ``registering a kind with nothing buffered returns no pending opens`` () =
+
+    // Arrange
+    let catalog = PanelCatalog()
+
+    // Act
+    let pending = catalog.Register(registration "git-log" "git log" (fun _ -> obj ()))
+
+    // Assert
+    %pending.Count.Should().Be(0)

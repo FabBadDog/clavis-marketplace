@@ -432,6 +432,11 @@ internal sealed class WindowManager : IDisposable
         primary.Window.Activate();
         primary.Focus();
         _bus.LogInfo("WpfHost", "primary window shown");
+
+        // Materialise the restored panels now, at the reveal, rather than waiting for BootstrapComplete:
+        // PanelRegistry is essential (up by now) and buffers a restore whose owning plugin is still loading,
+        // so each panel pops in as its plugin comes up instead of all of them appearing seconds later.
+        FlushRestoreSends();
     }
 
     private void Summon()
@@ -596,9 +601,10 @@ internal sealed class WindowManager : IDisposable
             RecreateSecondaryWindow(entry);
         }
 
-        // BootstrapComplete may already have flushed an empty queue (config arrived late); if so, flush the
-        // sends this restore just queued. Otherwise the BootstrapComplete handler will flush them.
-        if (_bootstrapComplete)
+        // If the window is already up (reveal or BootstrapComplete happened before this restore landed -
+        // the failsafe/late-config paths), flush the sends this restore just queued; otherwise Reveal or
+        // the BootstrapComplete handler will flush them.
+        if (_revealed || _bootstrapComplete)
         {
             FlushRestoreSends();
         }
@@ -1294,7 +1300,7 @@ internal sealed class WindowManager : IDisposable
     {
         var heading = new TextBlock
         {
-            Text = kind,
+            Text = $"loading {kind}…",
             HorizontalAlignment = HorizontalAlignment.Center
         };
         heading.SetResourceReference(TextBlock.FontFamilyProperty, "MonoFont");

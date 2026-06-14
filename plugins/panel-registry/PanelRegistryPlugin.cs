@@ -32,14 +32,24 @@ public sealed class PanelRegistryPlugin : IPlugin<PanelRegistryConfig>
             }
             else
             {
-                bus.LogWarn(Id, $"No panel kind registered for '{kind}'");
+                // The owning plugin has not registered this kind yet (it activates in the background after
+                // the restore was requested). Hold the request and replay it when the kind registers, so a
+                // restored panel materialises as soon as its plugin is up rather than being dropped.
+                catalog.Buffer(kind, instanceId, savedState);
             }
         }
 
         var registrationSubscription = bus.Subscribe<PanelKindRegistration>(registration =>
         {
-            catalog.Register(registration);
+            var pending = catalog.Register(registration);
             bus.LogInfo(Id, $"Registered panel kind '{registration.Kind}'");
+
+            // Replay any open/restore requests that arrived before this kind registered.
+            foreach (var open in pending)
+            {
+                Open(registration.Kind, open.InstanceId, open.SavedState);
+            }
+
             return Task.CompletedTask;
         });
 

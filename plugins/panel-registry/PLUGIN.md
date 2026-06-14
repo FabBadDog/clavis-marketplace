@@ -1,7 +1,8 @@
 ---
 name: panel-registry
 pluginId: PanelRegistry
-version: 1.0.1
+version: 1.1.0
+essential: true
 apiVersion: 1.0.0
 description: Catalogs panel kinds and routes open/restore into panel instances.
 projectFile: ./PanelRegistry.csproj
