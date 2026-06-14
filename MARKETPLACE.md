@@ -22,7 +22,8 @@ and **which of the two folders it sits in determines its kind** - frontmatter ca
 A plugin may declare `essential: true`: it is brought up in startup phase 1, before the host reveals any
 UI - everything else compiles and activates in the background after the window is up. Reserve the flag
 for plugins the first usable window cannot exist without (currently the window host, the conversation,
-and the configuration store). `essential` is a plugin concept; declaring it on a module is a metadata
+the configuration store, and the agent bridge - so the agent layer is live the moment the window
+appears, not seconds later). `essential` is a plugin concept; declaring it on a module is a metadata
 error (a module's essentiality is derived from the essential plugins' dependencies).
 
 ## Versioning and dependencies
