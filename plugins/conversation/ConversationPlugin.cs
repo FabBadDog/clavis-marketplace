@@ -306,13 +306,11 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         });
         AnnounceEditorPanel();
 
-        // The prompt input is the window host's chrome, but only the conversation owner knows when an
-        // agent session can accept prompts: relay readiness as the host-level availability broadcast.
-        var sessionReadySub = bus.Subscribe<SessionReady>(_ =>
-        {
-            bus.Send(new PromptInputAvailability(true));
-            return Task.CompletedTask;
-        });
+        // The prompt input is the window host's chrome. Make it available as soon as the conversation is
+        // up (the init turn already shows "Starting Claude"): a prompt typed while the agent session is
+        // still initialising is held as a queued turn by the pure update and sent automatically once the
+        // session reports ready, so the user never has to wait out the whole init turn before typing.
+        bus.Send(new PromptInputAvailability(true));
 
         // A plugin that fails during boot lands as an error row in the init turn instead of leaving an
         // eternal spinner. Generic display data - the conversation names no plugin.
@@ -346,7 +344,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             cancelQueuedSub, permissionSub, permissionNavigateSub, permissionConfirmSub, restartSub,
             panelCommandsSub, placeholdersRequestedSub, placeholderSnapshotSub,
             configResultSub, configChangedSub, panelKindsSub,
-            sessionReadySub, pluginErrorSub);
+            pluginErrorSub);
 
         return Task.FromResult<IDisposable>(disposable);
 

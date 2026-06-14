@@ -129,12 +129,19 @@ public static partial class ConversationUpdate
             afterPhase = FinishInitTurn(session with { Turns = turns });
         }
 
-        return (afterPhase with
+        var ready = afterPhase with
         {
             Model = model,
             ContextSize = ContextWindow.ForModel(model),
             Status = SessionStatus.Ready
-        }, NoEffects);
+        };
+
+        // A prompt typed while the session was still initialising was held as a Queued turn; now that the
+        // agent is ready, send it. AgentInit is the readiness signal (it completes the MCP-loading phase),
+        // and an idle boot never produces an AgentResult to trigger the promotion HandleResult does.
+        return ready.QueuedTurnIds.Count > 0 && !ready.IsCurrentTurnActive
+            ? PromoteQueuedTurn(ready)
+            : (ready, NoEffects);
     }
 
     private static (SessionState, ConversationEffect[]) HandleCapabilities(
@@ -768,7 +775,11 @@ public static partial class ConversationUpdate
         }
 
         var estimatedTokens = PromptAnalysis.EstimateTokens(prompt);
-        var queued = session.IsCurrentTurnActive;
+        // Queue the prompt when a turn is already running, or when the agent session has not finished
+        // initialising yet (still on the init turn, not yet Ready). A prompt typed during boot is held as a
+        // Queued turn and sent once the session reports ready, rather than pushed to a session mid-init.
+        var sessionInitialising = session.IsInitActive && session.Status == SessionStatus.Idle;
+        var queued = session.IsCurrentTurnActive || sessionInitialising;
         var newTurn = new Turn
         {
             Prompt = prompt,

@@ -73,9 +73,9 @@ module InitEvent =
         %(session newState).IsInitActive.Should().BeTrue()
 
     [<Fact>]
-    let ``does not promote queued turn on init event`` () =
+    let ``promotes queued turn on init event`` () =
 
-        // Arrange
+        // Arrange - a prompt was typed (and queued) while the session was still initialising
         let initState = ConversationState.Init()
         let queuedId = Guid.NewGuid()
         let queued = Turn(Id = queuedId, Prompt = "hello", Status = Queued(), EstimatedTokens = 10, TotalTokens = 10)
@@ -84,34 +84,14 @@ module InitEvent =
                 s.WithTurns(Seq.append s.Turns [| queued |] |> Seq.toArray)
                  .WithQueuedTurnIds([| QueuedTurn(queuedId, "hello") |]))
 
-        // Act
-        let struct (newState, _) = handle state (AgentInit(Guid.Empty, "s1", "opus-4", Array.empty<string>))
+        // Act - the session reports ready
+        let struct (newState, effects) = handle state (AgentInit(Guid.Empty, "s1", "opus-4", Array.empty<string>))
 
-        // Assert
-        %(session newState).CurrentTurnId.HasValue.Should().BeFalse()
-        %(session newState).QueuedCount.Should().Be(1)
-
-    [<Fact>]
-    let ``promotes queued turn on init result`` () =
-
-        // Arrange
-        let initState = ConversationState.Init()
-        let queuedId = Guid.NewGuid()
-        let queued = Turn(Id = queuedId, Prompt = "hello", Status = Queued(), EstimatedTokens = 10, TotalTokens = 10)
-        let state =
-            initState.WithActiveSession(fun s ->
-                s.WithTurns(Seq.append s.Turns [| queued |] |> Seq.toArray)
-                 .WithQueuedTurnIds([| QueuedTurn(queuedId, "hello") |]))
-        let struct (afterInit, _) = handle state (AgentInit(Guid.Empty, "s1", "opus-4", Array.empty<string>))
-
-        // Act
-        let struct (newState, _) = handle afterInit (AgentResult(Guid.Empty, "s1", 0.0, TimeSpan.Zero, "opus-4", "", false))
-
-        // Assert
-        %(session newState).CurrentTurnId.HasValue.Should().BeTrue()
+        // Assert - the held prompt is promoted to the running turn and sent
         %(session newState).CurrentTurnId.Value.Should().Be(queuedId)
-        %(session newState).IsCurrentTurnActive.Should().BeTrue()
         %(session newState).QueuedCount.Should().Be(0)
+        let hasSend = effects |> Array.exists (fun e -> match e with :? SendPromptEffect as sp -> sp.Text = "hello" | _ -> false)
+        %hasSend.Should().BeTrue()
 
 module AbortedEvent =
 
@@ -696,17 +676,16 @@ module UserSubmitted =
         %(turn.Status :? Queued).Should().BeTrue()
 
     [<Fact>]
-    let ``sends first prompt immediately during init`` () =
+    let ``queues first prompt during init`` () =
 
-        // Act
+        // Act - a prompt typed while the session is still initialising is held, not sent
         let struct (newState, effects) = ConversationUpdate.HandleUserSubmitted(emptyState, "hello")
 
         // Assert
-        %(session newState).QueuedCount.Should().Be(0)
+        %(session newState).QueuedCount.Should().Be(1)
         let turn = findTurnByPrompt "hello" newState
-        %(turn.Status :? Running).Should().BeTrue()
-        let hasSendPrompt = effects |> Array.exists (fun e -> match e with :? SendPromptEffect as sp -> sp.Text = "hello" | _ -> false)
-        %hasSendPrompt.Should().BeTrue()
+        %(turn.Status :? Queued).Should().BeTrue()
+        %(effects |> Array.isEmpty).Should().BeTrue()
 
 module UserAborted =
 
@@ -938,23 +917,21 @@ module TwoQueuedPrompts =
             let struct (newSt, effects) = ConversationUpdate.HandleStreamEvent(st, event)
             newSt
 
-        // First prompt sent immediately during init, second queued
+        // Both prompts are queued during init (the session cannot receive them yet)
         let struct (state, effects1) = ConversationUpdate.HandleUserSubmitted(state, "first")
-        %(session state).QueuedCount.Should().Be(0)
-        let hasSendFirst = effects1 |> Array.exists (fun e -> match e with :? SendPromptEffect as sp -> sp.Text = "first" | _ -> false)
-        %hasSendFirst.Should().BeTrue()
-
+        %(session state).QueuedCount.Should().Be(1)
+        %(effects1 |> Array.isEmpty).Should().BeTrue()
         let firstTurnId = (findTurnByPrompt "first" state).Id
-        %(session state).CurrentTurnId.Value.Should().Be(firstTurnId)
 
         let struct (state, _) = ConversationUpdate.HandleUserSubmitted(state, "second")
-        %(session state).QueuedCount.Should().Be(1)
+        %(session state).QueuedCount.Should().Be(2)
         let secondTurnId = (findTurnByPrompt "second" state).Id
 
-        // Init event
+        // Init event promotes the first queued prompt (sends it); the second stays queued
         let state = handleStream state (AgentInit(Guid.Empty, "s1", "opus-4", Array.empty<string>))
         %(session state).CurrentTurnId.Value.Should().Be(firstTurnId)
         %(session state).IsCurrentTurnActive.Should().BeTrue()
+        %(session state).QueuedCount.Should().Be(1)
 
         // First prompt receives text
         let state = handleStream state (AgentTextDelta(Guid.Empty, "first answer streaming"))

@@ -114,7 +114,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **PermissionDecided** - pub: Conversation - sub: Conversation
 - **SendPermissionResponse** - pub: Conversation - sub: ClaudeBridge
 - **SendPrompt** - pub: Conversation - sub: ClaudeBridge
-- **SessionReady** - pub: ClaudeBridge - sub: Conversation
+- **SessionReady** - pub: ClaudeBridge - sub: _none found_
 - **SessionStarted** - pub: ClaudeBridge - sub: _none found_
 - **SetSessionEffort** - pub: Selection - sub: ClaudeBridge
 - **SetSessionMode** - pub: Selection - sub: ClaudeBridge
@@ -196,7 +196,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 
 ### Conversation
 - publishes: DisposeSession, GetConfig, InterruptSession, LogEntry, PanelCommandsRegistered, PanelKindRegistration, PermissionDecided, PermissionPending, PlaceholderSnapshot, PlaceholdersRequested, PromptInputAvailability, RegisterPlaceholderProvider, SaveConfig, SendPermissionResponse, SendPrompt, StartNewSession, UiRegionContribution
-- subscribes: AgentParsingError, AgentStreamEvent, ConfigChanged, ConfigResult, FullRestartRequested, PanelKindsRequested, PermissionDecided, PlaceholderSnapshot, PlaceholdersRequested, PluginError, RegisterPlaceholderProvider, RequestPanelCommands, RunPanelCommand, SessionReady, UserAborted, UserCancelledQueued, UserConfirmedPermission, UserNavigatedPermission, UserSubmittedPrompt
+- subscribes: AgentParsingError, AgentStreamEvent, ConfigChanged, ConfigResult, FullRestartRequested, PanelKindsRequested, PermissionDecided, PlaceholderSnapshot, PlaceholdersRequested, PluginError, RegisterPlaceholderProvider, RequestPanelCommands, RunPanelCommand, UserAborted, UserCancelledQueued, UserConfirmedPermission, UserNavigatedPermission, UserSubmittedPrompt
 
 ### Environment
 - publishes: LogEntry, PlaceholderSnapshot, RegisterPlaceholderProvider
