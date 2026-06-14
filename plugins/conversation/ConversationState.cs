@@ -28,9 +28,6 @@ public sealed record Aborted : TurnStatus;
 public sealed record Phase
 {
     public string DisplayName { get; init; } = "";
-    // The live boot narration under the phase name: the latest kernel lifecycle activity (a plugin
-    // loading or starting), so the chat says what the wait is for. Empty once nothing is in flight.
-    public string Detail { get; init; } = "";
     public bool IsActive { get; init; }
     public bool HasSucceeded { get; init; }
     public DateTime StartedAt { get; init; } = DateTime.UtcNow;

@@ -920,25 +920,6 @@ public static partial class ConversationUpdate
             [new SendPermissionResponseEffect(session.Id, requestId, allow)]);
     }
 
-    // Boot narration: while the init phase is still active, its detail line mirrors the latest kernel
-    // lifecycle activity, so the chat says what the wait is for. Pure display data - the conversation
-    // names no plugin; it just shows what the kernel reports.
-    public static (ConversationState State, ConversationEffect[] Effects) HandleStartupActivity(
-        ConversationState state, string detail)
-    {
-        if (state.ActiveSession is not { } session || !session.IsInitActive || session.InitTurnId is not { } initTurnId)
-        {
-            return (state, NoEffects);
-        }
-
-        var updated = state.WithActiveSession(s =>
-            s.WithTurns(UpdateTurnById(s.Turns, initTurnId, turn =>
-                UpdateItemInTurn(turn, IsActivePhase, item =>
-                    item is PhaseItem pi ? new PhaseItem(pi.Phase with { Detail = detail }) : item))));
-
-        return (updated, NoEffects);
-    }
-
     // A plugin that fails while the init phase is still active lands as an error row in the init turn,
     // so a missing agent is explained in the chat instead of leaving an eternal spinner.
     public static (ConversationState State, ConversationEffect[] Effects) HandlePluginFailure(

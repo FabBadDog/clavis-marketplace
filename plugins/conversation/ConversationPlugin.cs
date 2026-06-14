@@ -314,29 +314,8 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             return Task.CompletedTask;
         });
 
-        // Boot narration: while the init phase runs, its detail line mirrors the kernel's lifecycle so
-        // the chat says what the wait is for, and a plugin that fails during boot lands as an error row
-        // instead of an eternal spinner. Generic display data - the conversation names no plugin.
-        var pluginDiscoveredSub = bus.Subscribe<PluginDiscovered>(message =>
-        {
-            lock (lockObj)
-            {
-                var (newState, effects) = ConversationUpdate.HandleStartupActivity(state, $"loading {message.PluginId}");
-                HandleUpdate(ref state, newState, effects);
-            }
-            return Task.CompletedTask;
-        });
-
-        var pluginActivatedSub = bus.Subscribe<PluginActivated>(message =>
-        {
-            lock (lockObj)
-            {
-                var (newState, effects) = ConversationUpdate.HandleStartupActivity(state, $"{message.PluginId} up");
-                HandleUpdate(ref state, newState, effects);
-            }
-            return Task.CompletedTask;
-        });
-
+        // A plugin that fails during boot lands as an error row in the init turn instead of leaving an
+        // eternal spinner. Generic display data - the conversation names no plugin.
         var pluginErrorSub = bus.Subscribe<PluginError>(message =>
         {
             lock (lockObj)
@@ -367,7 +346,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             cancelQueuedSub, permissionSub, permissionNavigateSub, permissionConfirmSub, restartSub,
             panelCommandsSub, placeholdersRequestedSub, placeholderSnapshotSub,
             configResultSub, configChangedSub, panelKindsSub,
-            sessionReadySub, pluginDiscoveredSub, pluginActivatedSub, pluginErrorSub);
+            sessionReadySub, pluginErrorSub);
 
         return Task.FromResult<IDisposable>(disposable);
 

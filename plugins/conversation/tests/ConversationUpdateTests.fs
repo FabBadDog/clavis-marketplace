@@ -1173,25 +1173,6 @@ module StartupNarration =
         (activeSession.Turns |> Seq.find (fun turn -> turn.Id = initTurnId)).Items
 
     [<Fact>]
-    let ``startup activity updates the active init phase detail`` () =
-
-        // Act
-        let struct (newState, _) = ConversationUpdate.HandleStartupActivity(emptyState, "loading claude-bridge")
-
-        // Assert
-        let phase = (initTurnItems newState |> Seq.head) :?> PhaseItem
-        %phase.Phase.Detail.Should().Be("loading claude-bridge")
-
-    [<Fact>]
-    let ``startup activity after init leaves the state unchanged`` () =
-
-        // Act
-        let struct (newState, _) = ConversationUpdate.HandleStartupActivity(readyState, "loading x")
-
-        // Assert
-        %(obj.ReferenceEquals(newState, readyState)).Should().BeTrue()
-
-    [<Fact>]
     let ``plugin failure lands as an error row in the init turn`` () =
 
         // Act

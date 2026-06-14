@@ -156,10 +156,10 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **ListPlugins** - pub: AgentGateway - sub: _none found_
 - **LoadPlugin** - pub: MarketplacePlugin - sub: _none found_
 - **LogEntry** - pub: AgentGateway, ClaudeBridge, CodeEditorPanel, CommandPalette, Configuration, Conversation, Environment, EventsPanel, FileSystem, GitLogPanel, Http, KeyMap, KeymapPanel, MarkdownPanel, MarketplacePlugin, Nucleus.Kernel, PanelRegistry, PluginManager, ResourceBroker, Selection, Settings, Shell, UsageLimits, WpfHost - sub: Shell
-- **PluginActivated** - pub: Nucleus.Kernel - sub: Conversation, PluginManager, Settings, WpfHost
+- **PluginActivated** - pub: Nucleus.Kernel - sub: PluginManager, Settings, WpfHost
 - **PluginAwaitingConfig** - pub: Nucleus.Kernel - sub: _none found_
 - **PluginDeactivated** - pub: Nucleus.Kernel - sub: PluginManager
-- **PluginDiscovered** - pub: Nucleus.Kernel - sub: Conversation, WpfHost
+- **PluginDiscovered** - pub: Nucleus.Kernel - sub: WpfHost
 - **PluginError** - pub: Nucleus.Kernel - sub: Conversation, PluginManager
 - **PluginInstantiated** - pub: Nucleus.Kernel - sub: _none found_
 - **PluginList** - pub: Nucleus.Kernel - sub: _none found_
@@ -196,7 +196,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 
 ### Conversation
 - publishes: DisposeSession, GetConfig, InterruptSession, LogEntry, PanelCommandsRegistered, PanelKindRegistration, PermissionDecided, PermissionPending, PlaceholderSnapshot, PlaceholdersRequested, PromptInputAvailability, RegisterPlaceholderProvider, SaveConfig, SendPermissionResponse, SendPrompt, StartNewSession, UiRegionContribution
-- subscribes: AgentParsingError, AgentStreamEvent, ConfigChanged, ConfigResult, FullRestartRequested, PanelKindsRequested, PermissionDecided, PlaceholderSnapshot, PlaceholdersRequested, PluginActivated, PluginDiscovered, PluginError, RegisterPlaceholderProvider, RequestPanelCommands, RunPanelCommand, SessionReady, UserAborted, UserCancelledQueued, UserConfirmedPermission, UserNavigatedPermission, UserSubmittedPrompt
+- subscribes: AgentParsingError, AgentStreamEvent, ConfigChanged, ConfigResult, FullRestartRequested, PanelKindsRequested, PermissionDecided, PlaceholderSnapshot, PlaceholdersRequested, PluginError, RegisterPlaceholderProvider, RequestPanelCommands, RunPanelCommand, SessionReady, UserAborted, UserCancelledQueued, UserConfirmedPermission, UserNavigatedPermission, UserSubmittedPrompt
 
 ### Environment
 - publishes: LogEntry, PlaceholderSnapshot, RegisterPlaceholderProvider
