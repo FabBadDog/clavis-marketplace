@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Windows;
+using System.Windows.Threading;
 using FabioSoft.Clavis.Placeholders;
 using FabioSoft.Common;
 
@@ -18,6 +20,7 @@ public sealed class TurnViewModel : ObservableObject
 
     private          Turn                   _state;
     private readonly Action<string, string> _publishPermission;
+    private          bool                   _ignited;
 
     public TurnViewModel(Turn state, Action<string, string> publishPermission)
     {
@@ -25,6 +28,34 @@ public sealed class TurnViewModel : ObservableObject
         _publishPermission = publishPermission;
         SyncItems();
         SyncStats();
+        ArmRailCharge();
+    }
+
+    // The rail-charge animations (the streak racing up the rail, the dot ignite flare, the breathing pulse)
+    // are driven off IsActive's false->true transition via the template's DataTrigger EnterActions. A prompt
+    // sent to an idle agent is born Running, so IsActive would already be true the instant the row
+    // materializes - there is no transition for the triggers to catch and the charge silently never plays
+    // (it only fired in the rarer case of a prompt queued while busy, which transitions Queued->Running after
+    // the row exists). Hold IsActive false until the next dispatcher beat - DispatcherPriority.Loaded, after
+    // the row has been generated, bound, and laid out - then flip it true so the live row sees a genuine
+    // transition and the charge fires every time. The init turn is not a fresh send, so it stays active
+    // immediately and keeps its current look (no streak).
+    private void ArmRailCharge()
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || _state.Kind == TurnKind.InitTurn)
+        {
+            _ignited = true;
+            return;
+        }
+
+        dispatcher.InvokeAsync(
+            () =>
+            {
+                _ignited = true;
+                OnPropertyChanged(nameof(IsActive));
+            },
+            DispatcherPriority.Loaded);
     }
 
     public void Update(Turn state)
@@ -89,7 +120,7 @@ public sealed class TurnViewModel : ObservableObject
     public Guid TurnId => _state.Id;
     public TurnKind Kind => _state.Kind;
     public string Prompt => _state.Prompt;
-    public bool IsActive => _state.Status is Running;
+    public bool IsActive => _ignited && _state.Status is Running;
     public bool IsQueued => _state.Status is Queued;
     public string DurationText => Formatting.duration(_state.Duration);
     public string TokensText => Formatting.tokens(_state.TotalTokens);
