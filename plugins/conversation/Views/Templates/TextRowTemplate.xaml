@@ -8,6 +8,7 @@
          markdown - the same presentation the single bottom response used to have, now repeated per block so
          the agent's narration between tool calls is never lost. -->
     <DataTemplate DataType="{x:Type vm:TextItemViewModel}">
+        <!-- The completed block reveals with the typewriter (<= 3 lines) or line fall (> 3 lines). -->
         <rendering:MarkdownPresenter Markdown="{Binding Markdown}" Margin="0,2,0,4" />
     </DataTemplate>
 

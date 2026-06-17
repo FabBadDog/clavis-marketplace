@@ -131,4 +131,13 @@ type SlideInHost(edge: string) as this =
         if isOpen then
             isOpen <- false
             this.IsEnabled <- false
-            animate (parkedOffset ())
+            let animation =
+                DoubleAnimation(parkedOffset (), slideDuration, EasingFunction = Motion.easeOut())
+            // Collapse once the panel has parked so a later layout pass cannot bring it back: a
+            // translated-but-Visible element keeps reserving its slot, and widening the window re-runs
+            // layout against the stale held transform, which left the panel peeking back on-screen.
+            // Guarded by isOpen so a re-open during the slide-out cancels the collapse.
+            animation.Completed.Add(fun _ ->
+                if not isOpen then
+                    this.Visibility <- Visibility.Collapsed)
+            transform.BeginAnimation(slideProperty, animation)

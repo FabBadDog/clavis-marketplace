@@ -129,10 +129,14 @@ public static partial class ConversationUpdate
             afterPhase = FinishInitTurn(session with { Turns = turns });
         }
 
+        // Never shrink the window here: the init event reports the base model id (no Clavis "[1m]"
+        // extended-context tag), so a plain ForModel would collapse a 1M window to 200k on every send and
+        // the bar would jump down. Take the max so a base-model init keeps the larger window established by
+        // the tagged/selected model (capabilities, model selection, or a tagged result).
         var ready = afterPhase with
         {
             Model = model,
-            ContextSize = ContextWindow.ForModel(model),
+            ContextSize = Math.Max(afterPhase.ContextSize, ContextWindow.ForModel(model)),
             Status = SessionStatus.Ready
         };
 
@@ -152,7 +156,9 @@ public static partial class ConversationUpdate
         return (session with
         {
             Model = model,
-            ContextSize = ContextSizeFor(session, capabilities.Models, model),
+            // Max-guard like init/result: capabilities can carry the BASE model id (no "[1m]" tag) even when
+            // the selected model is the 1M variant, which would otherwise shrink the window to 200k.
+            ContextSize = Math.Max(session.ContextSize, ContextSizeFor(session, capabilities.Models, model)),
             Mode = capabilities.Mode,
             Effort = capabilities.Effort,
             Models = capabilities.Models,
@@ -550,15 +556,13 @@ public static partial class ConversationUpdate
     }
 
     private static (SessionState, ConversationEffect[]) HandleTextDelta(
-        SessionState session, string text)
+        SessionState session, string _text)
     {
-        if (!session.IsCurrentTurnActive || session.CurrentTurnId is not { } turnId)
-        {
-            return (session, NoEffects);
-        }
-
-        var turns = UpdateTurnById(session.Turns, turnId, turn => turn.WithStatusText(text));
-        return (session with { Turns = turns }, NoEffects);
+        // Streaming partials are no longer shown live. Each completed block (HandleAssistant) is revealed
+        // with the typewriter (<= 3 lines) or line fall (> 3 lines); showing the accumulating partial first
+        // would make that reveal "retype" the text from scratch. The breathing rail dot signals work in
+        // progress until the block lands.
+        return (session, NoEffects);
     }
 
     private static (SessionState, ConversationEffect[]) HandleAssistant(
@@ -619,8 +623,10 @@ public static partial class ConversationUpdate
             afterInit = FinishInitTurn(session with { Turns = initTurns }) with { InitState = null };
         }
 
+        // Take the max (see HandleInit): a tagged result model can raise the window to 1M, but a base
+        // result model must never shrink it back.
         var withModelOnly = !string.IsNullOrEmpty(model)
-            ? afterInit with { Model = model, ContextSize = ContextWindow.ForModel(model) }
+            ? afterInit with { Model = model, ContextSize = Math.Max(afterInit.ContextSize, ContextWindow.ForModel(model)) }
             : afterInit;
         // The thinking-token estimate belongs to the turn that just ended; clear it so it does not linger.
         var withModel = withModelOnly with { ThinkingTokens = 0 };

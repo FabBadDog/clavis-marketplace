@@ -191,6 +191,14 @@ internal sealed class WindowManager : IDisposable
             return Task.CompletedTask;
         }));
 
+        // The active panel's owner reports whether its status bar has content; collapse the primary window's
+        // status row when it has none so the panel fills the space (the host knows no placeholder vocabulary).
+        _subscriptions.Add(_bus.Subscribe<StatusBarAvailability>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SetStatusBarVisible(message.Available));
+            return Task.CompletedTask;
+        }));
+
         // The saved workspace arrives as this plugin's runtime state; restore it onto the (still hidden)
         // primary, then reveal once the essential set is also up.
         _subscriptions.Add(_bus.Subscribe<StateResult>(result =>

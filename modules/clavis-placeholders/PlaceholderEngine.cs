@@ -41,8 +41,8 @@ public sealed class PlaceholderEngine
 
                 case ValueSegment value:
                     resolved.Add(values.TryGetValue(value.Key, out var raw)
-                        ? new ResolvedText(PlaceholderFormats.Apply(raw, value.Format))
-                        : new ResolvedText(value.Raw, Unresolved: true));
+                        ? new ResolvedText(PlaceholderFormats.Apply(raw, value.Format), IsValue: true, Key: value.Key)
+                        : new ResolvedText(value.Raw, Unresolved: true, IsValue: true, Key: value.Key));
                     break;
 
                 case ComponentSegment component:

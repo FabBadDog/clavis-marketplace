@@ -29,8 +29,10 @@ internal sealed partial class WindowHost
     private InputHandler? _inputHandler;
     private TextBox? _inputBox;
     private Border? _inputRow;
+    private Border? _statusRow;
     private FocusVisualController? _focusVisual;
     private PanelTitleController? _panelTitle;
+    private ActivePanelWatcher? _activePanel;
     private FrameworkElement? _statusDot;
     private SolidColorBrush? _borderBrush;
 
@@ -169,6 +171,27 @@ internal sealed partial class WindowHost
         }
     }
 
+    /// Shows or collapses the status row. The active panel's owner reports whether its status bar has any
+    /// configured content; an empty bar is collapsed so the panel fills the whole space rather than showing a
+    /// bare strip, and reappears (with an entrance) when content returns.
+    public void SetStatusBarVisible(bool visible)
+    {
+        if (_statusRow is null)
+        {
+            return;
+        }
+
+        if (visible && _statusRow.Visibility != Visibility.Visible)
+        {
+            _statusRow.Visibility = Visibility.Visible;
+            Motion.enter(_statusRow);
+        }
+        else if (!visible)
+        {
+            _statusRow.Visibility = Visibility.Collapsed;
+        }
+    }
+
     /// Add the conversation as a panel in the surface, or focus it if already present. Called when starting
     /// fresh (no saved layout) and when re-opening a closed chat; during restore the saved layout places
     /// the conversation slot instead.
@@ -187,7 +210,9 @@ internal sealed partial class WindowHost
 
     private FrameworkElement BuildPrimaryLayout()
     {
-        var (titleBarLeft, titleBranch, titleText) = BuildTitleZone();
+        // titleText (the overlay TextBlock) is unused in the primary window: its title-bar-left shows the
+        // Conversation's strip, which the active-panel watcher drives. It still serves secondary windows.
+        var (titleBarLeft, titleBranch, _) = BuildTitleZone();
         var titleBarRight = new ContentPresenter();
         var statusBar = new ContentPresenter();
         var statusBarRight = new ContentPresenter();
@@ -204,9 +229,13 @@ internal sealed partial class WindowHost
 
         var (titleBar, statusDot) = WindowChromeViews.CreateTitleBar(titleBarLeft, titleBarRight, () => Window.Close());
         _statusDot = statusDot;
-        _panelTitle = new PanelTitleController(Window, Surface, titleBranch, titleText);
+        // The primary window's title/status bars are owned by the window but driven by the active docked
+        // panel: the watcher announces the active kind and the Conversation re-templates the chrome strips it
+        // contributes here. (Secondary windows have no status bar and use PanelTitleController for the title.)
+        _activePanel = new ActivePanelWatcher(_bus, Window, Surface);
         var inputRow = WindowChromeViews.CreateInputRow(inputBox);
         var statusRow = WindowChromeViews.CreateStatusBar(statusBar, statusBarRight);
+        _statusRow = statusRow;
 
         // The prompt input starts collapsed: it only appears (SetPromptInputVisible) once the
         // conversation owner reports an agent session that can accept prompts, so the user is never
@@ -214,29 +243,30 @@ internal sealed partial class WindowHost
         inputRow.Visibility = Visibility.Collapsed;
         _inputRow = inputRow;
 
-        // The conversation is a self-contained panel: the chat history fills the whole panel, and the prompt
-        // input + status bar float (translucent) over its bottom edge, so the input can grow up over the
-        // chat without pushing it. Keeping them inside the panel (not the window chrome) means they travel
-        // and close with the chat when other panels share the window.
-        var bottomOverlay = new DockPanel { LastChildFill = false, VerticalAlignment = VerticalAlignment.Bottom };
-        DockPanel.SetDock(statusRow, Dock.Bottom);
-        bottomOverlay.Children.Add(statusRow);
-        DockPanel.SetDock(inputRow, Dock.Bottom);
-        bottomOverlay.Children.Add(inputRow);
+        // The conversation is a self-contained panel: the chat history fills it and the prompt input floats
+        // (translucent) over its bottom edge, so the input can grow up over the chat without pushing it, and
+        // it travels and closes with the chat when other panels share the window. The status bar is NOT here:
+        // it is window chrome (a fixed bottom row below), so it stays put and shows for every active panel.
+        inputRow.VerticalAlignment = VerticalAlignment.Bottom;
 
         var conversationPanel = new Grid();
         conversationPanel.Children.Add(_conversationContent);
-        conversationPanel.Children.Add(bottomOverlay);
+        conversationPanel.Children.Add(inputRow);
         _conversationPanelView = conversationPanel;
 
-        // The input's framing lines turn clavis while it is focused (its focus cue), and it grows with its
+        // The input's top framing line turns clavis while it is focused (its focus cue), and it grows with its
         // content up to 60% of the chat height.
-        WireInputFocusLines(inputBox, inputRow, statusRow);
+        WireInputFocusLines(inputBox, inputRow);
         CapInputHeightToChat(inputBox, conversationPanel);
 
+        // The status bar is a fixed window-chrome row pinned to the window bottom; the active docked panel
+        // drives its content (window owns the bar, the active panel owns what it shows), so it is window-owned
+        // and visible for every panel, not just the chat.
         var chromePanel = new DockPanel { LastChildFill = true };
         DockPanel.SetDock(titleBar, Dock.Top);
         chromePanel.Children.Add(titleBar);
+        DockPanel.SetDock(statusRow, Dock.Bottom);
+        chromePanel.Children.Add(statusRow);
         chromePanel.Children.Add(Surface);
 
         // A single-cell grid layering the chrome, the help overlay, and the edge slide-ins. Panels are

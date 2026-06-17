@@ -422,14 +422,14 @@ module ToolResultEvent =
 module TextDeltaEvent =
 
     [<Fact>]
-    let ``sets turn output when turn active`` () =
+    let ``does not populate the status line - streaming partials are not shown live`` () =
 
         // Act
         let struct (newState, _) = handle activeState (AgentTextDelta(Guid.Empty, "hello"))
 
         // Assert
         let turn = (session newState).Turns |> Seq.find (fun t -> t.Id = activeTurnId)
-        %turn.StatusText.Should().Be("hello")
+        %turn.StatusText.Should().Be("")
 
     [<Fact>]
     let ``does nothing when no turn active`` () =
@@ -933,10 +933,10 @@ module TwoQueuedPrompts =
         %(session state).IsCurrentTurnActive.Should().BeTrue()
         %(session state).QueuedCount.Should().Be(1)
 
-        // First prompt receives text
+        // A streaming delta no longer populates the status line (the completed block is what reveals)
         let state = handleStream state (AgentTextDelta(Guid.Empty, "first answer streaming"))
         let firstTurn = (session state).Turns |> Seq.find (fun t -> t.Id = firstTurnId)
-        %firstTurn.StatusText.Should().Be("first answer streaming")
+        %firstTurn.StatusText.Should().Be("")
 
         // First prompt's assistant message streams the response but does NOT end the turn
         let state = handleStream state (AgentAssistant(Guid.Empty, "first answer", true))
@@ -955,10 +955,10 @@ module TwoQueuedPrompts =
         %firstTurn.Response.Should().Be("first answer")
         %(firstTurn.Status :? Succeeded).Should().BeTrue()
 
-        // Second prompt receives text
+        // A streaming delta no longer populates the status line (the completed block is what reveals)
         let state = handleStream state (AgentTextDelta(Guid.Empty, "second answer streaming"))
         let secondTurn = (session state).Turns |> Seq.find (fun t -> t.Id = secondTurnId)
-        %secondTurn.StatusText.Should().Be("second answer streaming")
+        %secondTurn.StatusText.Should().Be("")
 
         // Second prompt's assistant message streams the response, still not final
         let state = handleStream state (AgentAssistant(Guid.Empty, "second answer", true))

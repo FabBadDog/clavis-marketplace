@@ -75,9 +75,12 @@ internal sealed class FocusVisualController
         _lastControl = controlRect;
         _lastPanel = panelRect;
 
-        if (ReferenceEquals(focused, _chatInput))
+        if (ReferenceEquals(focused, _chatInput) || focused is TextBox or ComboBox or Button)
         {
-            // The chat input shows focus by recolouring its framing lines (in the chrome), not by a ring.
+            // The chat input recolours its framing lines, and the shared text inputs / combos / buttons swap
+            // their own gray border for the clavis accent on focus (InputTextBox / InputComboBox / ActionButton).
+            // For those the ring would be a second outline outside the border (a double border), so the control
+            // owns its cue and the ring stays off.
             _overlay.HideControl();
         }
         else

@@ -1,7 +1,6 @@
 using System.Windows;
 using System.Windows.Threading;
 
-using FabioSoft.Contracts.Host;
 using FabioSoft.Contracts.Session;
 using FabioSoft.Contracts.Workspace;
 using FabioSoft.Nucleus.Contracts;
@@ -36,22 +35,18 @@ public sealed class UsageLimitsPlugin : IPlugin<UsageLimitsConfig>
     {
         var indicator = new UsageIndicator();
 
+        // The pace-plane is no longer pinned into the status bar unconditionally: it renders only where the
+        // user places {limitPlane} (the Conversation feeds the live windows to its status/title strips), so
+        // here we keep just the dockable detail panel and the refresh cadence that advances its countdown.
         if (Application.Current is not null)
         {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                bus.Send(new UiRegionContribution(
-                    "status-bar-right", Id, 0,
-                    () => indicator.CreateGlyph(() => bus.Send(new TogglePanel(PanelKind)))));
-
-                indicator.StartRefreshTimer(config.RefreshSeconds);
-            });
+            Application.Current.Dispatcher.Invoke(() => indicator.StartRefreshTimer(config.RefreshSeconds));
         }
 
         // Re-announce on request so activation order relative to the registry does not matter.
         void Announce() =>
             bus.Send(new PanelKindRegistration(
-                PanelKind, "usage limits", MinPanelWidth, MinPanelHeight, "", true,
+                PanelKind, "Usage Limits", MinPanelWidth, MinPanelHeight, "", true,
                 _ => indicator.CreatePanel()));
 
         var kindsSubscription = bus.Subscribe<PanelKindsRequested>(_ =>

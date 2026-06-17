@@ -34,8 +34,11 @@ public sealed class GitLogPanelPlugin : IPlugin<GitLogPanelConfig>
     {
         void Announce() =>
             bus.Send(new PanelKindRegistration(
-                "git-log", "git log", MinPanelWidth, MinPanelHeight, "", true,
-                context => GitLogPanelView.Create(config, context)));
+                "git-log", "Git Log", MinPanelWidth, MinPanelHeight, "", true,
+                context => GitLogPanelView.Create(config, context))
+            {
+                StatusTemplate = "{color(accent):git.branch}"
+            });
 
         var subscription = bus.Subscribe<PanelKindsRequested>(_ =>
         {

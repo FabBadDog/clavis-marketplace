@@ -8,10 +8,10 @@
     <FontFamily x:Key="MonoFont">pack://application:,,,/WpfHost;component/Fonts/#JetBrains Mono</FontFamily>
     <FontFamily x:Key="UiFont">pack://application:,,,/WpfHost;component/Fonts/#Rajdhani</FontFamily>
 
-    <!-- The one code-text size (monospace code blocks, inline code, tool/reasoning output). Mirrored by
-         MarkdownPresenter's baseCodeSize in clavis-rendering (code there scales with FontScale, so it
-         cannot read a resource); change both together. See design/CLAVIS-DESIGN-LANGUAGE.md "Typography". -->
-    <sys:Double x:Key="CodeFontSize">7.5</sys:Double>
+    <!-- The single source of truth for code-text size (monospace code blocks, inline code, tool/reasoning
+         output). MarkdownPresenter reads this resource live and scales it by its FontScale, so this one
+         value drives every code surface - change it here only. See design/CLAVIS-DESIGN-LANGUAGE.md "Typography". -->
+    <sys:Double x:Key="CodeFontSize">6</sys:Double>
 
     <!-- Type-role sizes (the dual scale; see design/CLAVIS-DESIGN-LANGUAGE.md §4). PROSE (body / heading)
          stays generous, CHROME (label / mono / meta / micro) is compact. Kept in sync with the theme's
@@ -125,6 +125,36 @@
         <Setter Property="SelectionOpacity" Value="0.5" />
     </Style>
 
+    <!-- Button press feedback: the pressed control's template border eases down to 90% while held and eases
+         back to full size on release - a 250ms transition each way (the design's motion floor). Shared by the
+         ActionButton family; each template names its scaled border "border" and owns a per-template
+         (per-instance) ScaleTransform, so the animation only touches the pressed button, never a shared,
+         frozen style-level transform. -->
+    <Storyboard x:Key="ButtonPressDown">
+        <DoubleAnimation Storyboard.TargetName="border"
+                         Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                         To="0.9" Duration="0:0:0.25">
+            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+        </DoubleAnimation>
+        <DoubleAnimation Storyboard.TargetName="border"
+                         Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                         To="0.9" Duration="0:0:0.25">
+            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+        </DoubleAnimation>
+    </Storyboard>
+    <Storyboard x:Key="ButtonPressUp">
+        <DoubleAnimation Storyboard.TargetName="border"
+                         Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                         To="1" Duration="0:0:0.25">
+            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+        </DoubleAnimation>
+        <DoubleAnimation Storyboard.TargetName="border"
+                         Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                         To="1" Duration="0:0:0.25">
+            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+        </DoubleAnimation>
+    </Storyboard>
+
     <!-- Dark, square, minimal form inputs shared across the app (binding rows, filters, settings fields).
          Keyed (not implicit) so they only apply where referenced and never restyle every control in the app.
          Consumed in code via the clavis-controls factories (Input/ActionButton) and directly in XAML. -->
@@ -149,8 +179,14 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-        <!-- No keyboard-focus trigger here: the window's focus-ring overlay (FocusVisualController) is the
-             single focus cue. A style-side blue border on focus would draw a second blue outline. -->
+        <!-- Focus cue: the input swaps its own gray border for the clavis accent on keyboard focus. The
+             window's focus-ring overlay suppresses its ring for text inputs (FocusVisualController), so this
+             border swap is the single cue - the gray border is replaced, never doubled by an outer ring. -->
+        <Style.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{DynamicResource ClavisBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style x:Key="ActionButton" TargetType="{x:Type Button}">
@@ -165,10 +201,17 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
+                    <!-- The scaled border carries a per-template (per-instance) ScaleTransform centred in
+                         place, so the press storyboards dip this one button without touching a shared,
+                         frozen style-level transform. Inherited shape; the triggers re-add the press feel. -->
                     <Border x:Name="border"
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}">
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform>
+                            <ScaleTransform ScaleX="1" ScaleY="1" />
+                        </Border.RenderTransform>
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           Margin="{TemplateBinding Padding}" />
@@ -178,10 +221,27 @@
                             <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ClavisBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}" />
                         </Trigger>
+                        <!-- Press feedback: ease the border down to 90% while held, back to full on release. -->
+                        <Trigger Property="IsPressed" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard Storyboard="{StaticResource ButtonPressDown}" />
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard Storyboard="{StaticResource ButtonPressUp}" />
+                            </Trigger.ExitActions>
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <!-- Keyboard focus owns its cue through the button's own border (gray -> clavis), matching the inputs,
+             so the host's focus ring stays off and there is no second outline. Hover/press already recolour the
+             border via the template's IsMouseOver trigger. Inherited by Primary/Danger (BasedOn). -->
+        <Style.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="BorderBrush" Value="{DynamicResource ClavisBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <!-- Primary action: clavis border + text at rest, a faint clavis fill on hover. The affirmative button
@@ -195,12 +255,24 @@
                     <Border x:Name="border"
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}">
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform>
+                            <ScaleTransform ScaleX="1" ScaleY="1" />
+                        </Border.RenderTransform>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="#1A9FD5F0" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard Storyboard="{StaticResource ButtonPressDown}" />
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard Storyboard="{StaticResource ButtonPressUp}" />
+                            </Trigger.ExitActions>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -217,7 +289,11 @@
                     <Border x:Name="border"
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}">
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform>
+                            <ScaleTransform ScaleX="1" ScaleY="1" />
+                        </Border.RenderTransform>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -225,6 +301,14 @@
                             <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource RedBrush}" />
                             <Setter TargetName="border" Property="Background" Value="#12E47E7E" />
                             <Setter Property="Foreground" Value="{DynamicResource RedBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard Storyboard="{StaticResource ButtonPressDown}" />
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard Storyboard="{StaticResource ButtonPressUp}" />
+                            </Trigger.ExitActions>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -285,16 +369,15 @@
                                               Fill="{DynamicResource TextDimBrush}" />
                                     </Border>
                                     <ControlTemplate.Triggers>
-                                        <!-- Hover cue only while the combo is NOT keyboard-focused: when focused, the
-                                             window's focus-ring overlay already frames it in clavis, and the hover
-                                             border on top read as a double blue outline. -->
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
-                                                <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=ComboBox}}" Value="False" />
-                                            </MultiDataTrigger.Conditions>
+                                        <!-- The combo shows focus by swapping its own border to the clavis accent
+                                             (the focus-ring overlay suppresses its ring for combos, so this is the
+                                             single cue, never a double outline); hover shows the same accent. -->
+                                        <DataTrigger Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=ComboBox}}" Value="True">
                                             <Setter TargetName="toggleBorder" Property="BorderBrush" Value="{DynamicResource ClavisBrush}" />
-                                        </MultiDataTrigger>
+                                        </DataTrigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="toggleBorder" Property="BorderBrush" Value="{DynamicResource ClavisBrush}" />
+                                        </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </ToggleButton.Template>

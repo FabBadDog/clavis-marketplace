@@ -23,7 +23,7 @@ public sealed class MarkdownPanelPlugin : IPlugin<MarkdownPanelConfig>
         // there is a way to manage markdown note templates. Flip the flag to true once that exists.
         void Announce() =>
             bus.Send(new PanelKindRegistration(
-                "markdown", "markdown", MinPanelWidth, MinPanelHeight, "", false,
+                "markdown", "Markdown", MinPanelWidth, MinPanelHeight, "", false,
                 context => MarkdownPanelView.Create(config, context)));
 
         var subscription = bus.Subscribe<PanelKindsRequested>(_ =>

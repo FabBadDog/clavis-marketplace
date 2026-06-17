@@ -68,6 +68,20 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         PlaceholderStrip? agentCluster = null;
         PlaceholderStrip? titleLeft = null;
 
+        // The window's chrome (title + status bars) follows the active docked panel the host announces. The
+        // kind metadata map carries each panel's friendly name and optional default status, learned from the
+        // PanelKindRegistration broadcasts; the chat is the default active panel.
+        var activeKind = PanelChromeResolver.ChatKind;
+        var panelKinds = new Dictionary<string, (string Name, string DefaultStatus)>();
+
+        // Guards the chrome inputs (activeKind, currentTemplates, panelKinds) shared by ApplyChrome and the
+        // bus handlers that feed them - they fire on independent bus threads. panelKinds is the sharp edge: a
+        // tab load re-broadcasts PanelKindsRequested, so panel plugins re-fire PanelKindRegistration and
+        // write this map exactly while a concurrent save/active-panel change reads it in ApplyChrome.
+        // Unsynchronised that read drops or garbles the update, so a saved bar change intermittently fails to
+        // appear - the reported flakiness. ApplyChrome resolves a snapshot under this lock, then dispatches.
+        var chromeLock = new object();
+
         if (Application.Current is not null)
         {
             Application.Current.Dispatcher.Invoke(() =>
@@ -267,6 +281,24 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             return Task.CompletedTask;
         });
 
+        // The usage limit-plane is a placeholder like any other: feed the latest limit windows to the
+        // status/title strips so a configured {limitPlane} draws its dots. Each strip remembers the windows
+        // and re-applies them across value/template changes, so it suffices to push on every report.
+        var usageReportSub = bus.Subscribe<AgentUsageReport>(report =>
+        {
+            var windows = report.Windows
+                .Select(window => new LimitWindow(
+                    window.Name, window.Used, window.Total, window.Unit, window.WindowStart, window.ResetsAt))
+                .ToArray();
+            Application.Current?.Dispatcher.InvokeAsync(() =>
+            {
+                statusBar?.SetLimitWindows(windows);
+                agentCluster?.SetLimitWindows(windows);
+                titleLeft?.SetLimitWindows(windows);
+            });
+            return Task.CompletedTask;
+        });
+
         // Ask every provider to (re)announce and (re)publish now, so the bars fill immediately.
         bus.Send(new PlaceholdersRequested());
 
@@ -294,6 +326,32 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             return Task.CompletedTask;
         });
         bus.Send(new GetConfig(StatusLineTemplates.SectionId));
+
+        // The window chrome follows the active docked panel: learn each panel kind's friendly name + default
+        // status from its registration, and re-template the chrome when the host announces a new active panel.
+        var panelChromeSub = bus.Subscribe<PanelKindRegistration>(registration =>
+        {
+            bool affectsActivePanel;
+            lock (chromeLock)
+            {
+                panelKinds[registration.Kind] = (registration.Title, registration.StatusTemplate);
+                affectsActivePanel = registration.Kind == activeKind;
+            }
+            if (affectsActivePanel)
+            {
+                ApplyChrome();
+            }
+            return Task.CompletedTask;
+        });
+        var activePanelSub = bus.Subscribe<ActivePanelChanged>(message =>
+        {
+            lock (chromeLock)
+            {
+                activeKind = string.IsNullOrEmpty(message.Kind) ? PanelChromeResolver.ChatKind : message.Kind;
+            }
+            ApplyChrome();
+            return Task.CompletedTask;
+        });
 
         // Register the status-line editor as a dockable panel kind (the conversation owns these templates).
         void AnnounceEditorPanel() => bus.Send(new PanelKindRegistration(
@@ -342,8 +400,9 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             cts,
             streamSub, errorSub, userSubmittedSub, userAbortedSub,
             cancelQueuedSub, permissionSub, permissionNavigateSub, permissionConfirmSub, restartSub,
-            panelCommandsSub, placeholdersRequestedSub, placeholderSnapshotSub,
+            panelCommandsSub, placeholdersRequestedSub, placeholderSnapshotSub, usageReportSub,
             configResultSub, configChangedSub, panelKindsSub,
+            panelChromeSub, activePanelSub,
             pluginErrorSub);
 
         return Task.FromResult<IDisposable>(disposable);
@@ -396,18 +455,43 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             bus.Send(new PlaceholderSnapshot(Id, values));
         }
 
-        // Apply configured templates to the chrome views (on the dispatcher; the views are WPF).
+        // Apply configured templates: refresh the active panel's chrome and re-project the turns (whose stats
+        // column reads the new template).
         void ApplyTemplates(StatusLineTemplates templates)
         {
-            currentTemplates = templates;
+            lock (chromeLock)
+            {
+                currentTemplates = templates;
+            }
             ViewModels.TurnViewModel.StatsTemplate = templates.StatsColumn;
+            ApplyChrome();
+            Application.Current?.Dispatcher.InvokeAsync(() => viewModel?.Update(state));
+        }
+
+        // Resolve the chrome for the active docked panel and push it onto the title/status strips (on the
+        // dispatcher; the strips are WPF). The chat shows its own title/status; another panel shows its
+        // friendly name and its configured-or-default status, or - with neither - an empty bar the host
+        // collapses so the panel fills the space.
+        void ApplyChrome()
+        {
+            // Resolve a consistent snapshot of the chrome inputs under the lock, then send/dispatch outside it
+            // so the chrome reflects the latest save and active panel without racing the handlers that write them.
+            PanelChromeResolved chrome;
+            lock (chromeLock)
+            {
+                var (friendlyName, defaultStatus) = panelKinds.TryGetValue(activeKind, out var meta)
+                    ? meta
+                    : (activeKind, "");
+                chrome = PanelChromeResolver.Resolve(activeKind, currentTemplates, friendlyName, defaultStatus);
+            }
+            // Tell the host whether this panel's status bar has any content, so it collapses an empty bar and
+            // lets the panel fill the space rather than showing a bare strip.
+            bus.Send(new StatusBarAvailability(PanelChromeResolver.HasStatusContent(chrome)));
             Application.Current?.Dispatcher.InvokeAsync(() =>
             {
-                statusBar?.SetTemplates(templates.StatusLeft, templates.StatusCenter, templates.StatusRight);
-                agentCluster?.SetTemplate(templates.AgentCluster);
-                titleLeft?.SetTemplate(templates.TitleLeft);
-                // Re-project so existing turns rebuild their stats column with the new template.
-                viewModel?.Update(state);
+                titleLeft?.SetTemplate(chrome.TitleLeft);
+                agentCluster?.SetTemplate(chrome.TitleRight);
+                statusBar?.SetTemplates(chrome.StatusLeft, chrome.StatusCenter, chrome.StatusRight);
             });
         }
 

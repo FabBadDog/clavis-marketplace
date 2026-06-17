@@ -22,7 +22,12 @@ public sealed record ComponentSegment(
 /// provider plugins are still coming up).
 public abstract record ResolvedSegment;
 
-public sealed record ResolvedText(string Text, bool Unresolved = false) : ResolvedSegment;
+/// IsValue distinguishes a resolved value token (e.g. `{cwd.short}` -> "~\Repos\FS\clavis") from a verbatim
+/// literal run (e.g. "ctx " or "/"). Key is the value token's source key when IsValue (null for literals),
+/// so a responsive consumer can tell removable chrome literals from values worth keeping, and recognise a
+/// path value to shorten it.
+public sealed record ResolvedText(string Text, bool Unresolved = false, bool IsValue = false, string? Key = null)
+    : ResolvedSegment;
 
 public sealed record ResolvedComponent(
     string Component, string? Arg, string Value, double? Number, bool Unresolved = false) : ResolvedSegment;

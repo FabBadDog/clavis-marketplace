@@ -19,7 +19,9 @@
     <Compile Include="StatIcon.fs" />
     <Compile Include="StatIconConverter.fs" />
     <Compile Include="PlaceholderStrip.fs" />
+    <Compile Include="ResponsiveZoneBar.fs" />
     <Compile Include="CopyMenu.fs" />
+    <Compile Include="TextReveal.fs" />
     <Compile Include="MarkdownPresenter.fs" />
     <Compile Include="DockingSurface.fs" />
     <Compile Include="KeyGestureReader.fs" />

@@ -1,10 +1,12 @@
 namespace FabioSoft.Clavis.Rendering
 
+open System
 open System.Collections.Generic
 open System.Diagnostics.CodeAnalysis
 open System.Windows
 open System.Windows.Controls
 open System.Windows.Media
+open System.Windows.Media.Animation
 open System.Windows.Shapes
 open FabioSoft.Clavis.Placeholders
 
@@ -47,6 +49,17 @@ type PlaceholderStrip() =
 
     let mutable template = ""
     let mutable hideUnresolvedValues = false
+
+    // Responsive density, driven by a host container (ResponsiveZoneBar): the bar shrinks toward a floor,
+    // chrome literals and stat-row icons can be dropped, and path values shortened, before the container
+    // resorts to scaling the whole strip. Defaults render everything at full size.
+    let mutable barScale = 1.0
+    let mutable showLiterals = true
+    let mutable shortenPaths = false
+    let mutable showStatIcons = true
+
+    let contentChanged = Event<unit>()
+
     let mutable values: IReadOnlyDictionary<string, string> =
         Dictionary<string, string>() :> IReadOnlyDictionary<string, string>
     let mutable limitWindows: LimitWindow list = []
@@ -55,6 +68,28 @@ type PlaceholderStrip() =
     // The previous render's per-segment content keys, so a value update can animate exactly the segments
     // whose content changed (e.g. the effort level after the agent confirms a switch).
     let mutable previousKeys: string[] = [||]
+
+    // The previous render's bar percents, in bar order, so a changed bar can slide its fill from the old
+    // value to the new one rather than doing the entrance slide the other segments use.
+    let mutable previousBarPercents: float[] = [||]
+
+    // A path value is recognised by its separators (works whatever key the user configured); shortened to
+    // its root and leaf with an ellipsis between, so "~\Repos\FS\clavis" reads as "~\…\clavis".
+    let looksLikePath (text: string) =
+        text.Contains '\\' || text.Contains '/'
+
+    let shortenPath (text: string) =
+        let parts = text.Split([| '\\'; '/' |], StringSplitOptions.RemoveEmptyEntries)
+        if parts.Length <= 2 then
+            text
+        else
+            parts[0] + "\\…\\" + parts[parts.Length - 1]
+
+    // A "label" literal is chrome worth dropping when space is tight (e.g. "ctx", "CLAVIS"); a literal with
+    // no letters is a separator between values (e.g. the "/" in "0/200k") and is kept, so dropping chrome
+    // never fuses two values into one unreadable run.
+    let isLabelLiteral (text: string) =
+        text |> Seq.exists Char.IsLetter
 
     let monoText (text: string) (brush: Brush) =
         let block =
@@ -67,18 +102,25 @@ type PlaceholderStrip() =
     let valueText (text: string) =
         monoText text Colors.textDim
 
+    // A progress bar: track + clavis fill. Returns the fill rectangle and the clamped percent alongside the
+    // element so the renderer can slide the fill to a changed value (the user's rule: the bar slides its
+    // value, it does not do the segments' entrance slide).
+    let effectiveBarWidth () = barWidth * barScale
+
+    let barWidthFor percent = effectiveBarWidth () * (max 0.0 (min 100.0 percent)) / 100.0
+
     let bar (percent: float) =
         let clamped = max 0.0 (min 100.0 percent)
         let grid =
-            Grid(Width = barWidth, Height = barHeight, VerticalAlignment = VerticalAlignment.Center, Margin = barMargin)
+            Grid(Width = effectiveBarWidth (), Height = barHeight, VerticalAlignment = VerticalAlignment.Center, Margin = barMargin)
         grid.Children.Add(Rectangle(Fill = Colors.track)) |> ignore
         let fill =
             Rectangle(
                 Fill = Colors.clavis,
-                Width = barWidth * clamped / 100.0,
+                Width = barWidthFor clamped,
                 HorizontalAlignment = HorizontalAlignment.Left)
         grid.Children.Add fill |> ignore
-        grid :> UIElement
+        (grid :> UIElement), fill, clamped
 
     // Plain coloured text, no box or background (Clavis design: content before chrome; the user's rule).
     let badge (value: string) =
@@ -97,10 +139,11 @@ type PlaceholderStrip() =
 
     let microstat (iconName: string) (value: string) =
         let row = StackPanel(Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center)
-        let icon = StatIcon.Create(iconName, iconSize, Colors.textDim)
-        icon.VerticalAlignment <- VerticalAlignment.Center
-        icon.Margin <- iconGap
-        row.Children.Add icon |> ignore
+        if showStatIcons then
+            let icon = StatIcon.Create(iconName, iconSize, Colors.textDim)
+            icon.VerticalAlignment <- VerticalAlignment.Center
+            icon.Margin <- iconGap
+            row.Children.Add icon |> ignore
         row.Children.Add(monoText value Colors.textDim) |> ignore
         row :> UIElement
 
@@ -110,9 +153,10 @@ type PlaceholderStrip() =
         planeViews.Add view
         ContentControl(Content = view.Element, VerticalAlignment = VerticalAlignment.Center) :> UIElement
 
+    // The bar is built directly in render (it needs its fill captured to animate the value), so it is not
+    // listed here.
     let renderComponent (resolved: ResolvedComponent) =
         match resolved.Component.ToLowerInvariant() with
-        | "bar" -> Some(bar (if resolved.Number.HasValue then resolved.Number.Value else 0.0))
         | "badge" -> badge resolved.Value
         | "microstat" -> Some(microstat (defaultArg (Option.ofObj resolved.Arg) "") resolved.Value)
         | "limitplane" -> Some(limitPlane ())
@@ -125,23 +169,39 @@ type PlaceholderStrip() =
 
     // Renders the resolved segments; with animateChanges, a segment whose content differs from the
     // previous render enters animated (fade + slide via Motion.enter) so a changed value - a confirmed
-    // model/effort/mode switch, say - is visibly acknowledged. Animation is per-segment and positional:
-    // when the segment count changes (template change, badge appearing/disappearing) nothing animates.
+    // model/effort/mode switch, say - is visibly acknowledged. The bar is the exception: it slides its fill
+    // from the old percent to the new one instead of doing the entrance slide. Animation is per-segment and
+    // positional: when the segment count changes (template change, badge appearing/disappearing) nothing
+    // animates.
     let render (animateChanges: bool) =
         panel.Children.Clear()
         planeViews.Clear()
         let rendered = List<string * UIElement>()
+        let barIndices = HashSet<int>()
+        let barFills = List<Rectangle * float>()
         for segment in engine.Resolve(template, values) do
             let keyed =
                 match segment with
                 | :? ResolvedText as t ->
                     if t.Text = "" || (hideUnresolvedValues && t.Unresolved) then
                         None
+                    elif not t.IsValue && not showLiterals && isLabelLiteral t.Text then
+                        None
                     else
-                        Some(t.Text, valueText t.Text)
+                        let shown =
+                            if t.IsValue && shortenPaths && looksLikePath t.Text then
+                                shortenPath t.Text
+                            else
+                                t.Text
+                        Some(shown, valueText shown)
                 | :? ResolvedComponent as c ->
                     if hideUnresolvedValues && c.Unresolved then
                         None
+                    elif c.Component.ToLowerInvariant() = "bar" then
+                        let element, fill, percent = bar (if c.Number.HasValue then c.Number.Value else 0.0)
+                        barIndices.Add rendered.Count |> ignore
+                        barFills.Add((fill, percent))
+                        Some($"{c.Component}:{c.Value}", element)
                     else
                         renderComponent c |> Option.map (fun e -> $"{c.Component}:{c.Value}", e)
                 | _ -> None
@@ -151,14 +211,27 @@ type PlaceholderStrip() =
                 panel.Children.Add e |> ignore
             | None -> ()
 
+        // Non-bar segments whose content changed get the entrance slide; bars are skipped here.
         if animateChanges && previousKeys.Length = rendered.Count then
             for i in 0 .. rendered.Count - 1 do
                 let key, element = rendered[i]
                 match element with
-                | :? FrameworkElement as fe when previousKeys[i] <> key -> Motion.enter fe
+                | :? FrameworkElement as fe when previousKeys[i] <> key && not (barIndices.Contains i) -> Motion.enter fe
                 | _ -> ()
 
+        // A changed bar slides its fill from the previous percent to the new one (the bar's own animation).
+        if animateChanges && previousBarPercents.Length = barFills.Count then
+            for i in 0 .. barFills.Count - 1 do
+                let fill, newPercent = barFills[i]
+                let oldPercent = previousBarPercents[i]
+                if oldPercent <> newPercent then
+                    fill.Width <- barWidthFor oldPercent
+                    fill.BeginAnimation(
+                        FrameworkElement.WidthProperty,
+                        DoubleAnimation(barWidthFor oldPercent, barWidthFor newPercent, Motion.Standard, EasingFunction = Motion.easeOut()))
+
         previousKeys <- rendered |> Seq.map fst |> Array.ofSeq
+        previousBarPercents <- barFills |> Seq.map snd |> Array.ofSeq
 
     member _.Element = panel
 
@@ -175,10 +248,31 @@ type PlaceholderStrip() =
     member _.SetTemplate(value: string) =
         template <- value
         render false
+        contentChanged.Trigger()
 
     member _.SetValues(snapshot: IReadOnlyDictionary<string, string>) =
         values <- snapshot
         render true
+        contentChanged.Trigger()
+
+    /// Raised after a template or value change re-renders the strip (not on a density change), so a host
+    /// container can re-evaluate how much room the new content needs.
+    member _.ContentChanged = contentChanged.Publish
+
+    /// Applies a responsive density: a bar scale (1.0 = full width), and whether to keep chrome literals,
+    /// shorten path values, and show the stat-row icons. Re-renders only when something actually changes.
+    member _.SetDensity(barScaleValue, literalsVisible, shortenPathValues, statIconsVisible) =
+        let changed =
+            barScale <> barScaleValue
+            || showLiterals <> literalsVisible
+            || shortenPaths <> shortenPathValues
+            || showStatIcons <> statIconsVisible
+        if changed then
+            barScale <- barScaleValue
+            showLiterals <- literalsVisible
+            shortenPaths <- shortenPathValues
+            showStatIcons <- statIconsVisible
+            render false
 
     member _.SetLimitWindows(windows: LimitWindow seq) =
         limitWindows <- List.ofSeq windows

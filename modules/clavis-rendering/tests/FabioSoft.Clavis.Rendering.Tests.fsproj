@@ -19,6 +19,7 @@
          "Pace -> Limits" rename replaced. It needs rewriting against the new Limits API. -->
     <Compile Include="DockingModelTests.fs" />
     <Compile Include="SegmentedSelectorModelTests.fs" />
+    <Compile Include="TextRevealTests.fs" />
     <Compile Include="SelectorHistoryTests.fs" />
   </ItemGroup>
 </Project>

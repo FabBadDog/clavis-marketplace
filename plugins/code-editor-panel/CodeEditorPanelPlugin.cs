@@ -20,7 +20,7 @@ public sealed class CodeEditorPanelPlugin : IPlugin<CodeEditorPanelConfig>
     {
         void Announce() =>
             bus.Send(new PanelKindRegistration(
-                "code-editor", "code", MinPanelWidth, MinPanelHeight, "", true,
+                "code-editor", "Code Editor", MinPanelWidth, MinPanelHeight, "", true,
                 context => CodeEditorPanelView.Create(config, bus, context)));
 
         var subscription = bus.Subscribe<PanelKindsRequested>(_ =>

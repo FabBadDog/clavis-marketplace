@@ -55,7 +55,17 @@
                     <Ellipse Width="6" Height="6"
                              Fill="{DynamicResource ClavisBrush}"
                              HorizontalAlignment="Center"
-                             VerticalAlignment="Center">
+                             VerticalAlignment="Center"
+                             RenderTransformOrigin="0.5,0.5">
+                        <!-- Rail-charge ignite: when the turn goes active (a sent prompt powers up) the dot
+                             flares - it pops in oversized with a brief glow and settles to its resting size.
+                             Driven from the IsActive trigger below, not Loaded, so the flare plays when the
+                             dot actually becomes visible. -->
+                        <!-- Named so the Style trigger below can animate it: an unnamed Freezable in a
+                             template is frozen (immutable) and cannot be animated from a Style. -->
+                        <Ellipse.RenderTransform>
+                            <ScaleTransform x:Name="DotIgniteScale" ScaleX="1" ScaleY="1" />
+                        </Ellipse.RenderTransform>
                         <Ellipse.Style>
                             <Style TargetType="Ellipse">
                                 <Setter Property="Visibility" Value="Hidden" />
@@ -65,12 +75,33 @@
                                         <DataTrigger.EnterActions>
                                             <BeginStoryboard x:Name="BreatheStoryboard">
                                                 <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                    <!-- Start bright and delayed so the ignite pop below plays
+                                                         on a fully-visible dot first, then settle into breathing. -->
                                                     <DoubleAnimation
                                                         Storyboard.TargetProperty="Opacity"
-                                                        From="0.1" To="1.0"
+                                                        From="1.0" To="0.1"
+                                                        BeginTime="0:0:0.7"
                                                         Duration="0:0:0.6">
                                                         <DoubleAnimation.EasingFunction>
                                                             <SineEase EasingMode="EaseInOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                            <!-- Ignite flare: a big oversized pop settling to resting size,
+                                                 fired immediately on a fully-visible dot. -->
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                     From="2.6" To="1" BeginTime="0:0:0.28" Duration="0:0:0.4">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                     From="2.6" To="1" BeginTime="0:0:0.28" Duration="0:0:0.4">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
                                                         </DoubleAnimation.EasingFunction>
                                                     </DoubleAnimation>
                                                 </Storyboard>
@@ -180,6 +211,53 @@
                         </EventTrigger>
                     </Rectangle.Triggers>
                 </Rectangle>
+
+                <!-- Rail-charge streak: a bright pulse that races up the rail to the dot as the turn
+                     powers up, then fades. The opacity mask makes it brightest at the top (the dot end)
+                     and trail off below; it grows upward from the bottom of the rail. -->
+                <Rectangle Grid.Row="1"
+                           Width="3"
+                           Fill="{DynamicResource ClavisBrush}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Stretch"
+                           Margin="0,2,0,0"
+                           IsHitTestVisible="False"
+                           RenderTransformOrigin="0.5,1">
+                    <Rectangle.OpacityMask>
+                        <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                            <GradientStop Color="#00000000" Offset="0" />
+                            <GradientStop Color="#FF000000" Offset="0.65" />
+                        </LinearGradientBrush>
+                    </Rectangle.OpacityMask>
+                    <!-- Named so the Style trigger can animate it (see the dot above). -->
+                    <Rectangle.RenderTransform>
+                        <ScaleTransform x:Name="StreakChargeScale" ScaleY="0" />
+                    </Rectangle.RenderTransform>
+                    <Rectangle.Style>
+                        <Style TargetType="Rectangle">
+                            <Style.Triggers>
+                                <!-- Fire on activation (a sent prompt) so the streak races up only on a
+                                     fresh send, not on every turn restored from history. -->
+                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 From="0" To="1" BeginTime="0:0:0.28" Duration="0:0:0.24">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 From="1" To="0" BeginTime="0:0:0.46" Duration="0:0:0.28" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Rectangle.Style>
+                </Rectangle>
             </Grid>
 
             <!-- Content column -->
@@ -211,14 +289,14 @@
                 <!-- Child items -->
                 <ItemsControl ItemsSource="{Binding Items}" Margin="0,0,0,6" />
 
-                <!-- Streaming line: the in-progress assistant text block. Completed blocks are persisted as
-                     interleaved TextItems in the Items control above; this shows only the block still
-                     streaming and clears (StatusText = "") once that block lands as a TextItem. -->
+                <!-- Status line: transient status messages only (e.g. "Retrying API call...", "DENIED").
+                     The assistant's answer is no longer streamed here - completed blocks land as TextItems
+                     above and reveal with the typewriter/line fall, so the partials are not shown live. -->
                 <TextBlock Text="{Binding StatusText}"
                            FontSize="10"
                            FontWeight="Light"
                            FontFamily="{DynamicResource AgentFont}"
-                           Foreground="{DynamicResource TextBrush}"
+                           Foreground="{DynamicResource TextDimBrush}"
                            TextWrapping="Wrap">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">

@@ -73,7 +73,7 @@ public sealed class EventsPanelPlugin : IPlugin<EventsPanelConfig>
         // context - the panel keeps no per-instance state.
         void Announce() =>
             bus.Send(new PanelKindRegistration(
-                PanelKind, "events", MinPanelWidth, MinPanelHeight, "", true,
+                PanelKind, "Events", MinPanelWidth, MinPanelHeight, "", true,
                 context => EventsPanelView.Create(viewModel!, bus, context)));
 
         var kindRequest = bus.Subscribe<PanelKindsRequested>(_ =>

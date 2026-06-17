@@ -5,45 +5,33 @@ using FabioSoft.Clavis.Rendering;
 
 namespace FabioSoft.Nucleus.Plugins.Conversation.Views;
 
-/// The conversation status bar: three placeholder strips (left / center / right) over the shared engine.
-/// Left and right dock to their edges; the center fills and centers. The plugin pushes merged placeholder
-/// values via Update on each snapshot.
+/// The conversation status bar: three placeholder strips (left / center / right) hosted in a
+/// ResponsiveZoneBar that keeps them from overlapping as the window narrows - shrinking bars, dropping
+/// chrome, scaling the text, and finally dropping the center then the left zone. The plugin pushes merged
+/// placeholder values via Update on each snapshot, and the latest usage limit windows via SetLimitWindows so
+/// a configured {limitPlane} draws its dots. The same control backs the status-line editor preview (with
+/// hideUnresolved off) so the preview behaves exactly like the live bar.
 internal sealed class PlaceholderStatusBar
 {
     private readonly PlaceholderStrip _left = new();
     private readonly PlaceholderStrip _center = new();
     private readonly PlaceholderStrip _right = new();
 
-    public PlaceholderStatusBar(string leftTemplate, string centerTemplate, string rightTemplate)
+    public PlaceholderStatusBar(
+        string leftTemplate, string centerTemplate, string rightTemplate, bool hideUnresolved = true)
     {
-        // The status line never shows raw "{...}" tokens: until a provider plugin publishes a value the
-        // segment renders as nothing. The template editor keeps verbatim rendering as authoring feedback.
-        _left.HideUnresolvedValues = true;
-        _center.HideUnresolvedValues = true;
-        _right.HideUnresolvedValues = true;
+        // The live status line never shows raw "{...}" tokens: until a provider plugin publishes a value the
+        // segment renders as nothing. The editor preview passes hideUnresolved=false so authoring feedback
+        // keeps the verbatim tokens visible.
+        _left.HideUnresolvedValues = hideUnresolved;
+        _center.HideUnresolvedValues = hideUnresolved;
+        _right.HideUnresolvedValues = hideUnresolved;
 
         _left.SetTemplate(leftTemplate);
         _center.SetTemplate(centerTemplate);
         _right.SetTemplate(rightTemplate);
 
-        var dock = new DockPanel { LastChildFill = true };
-
-        var rightHost = _right.Element;
-        DockPanel.SetDock(rightHost, Dock.Right);
-        dock.Children.Add(rightHost);
-
-        var leftHost = _left.Element;
-        DockPanel.SetDock(leftHost, Dock.Left);
-        dock.Children.Add(leftHost);
-
-        dock.Children.Add(new Border
-        {
-            Child = _center.Element,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        });
-
-        Element = dock;
+        Element = new ResponsiveZoneBar(_left, _center, _right);
     }
 
     public FrameworkElement Element { get; }
@@ -60,5 +48,15 @@ internal sealed class PlaceholderStatusBar
         _left.SetValues(values);
         _center.SetValues(values);
         _right.SetValues(values);
+    }
+
+    public void SetLimitWindows(IEnumerable<LimitWindow> windows)
+    {
+        // Each strip remembers the windows and re-applies them whenever it re-renders a {limitPlane}, so the
+        // dots survive value/template changes; materialise once so all three see the same set.
+        var snapshot = new List<LimitWindow>(windows);
+        _left.SetLimitWindows(snapshot);
+        _center.SetLimitWindows(snapshot);
+        _right.SetLimitWindows(snapshot);
     }
 }

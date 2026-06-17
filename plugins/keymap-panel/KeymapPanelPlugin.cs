@@ -19,7 +19,7 @@ public sealed class KeymapPanelPlugin : IPlugin<KeymapPanelConfig>
     {
         void Announce() =>
             bus.Send(new PanelKindRegistration(
-                "keymap", "shortcuts", MinPanelWidth, MinPanelHeight, "", true,
+                "keymap", "Shortcuts", MinPanelWidth, MinPanelHeight, "", true,
                 context => KeymapPanelView.Create(bus, context)));
 
         var subscription = bus.Subscribe<PanelKindsRequested>(_ =>

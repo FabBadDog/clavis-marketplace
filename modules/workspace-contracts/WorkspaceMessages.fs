@@ -40,6 +40,12 @@ type PanelKindRegistration
     member _.IsUserOpenable = isUserOpenable
     member _.ViewFactory = viewFactory
 
+    /// An optional default status-bar template for this panel kind, shown while the panel is the active
+    /// docked panel and the user has not configured the status bar for it. Empty means the panel ships no
+    /// default, so the window collapses the status bar entirely (the panel fills the space) until one is set.
+    /// Settable so a C# registration can use an object initializer; the seven-argument constructor is unchanged.
+    member val StatusTemplate = "" with get, set
+
 /// The registry broadcasts this on its own activation; panel plugins subscribe and re-announce their
 /// kinds. Makes activation order irrelevant (a fire-and-forget registration sent before the registry
 /// subscribed would otherwise be lost).
@@ -157,6 +163,13 @@ type WindowClosed(windowId: Guid) =
 [<Sealed>]
 type WindowFocusChanged(windowId: Guid) =
     member _.WindowId = windowId
+
+/// The active docked panel in the primary window changed to this kind ("" when none). The chrome owner
+/// re-templates the window's title bar and status bar to that panel's configured chrome, so the active
+/// panel owns the window chrome. Only docked panels raise this - slide-ins never change the title/status bar.
+[<Sealed>]
+type ActivePanelChanged(kind: string) =
+    member _.Kind = kind
 
 /// Asks the window host to report what is currently on screen. The host answers with a single
 /// WorkspaceSnapshot, so a caller uses IBus.Request<WorkspaceSnapshotRequested, WorkspaceSnapshot>.

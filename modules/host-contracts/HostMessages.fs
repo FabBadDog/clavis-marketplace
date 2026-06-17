@@ -66,6 +66,14 @@ type PermissionPending(pending: bool) =
 type PromptInputAvailability(available: bool) =
     member _.Available = available
 
+/// The active panel's owner announces whether its status bar has any configured content. The window host
+/// collapses the status row when it has none, so the panel fills the whole space rather than showing an
+/// empty bar - and reveals it again when content returns. A host/active-panel concern: the host learns no
+/// placeholder vocabulary, only this availability broadcast.
+[<Sealed>]
+type StatusBarAvailability(available: bool) =
+    member _.Available = available
+
 /// A panel asks the host to return keyboard focus to the prompt input (keyboard-first navigation).
 [<Sealed>]
 [<Description("Move keyboard focus to the prompt input")>]

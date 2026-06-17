@@ -210,22 +210,20 @@ internal sealed partial class WindowHost
         _statusDot.Opacity = active ? 0.9 : 0.3;
     }
 
-    // The chat input's focus cue: its two framing lines (the line above the input and the line above the
-    // status bar just below it) turn clavis while the input holds keyboard focus and fade back to frame grey
-    // when it does not - instead of a focus ring. Per-line mutable brushes so the colour can animate.
-    private void WireInputFocusLines(TextBox input, Border inputRow, Border statusRow)
+    // The chat input's focus cue: its top framing line turns clavis while the input holds keyboard focus and
+    // fades back to frame grey when it does not - instead of a focus ring. The status bar is now a separate
+    // window-chrome row, so it keeps its own static frame line and is no longer part of this cue. Mutable
+    // brush so the colour can animate.
+    private void WireInputFocusLines(TextBox input, Border inputRow)
     {
         var topLine = new SolidColorBrush(InactiveBorderColor);
-        var bottomLine = new SolidColorBrush(InactiveBorderColor);
         inputRow.BorderBrush = topLine;
-        statusRow.BorderBrush = bottomLine;
 
         void Recolor(bool focused)
         {
             var target = focused ? ActiveLineColor : InactiveBorderColor;
             var duration = new Duration(TimeSpan.FromMilliseconds(160));
             topLine.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(target, duration));
-            bottomLine.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(target, duration));
         }
 
         input.GotKeyboardFocus += (_, _) => Recolor(true);
@@ -256,10 +254,23 @@ internal sealed partial class WindowHost
         // in the upward walk must never take the whole window down, so it is contained and logged.
         try
         {
-            if (ClickShouldKeepFocus(hit))
+            if (FocusKeepingButton(hit) is not { } button)
             {
-                Window.Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => Keyboard.Focus(prior)));
+                return;
             }
+
+            // Restore focus only AFTER the click has fired - never on a mid-press dispatcher tick. Scheduling
+            // the restore on mouse-down (the old behaviour) let it run between this button's mouse-down and
+            // mouse-up; moving focus off a half-pressed button makes WPF abandon the press, so the Click
+            // intermittently never fires and the button's action (e.g. Save) silently does nothing. Hooking
+            // the button's own Click runs the restore strictly after the action, so every click lands.
+            RoutedEventHandler? restore = null;
+            restore = (_, _) =>
+            {
+                button.Click -= restore;
+                Window.Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => Keyboard.Focus(prior)));
+            };
+            button.Click += restore;
         }
         catch (Exception exception)
         {
@@ -268,8 +279,8 @@ internal sealed partial class WindowHost
     }
 
     // Walk up from the clicked element: the first interactive ancestor decides. A focusable button keeps
-    // focus put; a text/selection control takes focus normally.
-    private static bool ClickShouldKeepFocus(DependencyObject hit)
+    // focus put (returned so its Click can drive the restore); a text/selection control takes focus normally.
+    private static ButtonBase? FocusKeepingButton(DependencyObject hit)
     {
         for (DependencyObject? node = hit; node is not null; node = ElementTree.ParentOf(node))
         {
@@ -278,12 +289,12 @@ internal sealed partial class WindowHost
                 case TextBoxBase:
                 case PasswordBox:
                 case Selector: // ListBox, ComboBox, TabControl, ...
-                    return false;
-                case ButtonBase { Focusable: true }:
-                    return true;
+                    return null;
+                case ButtonBase { Focusable: true } button:
+                    return button;
             }
         }
 
-        return false;
+        return null;
     }
 }
