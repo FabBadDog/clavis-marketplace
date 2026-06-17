@@ -55,9 +55,12 @@ h1{font-family:var(--human);font-weight:600;font-size:24px;letter-spacing:3px;te
 .demo-h{font-family:var(--human);font-weight:500;font-size:var(--fs-label);letter-spacing:1.2px;text-transform:uppercase;color:var(--text-dim);padding:8px 12px;border-bottom:1px solid var(--line)}
 .demo-b{padding:14px}
 .note{font-family:var(--mono);font-size:10.5px;color:var(--text-dim);margin-top:7px;line-height:1.5}
-.tier-tag{font-family:var(--human);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:1px 6px;margin-left:8px;vertical-align:middle}
-.tier-prose{color:var(--green);border:1px solid rgba(123,212,155,.4)}
-.tier-chrome{color:var(--primary);border:1px solid rgba(159,213,240,.4)}
+/* tier markers reuse the decided badge chip: surface fill, no outline, label colour carries the tier */
+.tier-prose,.tier-chrome{font-family:var(--human);font-size:var(--fs-micro);font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  line-height:1;background:var(--surface);padding:3px 6px;display:inline-block;vertical-align:middle}
+.tier-prose,.intro b.tier-prose{color:var(--green)}      /* prose tier — same as the .bdg ok chip */
+.tier-chrome,.intro b.tier-chrome{color:var(--primary)}  /* chrome tier — same as the .bdg info chip */
+.tier-tag{margin-left:8px}                                /* trailing gap when a tag follows a role label */
 
 /* ---- color swatches ---- */
 .swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
@@ -123,16 +126,19 @@ h1{font-family:var(--human);font-weight:600;font-size:24px;letter-spacing:3px;te
 .check .bx{width:14px;height:14px;border:1px solid var(--line);background:var(--black);position:relative}
 .check.on .bx{border-color:var(--primary)}
 .check.on .bx:after{content:"";position:absolute;inset:2px;background:var(--primary)}
-/* badges (the reconciled set) */
+/* badge — one filled chip, reused everywhere (events level · command kind · tool scope · status-line mode) */
 .badges{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.bdg{font-family:var(--human);font-weight:500;font-size:var(--fs-micro);letter-spacing:.8px;text-transform:uppercase;padding:2px 7px}
-.bdg.kind{color:var(--secondary);border:1px solid rgba(173,166,242,.4)}             /* identity = secondary outline */
-.bdg.fill{color:var(--body);background:var(--surface)}                               /* neutral category = surface chip */
-.bdg.sig-g{color:var(--green);border:1px solid rgba(123,212,155,.45)}
-.bdg.sig-y{color:var(--yellow);border:1px solid rgba(228,196,126,.45)}
-.bdg.sig-r{color:var(--red);border:1px solid rgba(228,126,126,.45)}
-.bdg.dot{display:inline-flex;align-items:center;gap:6px;border:none;padding:0;color:var(--text-dim)}
-.bdg.dot .d{width:7px;height:7px}
+.bdg{font-family:var(--human);font-weight:600;font-size:var(--fs-micro);letter-spacing:.05em;text-transform:uppercase;
+  line-height:1;background:var(--surface);padding:3px 6px;display:inline-flex;align-items:center;justify-content:center}
+.bdg.info{color:var(--primary)}        /* info / message */
+.bdg.identity{color:var(--secondary)}  /* kind / identity */
+.bdg.ok{color:var(--green)}            /* added / debug / plan */
+.bdg.warn{color:var(--yellow)}         /* warn / admin */
+.bdg.error{color:var(--red)}           /* error / deprecated */
+.bdg.neutral{color:var(--text-dim)}    /* scope / default */
+/* in a list, the badge column shares the widest width and centres (Grid.IsSharedSizeScope + SharedSizeGroup) */
+.badge-col{display:inline-grid;grid-template-columns:max-content;gap:6px}
+.badge-col .bdg{width:100%}
 /* buttons */
 .btns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .btn{font-family:var(--human);font-weight:500;font-size:var(--fs-label);letter-spacing:.7px;text-transform:uppercase;
@@ -306,17 +312,25 @@ h1{font-family:var(--human);font-weight:600;font-size:24px;letter-spacing:3px;te
     </div></div>
 
     <!-- badges -->
-    <div class="demo"><div class="demo-h">Badges — one reconciled set</div><div class="demo-b">
+    <div class="demo"><div class="demo-h">Badge — one filled chip, reused everywhere</div><div class="demo-b">
       <div class="badges">
-        <span class="bdg kind">plugin</span>
-        <span class="bdg kind">skill</span>
-        <span class="bdg fill">json or env</span>
-        <span class="bdg sig-y">admin</span>
-        <span class="bdg sig-r">deprecated</span>
-        <span class="bdg sig-g">added</span>
-        <span class="bdg dot"><span class="d dot" style="background:var(--secondary)"></span>deactivated</span>
+        <span class="bdg info">message</span>
+        <span class="bdg identity">plugin</span>
+        <span class="bdg ok">added</span>
+        <span class="bdg warn">admin</span>
+        <span class="bdg error">deprecated</span>
+        <span class="bdg neutral">session</span>
       </div>
-      <div class="note">kind/identity → secondary outline · neutral category → surface fill · signal → colored outline (green/yellow/red) · status → dot + label. micro role throughout.</div>
+      <div class="note">One element: <b>surface fill (#0E0E14)</b>, Rajdhani micro, square corners, <b>6,3 padding</b>. The label colour carries the category — info/identity/ok/warn/error/neutral. The same chip backs the events-panel level, the command-palette kind, the tool-scope tag and the status-line mode badge.</div>
+      <div style="height:16px"></div>
+      <div class="badge-col">
+        <span class="bdg info">info</span>
+        <span class="bdg ok">debug</span>
+        <span class="bdg warn">warn</span>
+        <span class="bdg error">error</span>
+        <span class="bdg neutral">trace</span>
+      </div>
+      <div class="note">In a list, a badge column takes the widest badge's width and shorter labels centre, so rows align (Grid.IsSharedSizeScope + SharedSizeGroup). Opt-in per list, not global.</div>
     </div></div>
 
     <!-- buttons -->

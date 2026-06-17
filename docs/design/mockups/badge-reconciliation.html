@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CLAVIS - Badge reconciliation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* EXACT palette from wpf-host/Theme/Styles.xaml + clavis-rendering/Theme.fs */
+    --black:        #000000;  /* BlackBrush */
+    --faint:        #0E0E14;  /* FaintBrush / SurfaceBrush - the live Badge fill */
+    --line:         #5A5A66;  /* LineBrush / FrameBrush */
+    --code-border:  #282834;  /* CodeBorderBrush */
+    --rail:         #1B1B22;  /* RailBrush / bar track */
+    --text:         #C8C8D0;  /* TextBrush / BodyBrush */
+    --text-bright:  #E8E8EC;  /* TextBrightBrush */
+    --text-dim:     #9A9AA4;  /* TextDimBrush / SecondaryBrush */
+    --clavis:       #9FD5F0;  /* ClavisBrush / PrimaryAccentBrush - info */
+    --periwinkle:   #ADA6F2;  /* HumanBrush / InputBrush / SecondaryAccentBrush */
+    --green:        #7BD49B;  /* GreenBrush - debug / plan */
+    --yellow:       #E4C47E;  /* YellowBrush / WarnBrush - warn / auto */
+    --red:          #E47E7E;  /* RedBrush / ErrorBrush - error */
+
+    --ui-font:    'Rajdhani', 'Segoe UI', sans-serif;     /* UiFont / HumanFont */
+    --agent-font: 'Inter', 'Segoe UI', sans-serif;        /* AgentFont */
+    --mono-font:  'JetBrains Mono', 'Cascadia Code', monospace;  /* MonoFont */
+  }
+
+  * { box-sizing: border-box; border-radius: 0 !important; }
+
+  body {
+    margin: 0;
+    background: #08080b;
+    color: var(--text);
+    font-family: var(--agent-font);
+    font-weight: 300;
+    line-height: 1.5;
+    padding: 44px 56px 90px;
+  }
+
+  h1 {
+    font-family: var(--ui-font); font-weight: 600; letter-spacing: 0.06em;
+    color: var(--text-bright); font-size: 26px; margin: 0 0 6px;
+  }
+  h1 .accent { color: var(--clavis); }
+  .lede { color: var(--text-dim); max-width: 820px; font-size: 14px; margin: 0 0 6px; }
+  .lede code, code.k { font-family: var(--mono-font); color: var(--clavis); font-size: 12.5px; }
+
+  h2 {
+    font-family: var(--ui-font); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    font-size: 13px; color: var(--text-dim); margin: 54px 0 4px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--code-border);
+  }
+  h2 .count { color: var(--periwinkle); font-weight: 500; letter-spacing: 0; text-transform: none; font-family: var(--mono-font); font-size: 11px; }
+  .section-note { color: var(--text-dim); font-size: 13px; margin: 10px 0 22px; max-width: 820px; }
+  .section-note b { color: var(--text); font-weight: 500; }
+
+  .card { background: var(--faint); border: 1px solid var(--code-border); padding: 20px 22px 22px; margin: 16px 0; }
+  .card.live   { border-left: 2px solid var(--green); }
+  .card.stray  { border-left: 2px solid var(--yellow); }
+  .card.dead   { border-left: 2px solid var(--text-dim); }
+  .card.pick   { border-left: 2px solid var(--clavis); }
+
+  .card-title { font-family: var(--ui-font); font-weight: 600; letter-spacing: 0.04em; color: var(--text-bright); font-size: 16px; margin: 0 0 2px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .card-title .tag { font-family: var(--mono-font); font-size: 10.5px; color: var(--text-dim); letter-spacing: 0; }
+  .pill { font-family: var(--mono-font); font-size: 9.5px; letter-spacing: 0.05em; padding: 2px 6px; }
+  .pill.used   { color: var(--green);    border: 1px solid var(--green); }
+  .pill.unused { color: var(--text-dim); border: 1px solid var(--text-dim); }
+  .card-desc { color: var(--text-dim); font-size: 13px; margin: 6px 0 16px; max-width: 760px; }
+  .card-desc b { color: var(--text); font-weight: 500; }
+  .card-desc code { font-family: var(--mono-font); color: var(--clavis); font-size: 12px; }
+
+  .surf-label { font-family: var(--mono-font); font-size: 9.5px; color: var(--text-dim); letter-spacing: 0.04em; margin: 0 0 8px; }
+  .on-black   { background: var(--black); padding: 12px 14px; margin-bottom: 10px; }
+  .on-surface { background: var(--faint); border: 1px solid var(--code-border); padding: 12px 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; }
+
+  /* ===== shared geometry ===== */
+  .badge { font-family: var(--ui-font); font-weight: 600; font-size: 9px; letter-spacing: 0.05em; line-height: 1; white-space: nowrap; display: inline-flex; align-items: center; }
+
+  /* --- live: the Badge XAML style (FaintBrush fill, padding 6,1) --- */
+  .b-faint { background: var(--faint); padding: 1px 6px; }
+  .b-faint.scope { font-size: 11px; color: var(--text-dim); }
+
+  /* --- stray: status-line mode badge (PlaceholderStrip) - bare Inter text, uppercase, no box --- */
+  .b-mode { font-family: var(--agent-font); font-weight: 500; font-size: 11px; letter-spacing: 0.04em; }
+
+  /* --- dead: Badge.fs forms (clavis-controls), padding 7,2, Rajdhani micro medium --- */
+  .b-fs { font-weight: 500; padding: 2px 7px; }
+  .b-outline { background: transparent; border: 1px solid currentColor; }
+  .b-neutral { background: var(--faint); color: var(--text); border: 1px solid var(--code-border); }
+  .b-dot { gap: 6px; color: var(--text-dim); padding: 0; }
+  .b-dot .dot { width: 7px; height: 7px; border-radius: 50% !important; background: currentColor; flex: none; }
+  .b-dot .lbl { color: var(--text-dim); }
+
+  /* --- candidate-only looks --- */
+  .b-solid { padding: 1px 7px; }
+  .b-solid .lbl { color: var(--black); }
+  .b-underline { padding: 0 1px 3px; border-bottom: 2px solid currentColor; color: var(--text); }
+
+  /* in-context list (command-palette-like) */
+  .ctx { background: var(--black); border: 1px solid var(--code-border); padding: 14px 16px; margin-top: 12px; }
+  .ctx .cap { font-family: var(--mono-font); font-size: 10px; color: var(--text-dim); margin-bottom: 12px; letter-spacing: 0.04em; }
+  .ctx-row { display: flex; align-items: center; gap: 14px; padding: 6px 0; font-family: var(--ui-font); font-size: 13px; color: var(--text-dim); }
+  .ctx-row .name { color: var(--text); min-width: 130px; font-weight: 500; }
+  .ctx-row .desc { color: var(--text-dim); font-family: var(--agent-font); font-weight: 300; }
+  .ctx-row .key { color: var(--text-dim); font-family: var(--mono-font); font-size: 11px; width: 56px; }
+
+  .pickrow { display: grid; grid-template-columns: 150px 1fr; gap: 4px 18px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--faint); }
+  .pickrow .nm { font-family: var(--ui-font); font-weight: 600; color: var(--text-bright); font-size: 13px; letter-spacing: 0.03em; }
+
+  footer { margin-top: 60px; color: var(--text-dim); font-size: 13px; border-top: 1px solid var(--code-border); padding-top: 20px; max-width: 860px; }
+  footer code { font-family: var(--mono-font); color: var(--clavis); font-size: 12.5px; }
+  footer b { color: var(--text-bright); font-weight: 600; }
+</style>
+</head>
+<body>
+
+  <h1>CLAVIS <span class="accent">/</span> badge reconciliation</h1>
+  <p class="lede">
+    Every badge that exists in the app <b style="color:var(--text)">today</b>, rendered with the real palette,
+    fonts and sizes from <code>Styles.xaml</code> / <code>Theme.fs</code>. House rules hold throughout:
+    <b style="color:var(--text)">square corners only</b> (a status dot may be a circle), content before chrome,
+    colour from a theme resource key. Pick one look at the bottom and it becomes the single shared badge used everywhere.
+  </p>
+
+  <!-- ============================ CURRENT ============================ -->
+  <h2>What exists today <span class="count">3 looks, only 1 of them shared</span></h2>
+  <p class="section-note">
+    Each chip is shown on <b>black</b> and on a <b>surface panel (#0E0E14)</b> - because the live badge fill
+    <i>is</i> #0E0E14, so the chip is nearly invisible the moment it sits on a surface. That is one concrete reason to reconcile.
+  </p>
+
+  <!-- LIVE: the shared Badge style -->
+  <div class="card live">
+    <div class="card-title">The <code class="k">Badge</code> XAML style <span class="pill used">USED</span>
+      <span class="tag">wpf-host/Theme/Styles.xaml &middot; FaintBrush fill, padding 6,1</span></div>
+    <p class="card-desc">
+      A filled <b>Border</b> on <b>FaintBrush #0E0E14</b>, label in <b>Rajdhani</b>; the consumer only sets the
+      label colour. All three real usages already share this - they diverge only in label colour and one font size.
+    </p>
+
+    <p class="surf-label">command kind &middot; CommandItemTemplate.xaml &middot; Rajdhani 9</p>
+    <div class="on-black"><div class="row">
+      <span class="badge b-faint" style="color:var(--clavis)">MESSAGE</span>
+      <span class="badge b-faint" style="color:var(--periwinkle)">ALIAS</span>
+      <span class="badge b-faint" style="color:var(--periwinkle)">AGENT</span>
+      <span class="badge b-faint" style="color:var(--yellow)">SKILL</span>
+      <span class="badge b-faint" style="color:var(--text-dim)">COMMAND</span>
+    </div></div>
+    <div class="on-surface"><div class="row">
+      <span class="badge b-faint" style="color:var(--clavis)">MESSAGE</span>
+      <span class="badge b-faint" style="color:var(--periwinkle)">ALIAS</span>
+      <span class="badge b-faint" style="color:var(--periwinkle)">AGENT</span>
+      <span class="badge b-faint" style="color:var(--yellow)">SKILL</span>
+      <span class="badge b-faint" style="color:var(--text-dim)">COMMAND</span>
+    </div></div>
+
+    <p class="surf-label" style="margin-top:16px">event level &middot; EventEntryRowTemplate.xaml &middot; Rajdhani 9</p>
+    <div class="on-black"><div class="row">
+      <span class="badge b-faint" style="color:var(--text-dim)">TRACE</span>
+      <span class="badge b-faint" style="color:var(--green)">DEBUG</span>
+      <span class="badge b-faint" style="color:var(--clavis)">INFO</span>
+      <span class="badge b-faint" style="color:var(--yellow)">WARN</span>
+      <span class="badge b-faint" style="color:var(--red)">ERROR</span>
+    </div></div>
+
+    <p class="surf-label" style="margin-top:16px">tool scope &middot; ToolRowTemplate.xaml &middot; Rajdhani 11, always SecondaryBrush</p>
+    <div class="on-black"><div class="row">
+      <span class="badge b-faint scope">SESSION</span>
+      <span class="badge b-faint scope">PROJECT</span>
+      <span class="badge b-faint scope">ONCE</span>
+    </div></div>
+  </div>
+
+  <!-- STRAY: status-line mode badge -->
+  <div class="card stray">
+    <div class="card-title">Status-line <code class="k">badge</code> placeholder <span class="pill used">USED</span>
+      <span class="tag">clavis-rendering/PlaceholderStrip.fs &middot; bare Inter text, no box</span></div>
+    <p class="card-desc">
+      Despite the name this is <b>not a chip</b> - just coloured <b>Inter</b> text, uppercased, no fill or border.
+      It only colours strings it recognises as agent <i>modes</i>; <code>default</code>/<code>none</code> render nothing,
+      and <b>anything else falls through to dim text</b> - which is why <code>{badge:agent.modelName}</code> looks like
+      plain text (the last swatch).
+    </p>
+    <div class="on-black"><div class="row">
+      <span class="badge b-mode" style="color:var(--yellow)">AUTO</span>
+      <span class="badge b-mode" style="color:var(--periwinkle)">ACCEPTEDITS</span>
+      <span class="badge b-mode" style="color:var(--green)">PLAN</span>
+      <span class="badge b-mode" style="color:var(--text-dim)">OPUS 4.8</span>
+      <span style="color:var(--text-dim);font-family:var(--mono-font);font-size:11px">&larr; a model name: no colour, no box</span>
+    </div></div>
+  </div>
+
+  <!-- DEAD: Badge.fs -->
+  <div class="card dead">
+    <div class="card-title"><code class="k">Badge.fs</code> control set <span class="pill unused">DEFINED, CALLED BY NOBODY</span>
+      <span class="tag">clavis-controls/Badge.fs &middot; padding 7,2, Rajdhani micro</span></div>
+    <p class="card-desc">
+      The <i>intended</i> "one reconciled badge set" - four forms by meaning - but a grep shows nothing calls it.
+      It's a different shape from the live style: <b>outlines</b>, not a faint fill. This is the design that was
+      drawn up but never wired in.
+    </p>
+    <div class="on-black"><div class="row">
+      <span class="badge b-fs b-outline" style="color:var(--periwinkle)">KIND</span>
+      <span class="badge b-fs b-neutral">NEUTRAL</span>
+      <span class="badge b-fs b-outline" style="color:var(--green)">ADDED</span>
+      <span class="badge b-fs b-outline" style="color:var(--yellow)">ADMIN</span>
+      <span class="badge b-fs b-outline" style="color:var(--red)">DEPRECATED</span>
+      <span class="badge b-fs b-dot"><span class="dot" style="color:var(--text-dim)"></span><span class="lbl">DEACTIVATED</span></span>
+    </div></div>
+  </div>
+
+  <!-- ============================ PICK ONE ============================ -->
+  <h2>Candidates - pick the one that becomes the single badge <span class="count">choose a letter</span></h2>
+  <p class="section-note">
+    Each candidate is shown across the full accent set (info / identity / ok / warn / error / neutral) on black,
+    so they compare fairly. Whichever you pick becomes the one shared <code>Badge</code> style + a
+    <code>Badge.create(text, accentKey, &hellip;)</code> factory; command kind, event level, tool scope <b>and</b> the
+    status-line badge all route through it.
+  </p>
+
+  <div class="card pick">
+    <div class="pickrow">
+      <span class="nm">A &middot; Faint fill</span>
+      <div class="on-black" style="margin:0"><div class="row">
+        <span class="badge b-faint" style="color:var(--clavis)">INFO</span>
+        <span class="badge b-faint" style="color:var(--periwinkle)">IDENTITY</span>
+        <span class="badge b-faint" style="color:var(--green)">OK</span>
+        <span class="badge b-faint" style="color:var(--yellow)">WARN</span>
+        <span class="badge b-faint" style="color:var(--red)">ERROR</span>
+        <span class="badge b-faint" style="color:var(--text-dim)">NEUTRAL</span>
+      </div></div>
+    </div>
+    <div class="pickrow">
+      <span class="nm">B &middot; Outlined</span>
+      <div class="on-black" style="margin:0"><div class="row">
+        <span class="badge b-fs b-outline" style="color:var(--clavis)">INFO</span>
+        <span class="badge b-fs b-outline" style="color:var(--periwinkle)">IDENTITY</span>
+        <span class="badge b-fs b-outline" style="color:var(--green)">OK</span>
+        <span class="badge b-fs b-outline" style="color:var(--yellow)">WARN</span>
+        <span class="badge b-fs b-outline" style="color:var(--red)">ERROR</span>
+        <span class="badge b-fs b-outline" style="color:var(--text-dim)">NEUTRAL</span>
+      </div></div>
+    </div>
+    <div class="pickrow">
+      <span class="nm">C &middot; Dot + label</span>
+      <div class="on-black" style="margin:0"><div class="row">
+        <span class="badge b-fs b-dot" style="font-weight:600"><span class="dot" style="color:var(--clavis)"></span><span class="lbl">INFO</span></span>
+        <span class="badge b-fs b-dot" style="font-weight:600"><span class="dot" style="color:var(--periwinkle)"></span><span class="lbl">IDENTITY</span></span>
+        <span class="badge b-fs b-dot" style="font-weight:600"><span class="dot" style="color:var(--green)"></span><span class="lbl">OK</span></span>
+        <span class="badge b-fs b-dot" style="font-weight:600"><span class="dot" style="color:var(--yellow)"></span><span class="lbl">WARN</span></span>
+        <span class="badge b-fs b-dot" style="font-weight:600"><span class="dot" style="color:var(--red)"></span><span class="lbl">ERROR</span></span>
+        <span class="badge b-fs b-dot" style="font-weight:600"><span class="dot" style="color:var(--text-dim)"></span><span class="lbl">NEUTRAL</span></span>
+      </div></div>
+    </div>
+    <div class="pickrow">
+      <span class="nm">D &middot; Solid fill</span>
+      <div class="on-black" style="margin:0"><div class="row">
+        <span class="badge b-solid" style="background:var(--clavis)"><span class="lbl">INFO</span></span>
+        <span class="badge b-solid" style="background:var(--periwinkle)"><span class="lbl">IDENTITY</span></span>
+        <span class="badge b-solid" style="background:var(--green)"><span class="lbl">OK</span></span>
+        <span class="badge b-solid" style="background:var(--yellow)"><span class="lbl">WARN</span></span>
+        <span class="badge b-solid" style="background:var(--red)"><span class="lbl">ERROR</span></span>
+        <span class="badge b-solid" style="background:var(--text-dim)"><span class="lbl">NEUTRAL</span></span>
+      </div></div>
+    </div>
+    <div class="pickrow">
+      <span class="nm">E &middot; Bare text</span>
+      <div class="on-black" style="margin:0"><div class="row">
+        <span class="badge b-mode" style="color:var(--clavis)">INFO</span>
+        <span class="badge b-mode" style="color:var(--periwinkle)">IDENTITY</span>
+        <span class="badge b-mode" style="color:var(--green)">OK</span>
+        <span class="badge b-mode" style="color:var(--yellow)">WARN</span>
+        <span class="badge b-mode" style="color:var(--red)">ERROR</span>
+        <span class="badge b-mode" style="color:var(--text-dim)">NEUTRAL</span>
+      </div></div>
+    </div>
+    <div class="pickrow" style="border-bottom:none">
+      <span class="nm">F &middot; Underline</span>
+      <div class="on-black" style="margin:0"><div class="row">
+        <span class="badge b-underline" style="color:var(--clavis)">INFO</span>
+        <span class="badge b-underline" style="color:var(--periwinkle)">IDENTITY</span>
+        <span class="badge b-underline" style="color:var(--green)">OK</span>
+        <span class="badge b-underline" style="color:var(--yellow)">WARN</span>
+        <span class="badge b-underline" style="color:var(--red)">ERROR</span>
+        <span class="badge b-underline" style="color:var(--text-dim)">NEUTRAL</span>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ============================ IN CONTEXT ============================ -->
+  <h2>The strongest candidates, in context</h2>
+  <p class="section-note">Dropped into a command-palette row at real density, so you judge them where they actually live - not as isolated swatches.</p>
+
+  <div class="ctx">
+    <div class="cap">B - outlined</div>
+    <div class="ctx-row"><span class="name">/clear</span><span class="badge b-fs b-outline" style="color:var(--clavis)">MESSAGE</span><span class="key">Ctrl+L</span><span class="desc">clears the conversation</span></div>
+    <div class="ctx-row"><span class="name">/shortcuts</span><span class="badge b-fs b-outline" style="color:var(--periwinkle)">ALIAS</span><span class="key"></span><span class="desc">opens the keymap panel</span></div>
+    <div class="ctx-row"><span class="name">deep-research</span><span class="badge b-fs b-outline" style="color:var(--periwinkle)">AGENT</span><span class="key"></span><span class="desc">multi-source research harness</span></div>
+  </div>
+
+  <div class="ctx">
+    <div class="cap">C - dot + label</div>
+    <div class="ctx-row"><span class="name">/clear</span><span class="badge b-fs b-dot" style="font-weight:600"><span class="dot" style="color:var(--clavis)"></span><span class="lbl">MESSAGE</span></span><span class="key">Ctrl+L</span><span class="desc">clears the conversation</span></div>
+    <div class="ctx-row"><span class="name">/shortcuts</span><span class="badge b-fs b-dot" style="font-weight:600"><span class="dot" style="color:var(--periwinkle)"></span><span class="lbl">ALIAS</span></span><span class="key"></span><span class="desc">opens the keymap panel</span></div>
+    <div class="ctx-row"><span class="name">deep-research</span><span class="badge b-fs b-dot" style="font-weight:600"><span class="dot" style="color:var(--periwinkle)"></span><span class="lbl">AGENT</span></span><span class="key"></span><span class="desc">multi-source research harness</span></div>
+  </div>
+
+  <div class="ctx">
+    <div class="cap">A - faint fill (today's live look)</div>
+    <div class="ctx-row"><span class="name">/clear</span><span class="badge b-faint" style="color:var(--clavis)">MESSAGE</span><span class="key">Ctrl+L</span><span class="desc">clears the conversation</span></div>
+    <div class="ctx-row"><span class="name">/shortcuts</span><span class="badge b-faint" style="color:var(--periwinkle)">ALIAS</span><span class="key"></span><span class="desc">opens the keymap panel</span></div>
+    <div class="ctx-row"><span class="name">deep-research</span><span class="badge b-faint" style="color:var(--periwinkle)">AGENT</span><span class="key"></span><span class="desc">multi-source research harness</span></div>
+  </div>
+
+  <footer>
+    <b>Pick a letter (A-F)</b> and I'll make it the single source of truth: one <code>Badge</code> style (or a
+    <code>Badge.create</code> factory in <code>clavis-controls</code>) themed by an accent resource key, then point the
+    command-kind, event-level, tool-scope <b>and</b> status-line badges at it - and delete the dead <code>Badge.fs</code>
+    forms and the bespoke <code>PlaceholderStrip</code> renderer. You can also mix ("B, but with C's dot for status")
+    and I'll combine them.
+  </footer>
+
+</body>
+</html>

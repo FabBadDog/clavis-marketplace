@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CLAVIS - Badge uniform width</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --black:  #000000;
+    --faint:  #0E0E14;
+    --code-border: #282834;
+    --text:   #C8C8D0;
+    --text-bright: #E8E8EC;
+    --text-dim: #9A9AA4;
+    --clavis: #9FD5F0;
+    --green:  #7BD49B;
+    --yellow: #E4C47E;
+    --red:    #E47E7E;
+    --ui-font:    'Rajdhani', 'Segoe UI', sans-serif;
+    --agent-font: 'Inter', 'Segoe UI', sans-serif;
+    --mono-font:  'JetBrains Mono', 'Cascadia Code', monospace;
+  }
+
+  * { box-sizing: border-box; border-radius: 0 !important; }
+  body { margin: 0; background: #08080b; color: var(--text); font-family: var(--agent-font); font-weight: 300; line-height: 1.5; padding: 44px 56px 90px; }
+
+  h1 { font-family: var(--ui-font); font-weight: 600; letter-spacing: 0.06em; color: var(--text-bright); font-size: 26px; margin: 0 0 6px; }
+  h1 .accent { color: var(--clavis); }
+  .lede { color: var(--text-dim); max-width: 840px; font-size: 14px; margin: 0 0 6px; }
+  .lede code, code.k { font-family: var(--mono-font); color: var(--clavis); font-size: 12.5px; }
+
+  h2 { font-family: var(--ui-font); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; font-size: 13px; color: var(--text-dim); margin: 50px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--code-border); }
+  .section-note { color: var(--text-dim); font-size: 13px; margin: -6px 0 18px; max-width: 840px; }
+  .section-note b { color: var(--text); font-weight: 500; }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  .panel { background: var(--black); border: 1px solid var(--code-border); padding: 16px 18px; }
+  .panel .cap { font-family: var(--mono-font); font-size: 10.5px; letter-spacing: 0.04em; margin: 0 0 14px; }
+  .panel .cap.bad  { color: var(--yellow); }
+  .panel .cap.good { color: var(--green); }
+  .panel .cap .sub { color: var(--text-dim); }
+
+  /* badge: chosen style, 6,3 padding */
+  .badge { font-family: var(--ui-font); font-weight: 600; font-size: 9px; letter-spacing: 0.05em; line-height: 1; white-space: nowrap; background: var(--faint); padding: 3px 6px; display: inline-flex; align-items: center; justify-content: center; }
+  .trace { color: var(--text-dim); } .debug { color: var(--green); } .info { color: var(--clavis); } .warn { color: var(--yellow); } .error { color: var(--red); }
+
+  /* ---- isolated stacks ---- */
+  .stack { display: inline-flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  /* uniform stack: a 1-col grid; the column is max-content (= widest), badges stretch + center */
+  .ustack { display: inline-grid; grid-template-columns: max-content; gap: 8px; }
+  .ustack .badge { width: 100%; }
+  .guide { border-left: 1px dashed #3a3a46; padding-left: 14px; margin-left: 2px; }
+
+  /* ---- events list, natural: each row independent, badge natural width ---- */
+  .ev-nat .row { display: flex; align-items: center; gap: 12px; padding: 5px 0; }
+  .ev-nat .t { font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); width: 46px; flex: none; }
+  .ev-nat .msg { font-family: var(--agent-font); font-weight: 300; font-size: 13px; color: var(--text); }
+  .ev-nat .msg .src { color: var(--text-dim); font-family: var(--mono-font); font-size: 11px; }
+
+  /* ---- events list, uniform: ONE grid; level col = max-content shared across all rows ---- */
+  .ev-uni { display: grid; grid-template-columns: 46px max-content 1fr; gap: 0 12px; align-items: center; }
+  .ev-uni .t { font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); padding: 5px 0; }
+  .ev-uni .badge { width: 100%; margin: 4px 0; }
+  .ev-uni .msg { font-family: var(--agent-font); font-weight: 300; font-size: 13px; color: var(--text); padding: 5px 0; }
+  .ev-uni .msg .src { color: var(--text-dim); font-family: var(--mono-font); font-size: 11px; }
+
+  .align-cue { border-left: 1px dashed #3a3a46; }
+
+  footer { margin-top: 56px; color: var(--text-dim); font-size: 13px; border-top: 1px solid var(--code-border); padding-top: 20px; max-width: 880px; }
+  footer code { font-family: var(--mono-font); color: var(--clavis); font-size: 12.5px; }
+  footer b { color: var(--text-bright); font-weight: 600; }
+</style>
+</head>
+<body>
+
+  <h1>CLAVIS <span class="accent">/</span> uniform-width badges</h1>
+  <p class="lede">
+    When a column of badges of the <b style="color:var(--text)">same family</b> appears together (event levels, command kinds&hellip;),
+    they all take the width of the <b style="color:var(--text)">widest</b> label and the shorter ones center - so INFO and WARN gain
+    equal padding left and right. Padding is your chosen <code class="k">6,3</code>. This is <b style="color:var(--text)">opt-in per list</b>,
+    not global: a lone badge keeps its natural width.
+  </p>
+
+  <h2>The four levels, equalized</h2>
+  <p class="section-note">Left: natural widths (ragged right edge). Right: uniform - every chip matches the widest (<b>DEBUG/TRACE/ERROR</b>), text centered. The dashed line marks the shared right edge.</p>
+  <div class="two">
+    <div class="panel">
+      <div class="cap bad">NATURAL <span class="sub">- ragged</span></div>
+      <div class="stack">
+        <span class="badge info">INFO</span>
+        <span class="badge debug">DEBUG</span>
+        <span class="badge warn">WARN</span>
+        <span class="badge error">ERROR</span>
+        <span class="badge trace">TRACE</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="cap good">UNIFORM <span class="sub">- shared width, centered</span></div>
+      <div class="guide" style="display:inline-block">
+        <div class="ustack">
+          <span class="badge info">INFO</span>
+          <span class="badge debug">DEBUG</span>
+          <span class="badge warn">WARN</span>
+          <span class="badge error">ERROR</span>
+          <span class="badge trace">TRACE</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>In the events list</h2>
+  <p class="section-note">Uniform badges also align the <b>message</b> column: with natural widths each row's message starts at a different x; with a shared width they line up.</p>
+  <div class="two">
+    <div class="panel">
+      <div class="cap bad">NATURAL <span class="sub">- messages start at ragged x</span></div>
+      <div class="ev-nat">
+        <div class="row"><span class="t">0.0s</span><span class="badge info">INFO</span><span class="msg"><span class="src">WpfHost</span> primary window shown</span></div>
+        <div class="row"><span class="t">+0.3s</span><span class="badge debug">DEBUG</span><span class="msg"><span class="src">Kernel</span> plugin activated</span></div>
+        <div class="row"><span class="t">+1.2s</span><span class="badge warn">WARN</span><span class="msg"><span class="src">ClaudeBridge</span> catalog incomplete</span></div>
+        <div class="row"><span class="t">+2.4s</span><span class="badge error">ERROR</span><span class="msg"><span class="src">ResourceBroker</span> no git:// scheme</span></div>
+        <div class="row"><span class="t">+4.0s</span><span class="badge trace">TRACE</span><span class="msg"><span class="src">Bus</span> dispatched event</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="cap good">UNIFORM <span class="sub">- messages aligned</span></div>
+      <div class="ev-uni">
+        <span class="t">0.0s</span><span class="badge info">INFO</span><span class="msg"><span class="src">WpfHost</span> primary window shown</span>
+        <span class="t">+0.3s</span><span class="badge debug">DEBUG</span><span class="msg"><span class="src">Kernel</span> plugin activated</span>
+        <span class="t">+1.2s</span><span class="badge warn">WARN</span><span class="msg"><span class="src">ClaudeBridge</span> catalog incomplete</span>
+        <span class="t">+2.4s</span><span class="badge error">ERROR</span><span class="msg"><span class="src">ResourceBroker</span> no git:// scheme</span>
+        <span class="t">+4.0s</span><span class="badge trace">TRACE</span><span class="msg"><span class="src">Bus</span> dispatched event</span>
+      </div>
+    </div>
+  </div>
+
+  <h2>Same idea, command palette kinds</h2>
+  <p class="section-note">The other multi-badge list: MESSAGE / ALIAS / AGENT / SKILL / COMMAND. Uniform width keeps the descriptions aligned too.</p>
+  <div class="two">
+    <div class="panel">
+      <div class="cap bad">NATURAL</div>
+      <div class="ev-nat">
+        <div class="row"><span class="badge" style="color:var(--clavis)">MESSAGE</span><span class="msg">clears the conversation</span></div>
+        <div class="row"><span class="badge" style="color:var(--periwinkle);color:#ADA6F2">ALIAS</span><span class="msg">opens the keymap panel</span></div>
+        <div class="row"><span class="badge" style="color:#ADA6F2">AGENT</span><span class="msg">multi-source research</span></div>
+        <div class="row"><span class="badge warn">SKILL</span><span class="msg">create a new skill</span></div>
+        <div class="row"><span class="badge trace">COMMAND</span><span class="msg">run a slash command</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="cap good">UNIFORM</div>
+      <div class="ev-uni" style="grid-template-columns: max-content 1fr;">
+        <span class="badge" style="color:var(--clavis)">MESSAGE</span><span class="msg">clears the conversation</span>
+        <span class="badge" style="color:#ADA6F2">ALIAS</span><span class="msg">opens the keymap panel</span>
+        <span class="badge" style="color:#ADA6F2">AGENT</span><span class="msg">multi-source research</span>
+        <span class="badge warn">SKILL</span><span class="msg">create a new skill</span>
+        <span class="badge trace">COMMAND</span><span class="msg">run a slash command</span>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <b>How it's built:</b> set <code>Grid.IsSharedSizeScope="True"</code> on the list (the events / palette ItemsControl) and give the
+    badge's column <code>SharedSizeGroup="BadgeWidth"</code>; the badge Border stretches to fill it with its label centered. WPF sizes
+    the column to the widest badge automatically - no fixed number, and it only applies inside that one scope. Tell me which lists
+    should get it (events, command palette, both?) and I'll wire it in alongside the <code>6,3</code> padding.
+  </footer>
+
+</body>
+</html>
