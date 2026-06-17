@@ -58,6 +58,7 @@
     <SolidColorBrush x:Key="CodeBgBrush" Color="#14141C" />
     <SolidColorBrush x:Key="CodeBorderBrush" Color="#282834" />
     <SolidColorBrush x:Key="RailBrush" Color="#1B1B22" />
+    <SolidColorBrush x:Key="RaisedBrush" Color="#36363F" />
 
     <!-- The seven type roles as shared TextBlock styles (CLAVIS-DESIGN-LANGUAGE.md §4 + §10). Each sets the
          role's voice (font), size (from the *FontSize keys above), weight and a sensible default foreground;
@@ -521,9 +522,10 @@
 
     <!-- Badge building blocks. A badge is never assembled by hand: it is the BadgeTemplate below, hosted in
          a ContentControl whose Content is a BadgeViewModel (Text + AccentKey). These two styles and the
-         converter are the template's pieces. The chip is a small square filled chip (FaintBrush). -->
+         converter are the template's pieces. The chip is a small square filled chip (RaisedBrush - a raised
+         grey distinct from the panel SurfaceBrush, so the badge reads as a filled chip). -->
     <Style x:Key="Badge" TargetType="{x:Type Border}">
-        <Setter Property="Background" Value="{DynamicResource FaintBrush}" />
+        <Setter Property="Background" Value="{DynamicResource RaisedBrush}" />
         <Setter Property="Padding" Value="6,3" />
     </Style>
 

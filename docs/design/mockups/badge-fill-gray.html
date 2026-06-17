@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Badge fill - dedicated raised gray</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --black:#000000; --surface:#0E0E14; --line:#5A5A66;
+    --text:#E8E8EC; --body:#C8C8D0; --dim:#9A9AA4; --primary:#9FD5F0;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--black); color:var(--body); font-family:'Inter','Segoe UI',sans-serif; font-size:14px; line-height:1.5; padding:40px 48px 90px; }
+  h1 { font-family:'Rajdhani',sans-serif; font-weight:600; font-size:26px; letter-spacing:.02em; color:var(--text); margin:0 0 6px; }
+  .sub { color:var(--dim); margin:0 0 30px; max-width:76ch; }
+  code { font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--text); }
+
+  table { border-collapse:collapse; width:100%; max-width:880px; }
+  th { text-align:left; font-family:'Rajdhani',sans-serif; font-weight:600; letter-spacing:.08em; text-transform:uppercase; font-size:12px; color:var(--dim); padding:0 18px 12px 0; }
+  td { padding:9px 18px 9px 0; vertical-align:middle; border-top:1px solid #1c1c22; }
+  .hex { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--body); white-space:nowrap; }
+  .note { font-size:12px; color:var(--dim); }
+  .rec td { background:#0c0c12; }
+  .rec .hex { color:var(--primary); }
+
+  /* the badge - BadgeTemplate geometry: square, 6/3 padding, Rajdhani micro semibold, bright label */
+  .badge { display:inline-flex; align-items:center; justify-content:center; padding:3px 6px; border-radius:0;
+           font-family:'Rajdhani',sans-serif; font-weight:600; font-size:11px; letter-spacing:.05em; line-height:1; color:var(--text); }
+
+  /* the "on a panel" cell paints a surface tile behind the badge */
+  .on-panel { background:var(--surface); padding:10px 12px; display:inline-flex; gap:7px; }
+  .on-black { padding:10px 12px; display:inline-flex; gap:7px; }
+
+  .swatch { width:34px; height:18px; display:inline-block; border:1px solid #2a2a32; vertical-align:middle; }
+</style>
+</head>
+<body>
+  <h1>Badge fill - a dedicated raised gray</h1>
+  <p class="sub">
+    Each row is one candidate badge fill, shown <b>on the black background</b> (where tool rows / loose badges sit)
+    and <b>on a <code>#0E0E14</code> panel</b> (events panel, palette). Top row is today's value (badge = surface,
+    so it vanishes); bottom row is <code>line #5A5A66</code>, which you found too bright as a fill. The aim: a shade
+    that clearly separates from both backgrounds while staying calmer than the line.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Shade</th><th>On black bg</th><th>On #0E0E14 panel</th><th></th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="swatch" style="background:#0E0E14"></span> <span class="hex">#0E0E14</span></td>
+        <td><span class="on-black"><span class="badge" style="background:#0E0E14">INFO</span><span class="badge" style="background:#0E0E14">BASH</span></span></td>
+        <td><span class="on-panel"><span class="badge" style="background:#0E0E14">INFO</span><span class="badge" style="background:#0E0E14">BASH</span></span></td>
+        <td class="note">current - = surface, no contrast</td>
+      </tr>
+      <tr>
+        <td><span class="swatch" style="background:#24242E"></span> <span class="hex">#24242E</span></td>
+        <td><span class="on-black"><span class="badge" style="background:#24242E">INFO</span><span class="badge" style="background:#24242E">BASH</span></span></td>
+        <td><span class="on-panel"><span class="badge" style="background:#24242E">INFO</span><span class="badge" style="background:#24242E">BASH</span></span></td>
+        <td class="note">faintest that reads on the panel</td>
+      </tr>
+      <tr>
+        <td><span class="swatch" style="background:#2E2E3A"></span> <span class="hex">#2E2E3A</span></td>
+        <td><span class="on-black"><span class="badge" style="background:#2E2E3A">INFO</span><span class="badge" style="background:#2E2E3A">BASH</span></span></td>
+        <td><span class="on-panel"><span class="badge" style="background:#2E2E3A">INFO</span><span class="badge" style="background:#2E2E3A">BASH</span></span></td>
+        <td class="note">clear on both</td>
+      </tr>
+      <tr class="rec">
+        <td><span class="swatch" style="background:#36363F"></span> <span class="hex">#36363F</span></td>
+        <td><span class="on-black"><span class="badge" style="background:#36363F">INFO</span><span class="badge" style="background:#36363F">BASH</span></span></td>
+        <td><span class="on-panel"><span class="badge" style="background:#36363F">INFO</span><span class="badge" style="background:#36363F">BASH</span></span></td>
+        <td class="note">recommended - distinct, still calm</td>
+      </tr>
+      <tr>
+        <td><span class="swatch" style="background:#41414D"></span> <span class="hex">#41414D</span></td>
+        <td><span class="on-black"><span class="badge" style="background:#41414D">INFO</span><span class="badge" style="background:#41414D">BASH</span></span></td>
+        <td><span class="on-panel"><span class="badge" style="background:#41414D">INFO</span><span class="badge" style="background:#41414D">BASH</span></span></td>
+        <td class="note">strong</td>
+      </tr>
+      <tr>
+        <td><span class="swatch" style="background:#5A5A66"></span> <span class="hex">#5A5A66</span></td>
+        <td><span class="on-black"><span class="badge" style="background:#5A5A66">INFO</span><span class="badge" style="background:#5A5A66">BASH</span></span></td>
+        <td><span class="on-panel"><span class="badge" style="background:#5A5A66">INFO</span><span class="badge" style="background:#5A5A66">BASH</span></span></td>
+        <td class="note">line - too bright (your call)</td>
+      </tr>
+    </tbody>
+  </table>
+</body>
+</html>

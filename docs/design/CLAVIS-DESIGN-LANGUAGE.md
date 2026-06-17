@@ -83,7 +83,7 @@ accents carry meaning; three signals communicate status. A body-prose tone and a
 | `red` | `#E47E7E` | Signal: problem |
 | `yellow` | `#E4C47E` | Signal: warning |
 
-**Implementation tokens.** Three derived greys the renderer needs but views never pick by hand - they belong
+**Implementation tokens.** Four derived greys the renderer needs but views never pick by hand - they belong
 to a specific surface, not the open palette. They live in the theme so a theme can retune them:
 
 | Token | Value | Use |
@@ -91,6 +91,7 @@ to a specific surface, not the open palette. They live in the theme so a theme c
 | `code-bg` | `#14141C` | Code-block / inline-code fill (a touch above `surface`) |
 | `code-border` | `#282834` | Code-block border |
 | `rail` | `#1B1B22` | The turn rail's resting background track |
+| `raised` | `#36363F` | Filled-chip / badge fill: a stronger raised surface (above `surface`, below `line`) so a badge reads as a chip |
 
 ### Accent semantics
 

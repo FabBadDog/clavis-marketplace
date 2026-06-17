@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Surface brightness - FaintBrush / SurfaceBrush ramp</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --black:  #000000;
+    --line:   #5A5A66;
+    --text:   #E8E8EC;
+    --body:   #C8C8D0;
+    --dim:    #9A9AA4;
+    --primary:#9FD5F0;
+    --code-border:#282834;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--black); color: var(--body);
+    font-family: 'Inter','Segoe UI',sans-serif; font-size: 14px; line-height: 1.55;
+    padding: 40px 48px 90px;
+  }
+  h1 { font-family:'Rajdhani',sans-serif; font-weight:600; font-size:26px; letter-spacing:.02em; color:var(--text); margin:0 0 6px; }
+  .sub { color:var(--dim); margin:0 0 34px; max-width:74ch; }
+  code,.mono { font-family:'JetBrains Mono',monospace; font-size:12.5px; }
+  .sub code { color:var(--text); }
+
+  .ramp { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:22px; }
+
+  /* Each option renders a real panel at its `surface`, holding badges + body + an inline code chip. */
+  .opt .head { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; }
+  .opt .name { font-family:'Rajdhani',sans-serif; font-weight:600; letter-spacing:.10em; text-transform:uppercase; font-size:13px; color:var(--text); }
+  .opt .tag  { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); }
+  .opt.rec .name::after { content:" - recommended"; color:var(--primary); font-weight:500; letter-spacing:0; text-transform:none; }
+
+  .panel { border:1px solid var(--line); padding:16px 16px 18px; display:flex; flex-direction:column; gap:12px; }
+  .panel .row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .panel .copy { color:var(--body); font-size:13px; }
+  .panel .copy .codechip { padding:1px 5px; color:var(--text); border-radius:0; }
+
+  .badge {
+    display:inline-flex; align-items:center; justify-content:center;
+    padding:3px 6px; border-radius:0;
+    font-family:'Rajdhani',sans-serif; font-weight:600; font-size:11px; letter-spacing:.05em; line-height:1;
+    color:var(--text);
+  }
+  .swatches { display:flex; gap:14px; margin-top:4px; }
+  .sw { display:flex; align-items:center; gap:7px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); }
+  .chip { width:14px; height:14px; border:1px solid #33333c; display:inline-block; }
+
+  /* surface (S) / code-bg (C) values per option */
+  .o0 .panel,.o0 .badge { background:#0E0E14; } .o0 .codechip { background:#14141C; }
+  .o1 .panel,.o1 .badge { background:#17171F; } .o1 .codechip { background:#1D1D27; }
+  .o2 .panel,.o2 .badge { background:#1F1F29; } .o2 .codechip { background:#252531; }
+  .o3 .panel,.o3 .badge { background:#292934; } .o3 .codechip { background:#2F2F3C; }
+  .o0 .s{background:#0E0E14}.o0 .c{background:#14141C}
+  .o1 .s{background:#17171F}.o1 .c{background:#1D1D27}
+  .o2 .s{background:#1F1F29}.o2 .c{background:#252531}
+  .o3 .s{background:#292934}.o3 .c{background:#2F2F3C}
+
+  .ref { color:var(--line); }
+</style>
+</head>
+<body>
+  <h1>Surface brightness ramp</h1>
+  <p class="sub">
+    <code>FaintBrush</code> and <code>SurfaceBrush</code> are the same theme token (<code>surface</code>), so this
+    one value is the badge fill <b>and</b> every panel / popup / hover / selection background. Below: the current
+    value plus three brighter steps. Each card is a real panel at that <code>surface</code>, with badges, body
+    text, and an inline <span class="mono">code</span> chip (<code>code-bg</code>, kept a step above surface so
+    code still reads as raised). The frame is the <code class="ref">line #5A5A66</code> you found too bright as a fill.
+  </p>
+
+  <div class="ramp">
+
+    <div class="opt o0">
+      <div class="head"><span class="name">Current</span><span class="tag">surface #0E0E14</span></div>
+      <div class="panel">
+        <div class="row">
+          <span class="badge">INFO</span><span class="badge">BASH</span><span class="badge">WARN</span>
+        </div>
+        <div class="copy">A panel surface. Inline <span class="codechip mono">code</span> sits on it.</div>
+      </div>
+      <div class="swatches"><span class="sw"><span class="chip s"></span>S #0E0E14</span><span class="sw"><span class="chip c"></span>code #14141C</span></div>
+    </div>
+
+    <div class="opt o1">
+      <div class="head"><span class="name">Subtle</span><span class="tag">+ ~9</span></div>
+      <div class="panel">
+        <div class="row">
+          <span class="badge">INFO</span><span class="badge">BASH</span><span class="badge">WARN</span>
+        </div>
+        <div class="copy">A panel surface. Inline <span class="codechip mono">code</span> sits on it.</div>
+      </div>
+      <div class="swatches"><span class="sw"><span class="chip s"></span>S #17171F</span><span class="sw"><span class="chip c"></span>code #1D1D27</span></div>
+    </div>
+
+    <div class="opt o2 rec">
+      <div class="head"><span class="name">Balanced</span><span class="tag">+ ~17</span></div>
+      <div class="panel">
+        <div class="row">
+          <span class="badge">INFO</span><span class="badge">BASH</span><span class="badge">WARN</span>
+        </div>
+        <div class="copy">A panel surface. Inline <span class="codechip mono">code</span> sits on it.</div>
+      </div>
+      <div class="swatches"><span class="sw"><span class="chip s"></span>S #1F1F29</span><span class="sw"><span class="chip c"></span>code #252531</span></div>
+    </div>
+
+    <div class="opt o3">
+      <div class="head"><span class="name">Stronger</span><span class="tag">+ ~27</span></div>
+      <div class="panel">
+        <div class="row">
+          <span class="badge">INFO</span><span class="badge">BASH</span><span class="badge">WARN</span>
+        </div>
+        <div class="copy">A panel surface. Inline <span class="codechip mono">code</span> sits on it.</div>
+      </div>
+      <div class="swatches"><span class="sw"><span class="chip s"></span>S #292934</span><span class="sw"><span class="chip c"></span>code #2F2F3C</span></div>
+    </div>
+
+  </div>
+</body>
+</html>
