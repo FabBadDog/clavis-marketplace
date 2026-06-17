@@ -24,16 +24,16 @@ type PlaceholderStrip() =
     static let barHeight = 3.0
     static let iconGap = Thickness(0.0, 0.0, 4.0, 0.0)
     static let barMargin = Thickness(2.0, 0.0, 2.0, 0.0)
-    static let modeMargin = Thickness(1.0, 0.0, 1.0, 0.0)
 
-    // The mode maps to a palette accent; default/none/empty render nothing (the user's rule); unknown → dim.
-    static let modeBrush value : Brush option =
+    // The mode maps to a palette accent resource key; default/none/empty render nothing (the user's rule);
+    // any other value (e.g. a model name) gets the neutral dim key so it still reads as a chip.
+    static let modeAccentKey value =
         match value with
-        | "auto" -> Some(Colors.yellow :> Brush)
-        | "acceptEdits" | "accept" -> Some(Colors.secondary :> Brush)
-        | "plan" -> Some(Colors.green :> Brush)
+        | "auto" -> Some "YellowBrush"
+        | "acceptEdits" | "accept" -> Some "SecondaryAccentBrush"
+        | "plan" -> Some "GreenBrush"
         | "" | "default" | "none" -> None
-        | _ -> Some(Colors.textDim :> Brush)
+        | _ -> Some "TextDimBrush"
 
     static let colorByName name : Brush =
         match name with
@@ -122,20 +122,19 @@ type PlaceholderStrip() =
         grid.Children.Add fill |> ignore
         (grid :> UIElement), fill, clamped
 
-    // Plain coloured text, no box or background (Clavis design: content before chrome; the user's rule).
+    // A chip rendered through the shared BadgeTemplate - the single badge definition used across the app.
+    // Empty, "default" and "none" render nothing; any other value (e.g. a model name) gets a neutral chip
+    // instead of bare text, so {badge:agent.modelName} reads as a badge like every other badge.
     let badge (value: string) =
-        match modeBrush value with
+        match modeAccentKey value with
         | None -> None
-        | Some brush ->
-            let label =
-                TextBlock(
-                    Text = value.ToUpperInvariant(),
-                    FontSize = microSize,
-                    Foreground = brush,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = modeMargin)
-            label.SetResourceReference(TextBlock.FontFamilyProperty, FontKeys.AgentFont)
-            Some(label :> UIElement)
+        | Some accentKey ->
+            let host =
+                ContentControl(
+                    Content = BadgeViewModel(value.ToUpperInvariant(), accentKey),
+                    VerticalAlignment = VerticalAlignment.Center)
+            host.SetResourceReference(ContentControl.ContentTemplateProperty, "BadgeTemplate")
+            Some(host :> UIElement)
 
     let microstat (iconName: string) (value: string) =
         let row = StackPanel(Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center)

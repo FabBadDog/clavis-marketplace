@@ -1,3 +1,5 @@
+using FabioSoft.Clavis.Rendering;
+
 namespace FabioSoft.Nucleus.Plugins.CommandPalette;
 
 /// The source/category of a palette command, shown as a badge in the suggestion list.
@@ -21,6 +23,16 @@ public sealed record CommandItem(
     string DisplayName)
 {
     public string KindLabel => Kind.ToString().ToUpperInvariant();
+
+    // The kind badge for the shared BadgeTemplate: the kind word plus its palette resource key.
+    public BadgeViewModel KindBadge => new(KindLabel, Kind switch
+    {
+        CommandKind.Message => "ClavisBrush",
+        CommandKind.Alias => "HumanBrush",
+        CommandKind.Agent => "InputBrush",
+        CommandKind.Skill => "WarnBrush",
+        _ => "SecondaryBrush"
+    });
 
     /// The gesture currently bound to this command (empty when none). Set when suggestions are built from
     /// the live keymap snapshot, so the palette can show the shortcut next to each command.

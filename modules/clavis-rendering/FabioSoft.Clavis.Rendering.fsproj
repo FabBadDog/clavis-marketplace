@@ -9,6 +9,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Theme.fs" />
+    <Compile Include="BadgeViewModel.fs" />
+    <Compile Include="KeyToBrushConverter.fs" />
     <Compile Include="FocusOverlay.fs" />
     <Compile Include="Motion.fs" />
     <Compile Include="CloseButton.fs" />

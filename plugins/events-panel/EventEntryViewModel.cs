@@ -1,4 +1,5 @@
 using FabioSoft.Nucleus.Contracts;
+using FabioSoft.Clavis.Rendering;
 
 namespace FabioSoft.Nucleus.Plugins.EventsPanel;
 
@@ -30,6 +31,17 @@ public sealed class EventEntryViewModel(EventEntry entry, DateTime? sessionStart
         LogLevel.Error => "ERROR",
         _ => ""
     };
+
+    // The severity badge for the shared BadgeTemplate: the level word plus its palette resource key.
+    public BadgeViewModel LevelBadge => new(LevelLabel, entry.Level switch
+    {
+        LogLevel.Trace => "LevelTraceBrush",
+        LogLevel.Debug => "LevelDebugBrush",
+        LogLevel.Info => "LevelInfoBrush",
+        LogLevel.Warn => "LevelWarnBrush",
+        LogLevel.Error => "LevelErrorBrush",
+        _ => "TextBrush"
+    });
 
     public string SourceLabel => entry.Source;
 

@@ -1,4 +1,5 @@
 using FabioSoft.Common;
+using FabioSoft.Clavis.Rendering;
 
 namespace FabioSoft.Nucleus.Plugins.Conversation.ViewModels;
 
@@ -25,6 +26,7 @@ public sealed class ToolItemViewModel : ObservableObject
     public bool ShowWarning => _state.ShowWarning;
     public string WarningText => _state.WarningText;
     public string ScopeBadgeText => _state.ScopeBadgeText;
+    public BadgeViewModel ScopeBadge => new(ScopeBadgeText, "SecondaryBrush");
     public bool IsDenied => _state.IsDenied;
 
     // Detailed-output: the complete input/output, shown only when the row is expanded.

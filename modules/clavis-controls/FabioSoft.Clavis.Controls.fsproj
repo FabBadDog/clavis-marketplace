@@ -15,7 +15,6 @@
     <Compile Include="SectionHeader.fs" />
     <Compile Include="MetadataText.fs" />
     <Compile Include="StatusDot.fs" />
-    <Compile Include="Badge.fs" />
     <Compile Include="TreeBrowser.fs" />
     <Compile Include="EmptyState.fs" />
   </ItemGroup>

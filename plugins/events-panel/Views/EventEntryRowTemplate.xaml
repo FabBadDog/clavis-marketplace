@@ -53,39 +53,15 @@
                            VerticalAlignment="Top"
                            Margin="0,1,8,0" />
 
-                <!-- Severity badge, coloured by level to match the filter palette. -->
-                <Border Grid.Row="0" Grid.Column="1"
-                        Style="{DynamicResource Badge}"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Top"
-                        Margin="0,1,8,0">
-                    <TextBlock Text="{Binding LevelLabel}"
-                               FontFamily="{DynamicResource UiFont}"
-                               FontSize="{DynamicResource MicroFontSize}">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Level}" Value="Trace">
-                                        <Setter Property="Foreground" Value="{DynamicResource LevelTraceBrush}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Level}" Value="Debug">
-                                        <Setter Property="Foreground" Value="{DynamicResource LevelDebugBrush}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Level}" Value="Info">
-                                        <Setter Property="Foreground" Value="{DynamicResource LevelInfoBrush}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Level}" Value="Warn">
-                                        <Setter Property="Foreground" Value="{DynamicResource LevelWarnBrush}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Level}" Value="Error">
-                                        <Setter Property="Foreground" Value="{DynamicResource LevelErrorBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </Border>
+                <!-- Severity badge: the shared BadgeTemplate, coloured by level via LevelBadge.AccentKey.
+                     Fills the fixed level column and centres so the badge column shares one width. -->
+                <ContentControl Grid.Row="0" Grid.Column="1"
+                                Content="{Binding LevelBadge}"
+                                ContentTemplate="{DynamicResource BadgeTemplate}"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalAlignment="Top"
+                                Margin="0,1,8,0" />
 
                 <!-- Source, trimmed with an ellipsis if it overruns its column. -->
                 <TextBlock Grid.Row="0" Grid.Column="2"
