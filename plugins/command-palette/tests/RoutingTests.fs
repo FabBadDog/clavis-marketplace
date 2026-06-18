@@ -135,7 +135,7 @@ let ``route reports an alias that references an unknown message`` () =
     %(outcome :? RouteError).Should().BeTrue()
 
 [<Fact>]
-let ``suggestions include messages aliases and the external commands`` () =
+let ``suggestions list aliases and external commands but never raw messages`` () =
 
     // Arrange
     let external : IReadOnlyList<CommandItem> =
@@ -151,21 +151,23 @@ let ``suggestions include messages aliases and the external commands`` () =
     %clear.Description.Should().Be("Clear the screen")
     let compact = items |> Seq.find (fun item -> item.Name = "compact")
     %compact.Kind.Should().Be(CommandKind.Agent)
-    %(items |> Seq.exists (fun item -> item.Name = "LogEntry" && item.Kind = CommandKind.Message)).Should().BeTrue()
     %(items |> Seq.exists (fun item -> item.Name = "exit" && item.Kind = CommandKind.Alias)).Should().BeTrue()
+    // Raw bus messages stay routable (see the Route tests) but never appear in the browsable list.
+    %(items |> Seq.exists (fun item -> item.Kind = CommandKind.Message)).Should().BeFalse()
 
 [<Fact>]
 let ``suggestions filter by the typed name`` () =
 
     // Arrange
     let noExternal : IReadOnlyList<CommandItem> = Array.empty<CommandItem> :> _
+    let twoAliases = aliases [ "exit", "ApplicationShutdown"; "restart", "FullRestartRequested" ]
 
     // Act
-    let items = CommandSuggestions.Build("LogEnt", catalog, noAliases, noExternal)
+    let items = CommandSuggestions.Build("exi", catalog, twoAliases, noExternal)
 
     // Assert
-    %(items |> Seq.forall (fun item -> item.Name.Contains("LogEnt", StringComparison.OrdinalIgnoreCase))).Should().BeTrue()
-    %(items.Count > 0).Should().BeTrue()
+    %(items |> Seq.exists (fun item -> item.Name = "exit")).Should().BeTrue()
+    %(items |> Seq.exists (fun item -> item.Name = "restart")).Should().BeFalse()
 
 [<Fact>]
 let ``bus sender dispatches under the concrete message type`` () =

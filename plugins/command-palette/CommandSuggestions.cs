@@ -1,7 +1,10 @@
 namespace FabioSoft.Nucleus.Plugins.CommandPalette;
 
-/// Builds the filtered suggestion list shown in the palette, aggregating messages, aliases, and the
-/// external (Claude/Skill) commands. Filtering is by the typed command name (the first token).
+/// Builds the filtered suggestion list shown in the palette, aggregating aliases and the external
+/// (Claude/Skill) commands. Raw bus messages are deliberately left OUT of the list (they are noise for a
+/// human browsing the palette) but stay fully routable: typing a message name - with arguments if needed -
+/// still constructs and sends it through CommandRouter, and aliases over messages are unaffected. Filtering
+/// is by the typed command name (the first token).
 public static class CommandSuggestions
 {
     private static readonly IReadOnlyDictionary<string, string> NoArguments =
@@ -19,11 +22,6 @@ public static class CommandSuggestions
         foreach (var (name, template) in aliases)
         {
             items.Add(CommandItem.ForAlias(name, template));
-        }
-
-        foreach (var type in catalog)
-        {
-            items.Add(CommandItem.ForMessage(type));
         }
 
         items.AddRange(externalCommands);
