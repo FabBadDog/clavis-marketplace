@@ -561,16 +561,22 @@ type DockingSurface() as this =
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Top,
                 Opacity = 0.0,
+                // Not hit-testable until revealed: an invisible (Opacity 0) element still hit-tests in WPF, so
+                // without this a press in the panel's content that happened to land under the parked handle
+                // would arm a drag. Gated on the shown state, the drag starts only from the visible panel tab.
+                IsHitTestVisible = false,
                 Child = handle)
         host.Children.Add(handleBar) |> ignore
         attachPanelDrag handleBar slot.PanelId
 
         // Reveal the handle only near the top edge (or while the cursor is on the handle itself), tracking a
-        // bool so the fade fires on transitions rather than on every mouse move.
+        // bool so the fade fires on transitions rather than on every mouse move. Hit-testing follows the
+        // reveal so the handle is a drag target only while it is actually shown.
         let mutable shown = false
         let setShown value =
             if value <> shown then
                 shown <- value
+                handleBar.IsHitTestVisible <- value
                 Motion.fadeTo handleBar (if value then 1.0 else 0.0)
 
         host.MouseMove.Add(fun args ->
