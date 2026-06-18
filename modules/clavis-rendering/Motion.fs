@@ -26,6 +26,13 @@ module Motion =
     /// Alias of Standard (kept so existing call sites compile). Was 140ms; now 250ms per the motion floor.
     let Quick = Standard
 
+    /// The drag-to-dock drop-hint glide cadence - deliberately well under the Standard floor. The hint is
+    /// re-aimed every drag-over tick to follow the cursor between drop zones; at the Standard 250ms it is
+    /// still easing into place after the cursor has settled, so the target reads as wrong. A quarter of
+    /// Standard keeps the glide (so zone changes still animate rather than snap) while tracking the cursor
+    /// closely. This is a moving-target follow, not a one-shot entrance, so it is exempt from the 250ms floor.
+    let DropHintGlide = Duration(TimeSpan.FromMilliseconds 60.0)
+
     /// The slide-up distance for an entrance, in device-independent pixels.
     [<Literal>]
     let private enterOffset = 8.0

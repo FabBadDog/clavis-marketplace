@@ -749,15 +749,17 @@ type DockingSurface() as this =
             Motion.appear dropHint
 
         // Glide the hint between zones as the cursor crosses bands (re-issued each drag-over tick, so it
-        // tracks a moving target smoothly) rather than snapping its margin/size. A To-only DoubleAnimation
-        // takes the property's current value as its origin, but Width/Height default to NaN (Auto) until the
-        // hint is first measured - and WPF throws animating from NaN. Pass an explicit From: the current
-        // rendered size, or the target itself on the first show so it snaps in without a NaN origin.
+        // tracks a moving target smoothly) rather than snapping its margin/size. Runs at the brisk
+        // DropHintGlide cadence so the hint settles on the new zone almost as fast as the cursor reaches it,
+        // instead of visibly easing in behind it. A To-only DoubleAnimation takes the property's current value
+        // as its origin, but Width/Height default to NaN (Auto) until the hint is first measured - and WPF
+        // throws animating from NaN. Pass an explicit From: the current rendered size, or the target itself on
+        // the first show so it snaps in without a NaN origin.
         let glideSize (property: DependencyProperty) (current: float) (target: float) =
             let from = if Double.IsNaN current || current <= 0.0 then target else current
-            dropHint.BeginAnimation(property, DoubleAnimation(from, target, Motion.Instant, EasingFunction = Motion.easeOut()))
+            dropHint.BeginAnimation(property, DoubleAnimation(from, target, Motion.DropHintGlide, EasingFunction = Motion.easeOut()))
 
-        dropHint.BeginAnimation(FrameworkElement.MarginProperty, ThicknessAnimation(Thickness(left, top, 0.0, 0.0), Motion.Instant, EasingFunction = Motion.easeOut()))
+        dropHint.BeginAnimation(FrameworkElement.MarginProperty, ThicknessAnimation(Thickness(left, top, 0.0, 0.0), Motion.DropHintGlide, EasingFunction = Motion.easeOut()))
         glideSize FrameworkElement.WidthProperty dropHint.ActualWidth hintWidth
         glideSize FrameworkElement.HeightProperty dropHint.ActualHeight hintHeight
 
