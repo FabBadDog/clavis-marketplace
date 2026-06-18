@@ -339,6 +339,17 @@ internal sealed partial class WindowHost
             return;
         }
 
+        // Esc dismisses any open slide-in (per the slide-in rule: Esc, focus moving to another panel/window,
+        // or a click outside). Handled before binding resolution so it works while a text input inside the
+        // slide-in holds focus, and before Tab so it is not shadowed by traversal.
+        if (key == Key.Escape && Keyboard.Modifiers == ModifierKeys.None
+            && _slideHosts.Values.Any(host => host.IsOpen))
+        {
+            HideSlideIns();
+            e.Handled = true;
+            return;
+        }
+
         if (TryHandleTab(key, e))
         {
             return;

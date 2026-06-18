@@ -30,8 +30,51 @@ internal sealed partial class WindowHost
             return false; // Ctrl+Tab and friends are not focus traversal
         }
 
-        FocusTraversal?.Traverse(this, forward: modifiers != ModifierKeys.Shift);
+        var forward = modifiers != ModifierKeys.Shift;
+
+        // Tab is trapped inside an open slide-in: while focus sits in one, cycle its own controls instead of
+        // escaping to a docked panel or another window. Escaping moves focus off the slide-in, which dismisses
+        // it - so tabbing field-to-field through a slide-in form (e.g. the status-line settings) used to slide
+        // it away mid-edit.
+        if (TryTrapTabInSlideIn(forward))
+        {
+            e.Handled = true;
+            return true;
+        }
+
+        FocusTraversal?.Traverse(this, forward: forward);
         e.Handled = true;
+        return true;
+    }
+
+    // When keyboard focus is inside an open slide-in, move it to the next/previous interactive control within
+    // that same slide-in, wrapping at its ends. Returns false when focus is not in an open slide-in, so the
+    // normal within-window / cross-window traversal runs.
+    private bool TryTrapTabInSlideIn(bool forward)
+    {
+        if (Keyboard.FocusedElement is not DependencyObject focused)
+        {
+            return false;
+        }
+
+        var slide = _slideHosts.Values.FirstOrDefault(host => host.IsOpen && host.IsAncestorOf(focused));
+        if (slide is null)
+        {
+            return false;
+        }
+
+        var stops = new List<FrameworkElement>();
+        Collect(slide, stops);
+        if (stops.Count == 0)
+        {
+            return false;
+        }
+
+        var current = IndexOfFocused(stops);
+        var next = current < 0
+            ? (forward ? 0 : stops.Count - 1)
+            : ((current + (forward ? 1 : -1)) % stops.Count + stops.Count) % stops.Count;
+        Keyboard.Focus(stops[next]);
         return true;
     }
 
