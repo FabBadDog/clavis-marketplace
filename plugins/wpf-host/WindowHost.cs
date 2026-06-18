@@ -329,6 +329,16 @@ internal sealed partial class WindowHost
             return;
         }
 
+        // Esc dismisses an open keyboard-help overlay before any binding sees the key, so the overlay closes
+        // with Esc like every other transient surface (it is opened by a toggle and was otherwise un-closeable
+        // by keyboard).
+        if (key == Key.Escape && Keyboard.Modifiers == ModifierKeys.None && _helpOverlay.IsOpen)
+        {
+            _helpOverlay.Hide();
+            e.Handled = true;
+            return;
+        }
+
         if (TryHandleTab(key, e))
         {
             return;
