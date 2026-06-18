@@ -14,8 +14,13 @@ public sealed class EventsPanelViewModel : INotifyPropertyChanged
     private sealed record FilterState(int SeverityIndex, string Search);
 
     // The severity floor options. Index 0 ("ALL") and 1 ("TRACE") both floor at Trace - ALL is the plain
-    // name for "show everything", which is why it leads and is the default.
-    private static readonly string[] SeverityLabels = ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR"];
+    // name for "show everything", which is why it leads and is the default. The trailing "MESSAGE" option is
+    // not a level: it isolates the non-log bus firehose (see PassesCategory).
+    private static readonly string[] SeverityLabels = ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "MESSAGE"];
+
+    // The MESSAGE filter sits last, after the log-level ladder. Selecting it shows only non-log bus messages;
+    // selecting any log level shows only real logs. ALL still shows both.
+    private const int MessageIndex = 6;
 
     private readonly List<EventEntry> _allEntries = [];
     private string _searchText = "";
@@ -192,13 +197,32 @@ public sealed class EventsPanelViewModel : INotifyPropertyChanged
 
     private bool Passes(EventEntry entry)
     {
-        if (entry.Level < SeverityFloor)
+        if (!PassesCategory(entry))
         {
             return false;
         }
 
         return _searchText.Length == 0
             || Searchable(entry).Contains(_searchText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // The level/category gate (search is layered on top). ALL shows everything; MESSAGE shows only the non-log
+    // bus firehose; any specific log level shows only real logs at or above that floor - so a bus message no
+    // longer masquerades as a DEBUG/INFO log and clutter the level the user raised the floor to.
+    private bool PassesCategory(EventEntry entry)
+    {
+        var index = SeverityModel.SelectedIndex;
+        if (index == MessageIndex)
+        {
+            return !entry.IsLog;
+        }
+
+        if (index <= 0)
+        {
+            return true; // ALL
+        }
+
+        return entry.IsLog && entry.Level >= SeverityFloor;
     }
 
     // Search matches against the whole row: its source, category, level, summary, and every continuation
@@ -257,7 +281,8 @@ public sealed class EventsPanelViewModel : INotifyPropertyChanged
         new SegmentItem("DEBUG", "LevelDebugBrush"),
         new SegmentItem("INFO", "LevelInfoBrush"),
         new SegmentItem("WARN", "LevelWarnBrush"),
-        new SegmentItem("ERROR", "LevelErrorBrush")
+        new SegmentItem("ERROR", "LevelErrorBrush"),
+        new SegmentItem("MESSAGE", "ClavisBrush")
     ];
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)

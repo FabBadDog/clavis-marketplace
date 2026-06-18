@@ -391,6 +391,65 @@ module CompositeFilter =
         %viewModel.TotalCount.Should().Be(3)
         %viewModel.FilteredEntryViewModels.Count.Should().Be(3)
 
+module LogVersusMessage =
+
+    let private messageEntry value =
+        EventEntryFactory.FromBusActivity(BusActivity(metadata (), typeof<Probe>, box { Value = value }, noReason))
+
+    [<Fact>]
+    let ``a real log is a log; an unknown bus message is not`` () =
+
+        // Act
+        let log = logEntry LogLevel.Info "A" "hello"
+        let message = messageEntry 7
+
+        // Assert
+        %log.IsLog.Should().BeTrue()
+        %message.IsLog.Should().BeFalse()
+
+    [<Fact>]
+    let ``the default ALL floor shows both logs and bus messages`` () =
+
+        // Arrange
+        let viewModel = EventsPanelViewModel()
+
+        // Act
+        viewModel.AddEntry(logEntry LogLevel.Info "A" "a log")
+        viewModel.AddEntry(messageEntry 1)
+
+        // Assert
+        %viewModel.FilteredEntryViewModels.Count.Should().Be(2)
+
+    [<Fact>]
+    let ``the MESSAGE filter shows only the non-log bus messages`` () =
+
+        // Arrange
+        let viewModel = EventsPanelViewModel()
+        viewModel.AddEntry(logEntry LogLevel.Error "A" "a log")
+        viewModel.AddEntry(messageEntry 1)
+
+        // Act
+        viewModel.SeverityModel.SelectedIndex <- 6 // MESSAGE
+
+        // Assert
+        %viewModel.FilteredEntryViewModels.Count.Should().Be(1)
+        %viewModel.TotalCount.Should().Be(2)
+
+    [<Fact>]
+    let ``a log-level floor hides a non-log message even at a matching level`` () =
+
+        // Arrange: a HandlerFailed dead letter is Error-level but a bus message, not a log
+        let viewModel = EventsPanelViewModel()
+        viewModel.AddEntry(logEntry LogLevel.Error "A" "a real error log")
+        viewModel.AddEntry(EventEntryFactory.FromBusActivity(
+            BusActivity(metadata (), typeof<Probe>, box { Value = 0 }, HandlerFailed("plugin", InvalidOperationException("boom")))))
+
+        // Act
+        viewModel.SetSeverityFloor(LogLevel.Error)
+
+        // Assert: only the real Error log survives; the Error-level dead letter shows under MESSAGE/ALL only
+        %viewModel.FilteredEntryViewModels.Count.Should().Be(1)
+
 module EventEntryViewModelLabels =
 
     [<Theory>]

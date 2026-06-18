@@ -34,6 +34,11 @@ public sealed record EventEntry(
     public LogLevel Level { get; init; } = LogLevel.Info;
     public string Source { get; init; } = "";
     public string MessageType { get; init; } = "";
+
+    // True only for a row sourced from a real LogEntry. Everything else (the stream events, dead letters,
+    // user input, and otherwise-unknown bus messages) is the raw firehose - a "message", not a log - so the
+    // level filter can keep the two apart: a log-level floor shows only logs, the MESSAGE filter only these.
+    public bool IsLog { get; init; }
 }
 
 public static class EventEntryFactory
@@ -237,7 +242,8 @@ public static class EventEntryFactory
         {
             Level = log.Level,
             Source = log.Source,
-            MessageType = nameof(LogEntry)
+            MessageType = nameof(LogEntry),
+            IsLog = true
         };
     }
 
