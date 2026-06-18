@@ -296,12 +296,6 @@ type DockingSurface() as this =
     // Rebuild leaves every existing tile untouched. Reset to Empty once consumed by RenderModel.
     let mutable pendingEnterPanel = Guid.Empty
 
-    // When set (the host sets it on the primary window), the surface's sole remaining panel is locked: it
-    // fills the window with no tab strip, drag handle, or close affordance, so the main window always keeps
-    // a panel. Any other configuration - a secondary window, or this surface holding more than one panel -
-    // renders normally, with lone panels getting a hover-revealed drag/close handle.
-    let mutable lockSolePanel = false
-
     let layoutChanged = Event<EventHandler, EventArgs>()
     let panelRemoved = Event<EventHandler, EventArgs>()
     let activeTabChanged = Event<EventHandler<Guid>, Guid>()
@@ -502,14 +496,15 @@ type DockingSurface() as this =
         else
             renderSplit node
 
-    // A lone panel carries no tab strip (content before chrome). When this surface locks its sole panel
-    // (the primary window) and exactly one panel remains, that panel is fully chromeless and immovable; any
-    // other lone panel gets a hover-revealed handle so it can still be dragged or closed. Two or more panels
-    // always share a tab strip.
+    // A lone panel carries no tab strip (content before chrome). When this surface holds exactly one panel,
+    // that panel fills the window fully chromeless: a window with a single panel never shows a panel tab, so
+    // it cannot be accidentally dragged and there is nothing to drag it relative to. A panel that is alone in
+    // its own tile but shares the surface with others (a split) keeps a hover-revealed handle so it can still
+    // be dragged or closed. Two or more panels in one tile always share a tab strip.
     and renderLeaf (node: LayoutNode) : FrameworkElement =
         let soleInSurface = (DockingModel.slots model |> List.length) = 1
         match node.Panels with
-        | [| slot |] when lockSolePanel && soleInSurface -> renderLockedPanel node slot
+        | [| slot |] when soleInSurface -> renderSolePanel node slot
         | [| slot |] -> renderLonePanel node slot
         | _ -> renderTabGroup node
 
@@ -543,9 +538,10 @@ type DockingSurface() as this =
         this.AttachDropTarget(host, groupId)
         host
 
-    // The primary window's last panel: chromeless and immovable - no handle, drag, or close - so it always
-    // fills the window and the main window is never empty.
-    and renderLockedPanel (node: LayoutNode) (slot: PanelSlot) : FrameworkElement =
+    // A window's sole panel: chromeless - no handle, drag, or close - so it fills the window and shows no
+    // panel tab. The primary window's last panel relies on this to stay put (the host also forbids closing
+    // it); a secondary window's sole panel closes with the window itself.
+    and renderSolePanel (node: LayoutNode) (slot: PanelSlot) : FrameworkElement =
         buildPanelHost node slot :> FrameworkElement
 
     and renderLonePanel (node: LayoutNode) (slot: PanelSlot) : FrameworkElement =
@@ -917,15 +913,6 @@ type DockingSurface() as this =
     member _.PanelCloseRequested = panelCloseRequested.Publish
 
     member _.ActiveGroupId = activeGroupId
-
-    /// When true, the surface's sole remaining panel is locked: chromeless, full-window, and immovable (no
-    /// drag/close handle), so the window always keeps a panel. The host sets it on the primary window.
-    member this.LockSolePanel
-        with get () = lockSolePanel
-        and set value =
-            if value <> lockSolePanel then
-                lockSolePanel <- value
-                this.Rebuild()
 
     member private _.ActivePanel =
         match DockingModel.findGroup activeGroupId model with
