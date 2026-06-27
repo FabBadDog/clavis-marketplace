@@ -180,10 +180,11 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
         bus.Send(new MarketplaceCompleted(operationId, summary));
     }
 
-    // The test gate runs via `dotnet test`. The in-process xUnit runner (XunitRunner) + test-project compile
-    // (TestBuild) are ready, but compiling an xUnit v3 test project in-process needs NuGet contentFiles /
-    // source-package support in the build engine (xunit.v3.assert ships its Assert as source, and xunit.v3 is
-    // a meta-package), which is not yet implemented - so the gate stays on dotnet test for now.
+    // The test gate runs via `dotnet test`. In-process compilation of the test project works (TestBuild +
+    // the engine), but running the compiled xUnit v3 assembly in-process from this collectible plugin ALC
+    // hits cross-load-context type-identity limits (the xunit runner-common types loaded in two contexts
+    // cannot cast); the clean answer is the out-of-process xUnit launcher, deferred. So the gate stays on
+    // dotnet test for now (the last dotnet dependency, no regression).
     private bool RunTests(string operationId, string itemDir, string workingCopy, string name)
     {
         bus.Send(new MarketplaceProgress(operationId, "unit tests", name));
