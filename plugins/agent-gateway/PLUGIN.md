@@ -8,6 +8,17 @@ dependencies:
   - { name: workspace-contracts, version: 1 }
   - { name: host-contracts, version: 1 }
   - { name: session-contracts, version: 2 }
+language: csharp
+assemblyName: AgentGateway
+rootNamespace: FabioSoft.Nucleus.Plugins.AgentGateway
+globalUsings:
+  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Host
+  - FabioSoft.Contracts.Session
+packages:
+  - { name: ModelContextProtocol, version: 1.3.0 }
+  - { name: ModelContextProtocol.Core, version: 1.3.0 }
+  - { name: Microsoft.Extensions.DependencyInjection, version: 10.0.7 }
 ---
 
 # AgentGateway

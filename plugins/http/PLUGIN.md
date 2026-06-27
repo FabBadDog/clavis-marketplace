@@ -4,9 +4,13 @@ pluginId: Http
 version: 1.0.120
 apiVersion: 1.0.0
 description: http(s):// resource read.
-projectFile: ./Http.csproj
 dependencies:
   - { name: resource-contracts, version: 1 }
+language: csharp
+assemblyName: Http
+rootNamespace: FabioSoft.Nucleus.Plugins.Http
+globalUsings:
+  - FabioSoft.Contracts.Resource
 ---
 
 # Http

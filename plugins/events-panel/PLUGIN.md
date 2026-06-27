@@ -4,13 +4,21 @@ pluginId: EventsPanel
 version: 1.0.2
 apiVersion: 1.0.0
 description: Raw bus-activity firehose with keyboard-first filters.
-projectFile: ./EventsPanel.csproj
 dependencies:
   - { name: session-contracts, version: 2 }
   - { name: host-contracts, version: 1 }
   - { name: keymap-contracts, version: 1 }
   - { name: workspace-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }
+language: csharp
+assemblyName: EventsPanel
+rootNamespace: FabioSoft.Nucleus.Plugins.EventsPanel
+useWpf: true
+globalUsings:
+  - FabioSoft.Contracts.Session
+  - FabioSoft.Contracts.Host
+  - FabioSoft.Contracts.Keymap
+  - FabioSoft.Contracts.Workspace
 ---
 
 # EventsPanel

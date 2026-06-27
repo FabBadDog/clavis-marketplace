@@ -4,12 +4,22 @@ pluginId: Selection
 version: 1.0.0
 apiVersion: 1.0.0
 description: Selection popups on the shared SelectorWindow: model, effort, mode, panel pickers and the agent-driven ask-the-user selection.
-projectFile: ./Selection.csproj
 dependencies:
   - { name: host-contracts, version: 1 }
   - { name: session-contracts, version: 2 }
   - { name: workspace-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }
+language: csharp
+assemblyName: Selection
+rootNamespace: FabioSoft.Nucleus.Plugins.Selection
+useWpf: true
+globalUsings:
+  - FabioSoft.Nucleus.Contracts
+  - FabioSoft.Contracts.Host
+  - FabioSoft.Contracts.Session
+  - FabioSoft.Contracts.Workspace
+resources:
+  - Views/SelectionTemplates.xaml
 ---
 
 # Selection

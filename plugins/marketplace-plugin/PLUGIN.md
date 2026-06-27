@@ -4,10 +4,14 @@ pluginId: MarketplacePlugin
 version: 1.0.63
 apiVersion: 1.0.0
 description: Interactive marketplace surface - register marketplaces, search, and install/update/uninstall plugins.
-projectFile: ./MarketplacePlugin.csproj
 dependencies:
   - { name: session-contracts, version: 2 }
   - { name: marketplace-contracts, version: 1 }
+language: csharp
+assemblyName: MarketplacePlugin
+rootNamespace: FabioSoft.Nucleus.Plugins.MarketplacePlugin
+globalUsings:
+  - FabioSoft.Contracts.Marketplace
 ---
 
 # MarketplacePlugin

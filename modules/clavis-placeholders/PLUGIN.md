@@ -7,6 +7,8 @@ description: Namespaced placeholder template engine - parse, resolve, and Intell
 produces: [ FabioSoft.Clavis.Placeholders.dll ]
 dependencies:
   - { name: placeholders-contracts, version: 1 }
+language: csharp
+rootNamespace: FabioSoft.Clavis.Placeholders
 ---
 
 # clavis-placeholders

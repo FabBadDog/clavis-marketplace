@@ -4,10 +4,15 @@ pluginId: MarkdownPanel
 version: 1.0.1
 apiVersion: 1.0.0
 description: Editable markdown note dockable panel.
-projectFile: ./MarkdownPanel.csproj
 dependencies:
   - { name: workspace-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }
+language: csharp
+assemblyName: MarkdownPanel
+rootNamespace: FabioSoft.Nucleus.Plugins.MarkdownPanel
+useWpf: true
+globalUsings:
+  - FabioSoft.Contracts.Workspace
 ---
 
 # MarkdownPanel

@@ -4,12 +4,15 @@ pluginId: UsageLimits
 version: 1.0.1
 apiVersion: 1.0.0
 description: Token usage / pacing indicator.
-projectFile: ./UsageLimits.csproj
 dependencies:
   - { name: session-contracts, version: 2 }
   - { name: host-contracts, version: 1 }
   - { name: workspace-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }
+language: csharp
+assemblyName: UsageLimits
+rootNamespace: FabioSoft.Nucleus.Plugins.UsageLimits
+useWpf: true
 ---
 
 # UsagePace

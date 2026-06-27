@@ -4,9 +4,13 @@ pluginId: ResourceBroker
 version: 1.0.8
 apiVersion: 1.0.0
 description: Resource scheme registry and load/write dispatch.
-projectFile: ./ResourceBroker.csproj
 dependencies:
   - { name: resource-contracts, version: 1 }
+language: csharp
+assemblyName: ResourceBroker
+rootNamespace: FabioSoft.Nucleus.Plugins.ResourceBroker
+globalUsings:
+  - FabioSoft.Contracts.Resource
 ---
 
 # ResourceBroker

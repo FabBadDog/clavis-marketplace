@@ -5,9 +5,13 @@ version: 1.0.138
 essential: true
 apiVersion: 1.0.0
 description: Sectioned YAML config and state stores under ~/.clavis.
-projectFile: ./Configuration.csproj
 dependencies:
   - { name: services-contracts, version: 1 }
+language: csharp
+assemblyName: Configuration
+rootNamespace: FabioSoft.Nucleus.Plugins.Configuration
+globalUsings:
+  - FabioSoft.Contracts.Services
 ---
 
 # Configuration

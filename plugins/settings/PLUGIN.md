@@ -4,7 +4,10 @@ pluginId: Settings
 version: 3.0.0
 apiVersion: 1.0.0
 description: Settings surface.
-projectFile: ./Settings.csproj
+language: csharp
+assemblyName: Settings
+rootNamespace: FabioSoft.Nucleus.Plugins.Settings
+useWpf: true
 ---
 
 # Settings

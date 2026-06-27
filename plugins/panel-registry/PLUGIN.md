@@ -5,9 +5,13 @@ version: 1.1.0
 essential: true
 apiVersion: 1.0.0
 description: Catalogs panel kinds and routes open/restore into panel instances.
-projectFile: ./PanelRegistry.csproj
 dependencies:
   - { name: workspace-contracts, version: 1 }
+language: csharp
+assemblyName: PanelRegistry
+rootNamespace: FabioSoft.Nucleus.Plugins.PanelRegistry
+globalUsings:
+  - FabioSoft.Contracts.Workspace
 ---
 
 # PanelRegistry

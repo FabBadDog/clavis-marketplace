@@ -4,7 +4,10 @@ pluginId: PluginManager
 version: 1.0.8
 apiVersion: 1.0.0
 description: Runtime roster of activated plugins.
-projectFile: ./PluginManager.csproj
+language: csharp
+assemblyName: PluginManager
+rootNamespace: FabioSoft.Nucleus.Plugins.PluginManager
+useWpf: true
 ---
 
 # PluginManager

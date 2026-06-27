@@ -4,9 +4,13 @@ pluginId: FileSystem
 version: 1.0.118
 apiVersion: 1.0.0
 description: file:// resource read and write.
-projectFile: ./FileSystem.csproj
 dependencies:
   - { name: resource-contracts, version: 1 }
+language: csharp
+assemblyName: FileSystem
+rootNamespace: FabioSoft.Nucleus.Plugins.FileSystem
+globalUsings:
+  - FabioSoft.Contracts.Resource
 ---
 
 # FileSystem

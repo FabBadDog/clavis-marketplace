@@ -4,7 +4,6 @@ pluginId: CommandPalette
 version: 1.1.0
 apiVersion: 1.0.0
 description: Keyboard-first command palette and primary input surface.
-projectFile: ./CommandPalette.csproj
 dependencies:
   - { name: host-contracts, version: 1 }
   - { name: session-contracts, version: 2 }
@@ -13,6 +12,19 @@ dependencies:
   - { name: workspace-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }
   - { name: yamldotnet, version: 1 }
+language: csharp
+assemblyName: CommandPalette
+rootNamespace: FabioSoft.Nucleus.Plugins.CommandPalette
+useWpf: true
+globalUsings:
+  - FabioSoft.Nucleus.Contracts
+  - FabioSoft.Contracts.Host
+  - FabioSoft.Contracts.Session
+  - FabioSoft.Contracts.Services
+  - FabioSoft.Contracts.Keymap
+  - FabioSoft.Contracts.Workspace
+resources:
+  - Views/CommandItemTemplate.xaml
 ---
 
 # CommandPalette

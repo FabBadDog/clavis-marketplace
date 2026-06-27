@@ -5,7 +5,6 @@ version: 7.1.2
 essential: true
 apiVersion: 1.0.0
 description: The elm/flux conversation state, update, and view models.
-projectFile: ./Conversation.csproj
 dependencies:
   - { name: session-contracts, version: 2 }
   - { name: host-contracts, version: 1 }
@@ -18,6 +17,17 @@ dependencies:
   - { name: clavis-controls, version: 1 }
   - { name: fabiosoft-common, version: ^1.0.0 }
   - { name: yamldotnet, version: 1 }
+language: csharp
+assemblyName: Conversation
+rootNamespace: FabioSoft.Nucleus.Plugins.Conversation
+useWpf: true
+globalUsings:
+  - FabioSoft.Contracts.Session
+  - FabioSoft.Contracts.Host
+  - FabioSoft.Contracts.Keymap
+  - FabioSoft.Contracts.Placeholders
+  - FabioSoft.Contracts.Services
+  - FabioSoft.Contracts.Workspace
 ---
 
 # Conversation

@@ -5,6 +5,19 @@ version: 1.0.1
 apiVersion: 1.0.0
 description: Shared WPF form/input/layout widgets - inputs, buttons, labeled fields, section headers, metadata text, status dots, and a generic tree browser.
 produces: [ FabioSoft.Clavis.Controls.dll ]
+language: fsharp
+rootNamespace: FabioSoft.Clavis.Controls
+useWpf: true
+sources:
+  - Inputs.fs
+  - ActionButton.fs
+  - IconButton.fs
+  - LabeledField.fs
+  - SectionHeader.fs
+  - MetadataText.fs
+  - StatusDot.fs
+  - TreeBrowser.fs
+  - EmptyState.fs
 ---
 
 # clavis-controls

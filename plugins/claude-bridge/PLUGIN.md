@@ -5,11 +5,16 @@ version: 2.1.1
 essential: true
 apiVersion: 1.0.0
 description: Wraps Claude sessions; maps stream events onto bus messages.
-projectFile: ./ClaudeBridge.csproj
 dependencies:
   - { name: session-contracts, version: 2 }
   - { name: editor-contracts, version: 1 }
   - { name: fabiosoft-claude, version: 2 }
+language: csharp
+assemblyName: ClaudeBridge
+rootNamespace: FabioSoft.Nucleus.Plugins.ClaudeBridge
+globalUsings:
+  - FabioSoft.Contracts.Session
+  - FabioSoft.Contracts.Editor
 ---
 
 # ClaudeBridge

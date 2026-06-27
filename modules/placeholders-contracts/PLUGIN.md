@@ -5,6 +5,10 @@ version: 1.0.0
 apiVersion: 1.0.0
 description: Placeholder provider registration and value-snapshot contracts for the templating engine.
 produces: [ FabioSoft.Contracts.Placeholders.dll ]
+language: fsharp
+rootNamespace: FabioSoft.Contracts.Placeholders
+sources:
+  - PlaceholderMessages.fs
 ---
 
 # placeholders-contracts

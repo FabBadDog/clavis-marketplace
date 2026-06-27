@@ -5,6 +5,11 @@ version: 1.0.1
 apiVersion: 1.0.0
 description: Per-plugin config and state service contracts.
 produces: [ FabioSoft.Contracts.Services.dll ]
+language: fsharp
+rootNamespace: FabioSoft.Contracts.Services
+sources:
+  - ConfigMessages.fs
+  - StateMessages.fs
 ---
 
 # services-contracts

@@ -4,11 +4,17 @@ pluginId: KeyMap
 version: 1.0.2
 apiVersion: 1.0.0
 description: Keybinding resolution service.
-projectFile: ./KeyMap.csproj
 dependencies:
   - { name: keymap-contracts, version: 1 }
   - { name: services-contracts, version: 1 }
   - { name: yamldotnet, version: 1 }
+language: csharp
+assemblyName: KeyMap
+rootNamespace: FabioSoft.Nucleus.Plugins.KeyMap
+globalUsings:
+  - FabioSoft.Nucleus.Contracts
+  - FabioSoft.Contracts.Keymap
+  - FabioSoft.Contracts.Services
 ---
 
 # KeyMap

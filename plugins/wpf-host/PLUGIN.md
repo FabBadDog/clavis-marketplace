@@ -5,12 +5,26 @@ version: 3.0.3
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
-projectFile: ./WpfHost.csproj
 dependencies:
   - { name: host-contracts, version: 1 }
   - { name: workspace-contracts, version: 1 }
   - { name: keymap-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }
+language: csharp
+assemblyName: WpfHost
+rootNamespace: FabioSoft.Nucleus.Plugins.WpfHost
+useWpf: true
+globalUsings:
+  - FabioSoft.Contracts.Host
+  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Keymap
+  - FabioSoft.Contracts.Services
+resources:
+  - Fonts/Rajdhani-Medium.ttf
+  - Fonts/Syne-Regular.ttf
+  - Fonts/Inter-Light.ttf
+  - Fonts/Inter-Regular.ttf
+  - Fonts/JetBrainsMono-Regular.ttf
 ---
 
 # WpfHost

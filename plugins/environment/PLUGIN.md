@@ -4,9 +4,14 @@ pluginId: Environment
 version: 1.0.0
 apiVersion: 1.0.0
 description: Placeholder provider for working directory, git, system metrics, Clavis version and time.
-projectFile: ./Environment.csproj
 dependencies:
   - { name: placeholders-contracts, version: 1 }
+language: csharp
+assemblyName: Environment
+rootNamespace: FabioSoft.Nucleus.Plugins.Environment
+globalUsings:
+  - FabioSoft.Nucleus.Contracts
+  - FabioSoft.Contracts.Placeholders
 ---
 
 # Environment
