@@ -85,8 +85,9 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
             ? ((CompilationResult.UpToDate)compiled).assemblyPath
             : ((CompilationResult.Compiled)compiled).assemblyPath;
 
-        // 2. Tests (unit then integration). Gate only: a failure stops the run.
-        if (!RunTests(operationId, itemDir, workingCopy, info.Name))
+        // 2. Tests (unit then integration). Gate only: a failure stops the run. The plugin-under-test's
+        // output dir is where the compile above placed its assembly.
+        if (!RunTests(operationId, itemDir, workingCopy, info.Name, Path.GetDirectoryName(assemblyPath)!))
             return;
 
         // 3. Update PLUGIN.md from the new public surface.
@@ -180,12 +181,26 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
         bus.Send(new MarketplaceCompleted(operationId, summary));
     }
 
-    // The test gate runs via `dotnet test`. In-process compilation of the test project works (TestBuild +
-    // the engine), but running the compiled xUnit v3 assembly in-process from this collectible plugin ALC
-    // hits cross-load-context type-identity limits (the xunit runner-common types loaded in two contexts
-    // cannot cast); the clean answer is the out-of-process xUnit launcher, deferred. So the gate stays on
-    // dotnet test for now (the last dotnet dependency, no regression).
-    private bool RunTests(string operationId, string itemDir, string workingCopy, string name)
+    // Runs one test project: when ClavisInProcessBuild is on, compile it in-process (TestBuild) and run it
+    // via the out-of-process test host (a clean child process - no SDK, no collectible-ALC identity issues);
+    // otherwise the dotnet-test fallback. pluginOutputDir is where the compile above placed the
+    // plugin-under-test's assembly, which the test build references and the test host probes.
+    private (bool ok, string output) RunTestProject(string project, string name, string pluginOutputDir)
+    {
+        if (InProcessGate.Enabled)
+        {
+            var staging = Path.Combine(Path.GetTempPath(), "clavis-test-gate", name, Guid.NewGuid().ToString("N")[..8]);
+            var built = TestBuild.compile(project, pluginOutputDir, InProcessGate.ReferenceRoots(), staging);
+            if (built.IsError)
+                return (false, built.ErrorValue);
+            return InProcessGate.RunTest(built.ResultValue, pluginOutputDir);
+        }
+
+        var outcome = TestRunner.run(project);
+        return (outcome.Passed, outcome.Output);
+    }
+
+    private bool RunTests(string operationId, string itemDir, string workingCopy, string name, string pluginOutputDir)
     {
         bus.Send(new MarketplaceProgress(operationId, "unit tests", name));
         var unitProjects = LifecycleMetadata.unitTestProjects(itemDir);
@@ -193,10 +208,11 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
             bus.LogWarn(Source, $"{name}: no unit test project found");
         foreach (var project in unitProjects)
         {
-            var outcome = TestRunner.run(project);
-            if (!outcome.Passed)
+            var (ok, output) = RunTestProject(project, name, pluginOutputDir);
+            if (!ok)
             {
-                bus.Send(new MarketplaceFailed(operationId, $"{name} unit tests failed:\n{Tail(outcome.Output)}"));
+                bus.LogError(Source, $"{name} unit tests failed: {output}");
+                bus.Send(new MarketplaceFailed(operationId, $"{name} unit tests failed:\n{Tail(output)}"));
                 return false;
             }
         }
@@ -205,10 +221,10 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
         if (integration is not null)
         {
             bus.Send(new MarketplaceProgress(operationId, "integration tests", name));
-            var outcome = TestRunner.run(integration);
-            if (!outcome.Passed)
+            var (ok, output) = RunTestProject(integration, name, pluginOutputDir);
+            if (!ok)
             {
-                bus.Send(new MarketplaceFailed(operationId, $"{name} integration tests failed:\n{Tail(outcome.Output)}"));
+                bus.Send(new MarketplaceFailed(operationId, $"{name} integration tests failed:\n{Tail(output)}"));
                 return false;
             }
         }
