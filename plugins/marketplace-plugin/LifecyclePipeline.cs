@@ -71,9 +71,7 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
         // 1. Compile (gate + assembly for surface reflection).
         bus.Send(new MarketplaceProgress(operationId, "compiling", info.Name));
         var buildDir = isShared ? InstallLayout.stagingDirectory(home) : GateBuildDir(info.Name);
-        var compiled = InProcessGate.Enabled
-            ? InProcessGate.Compile(itemDir, buildDir)
-            : PluginCompiler.compile(itemDir, buildDir);
+        var compiled = InProcessGate.Compile(itemDir, buildDir);
         if (compiled.IsCompilationFailed)
         {
             var errors = ((CompilationResult.CompilationFailed)compiled).errors;
@@ -181,23 +179,17 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
         bus.Send(new MarketplaceCompleted(operationId, summary));
     }
 
-    // Runs one test project: when ClavisInProcessBuild is on, compile it in-process (TestBuild) and run it
-    // via the out-of-process test host (a clean child process - no SDK, no collectible-ALC identity issues);
-    // otherwise the dotnet-test fallback. pluginOutputDir is where the compile above placed the
-    // plugin-under-test's assembly, which the test build references and the test host probes.
+    // Runs one test project: compile it in-process (TestBuild) and run it via the out-of-process test host
+    // (a clean child process - no SDK, no collectible-ALC identity issues). pluginOutputDir is where the
+    // compile above placed the plugin-under-test's assembly, which the test build references and the test
+    // host probes. A unique staging dir per run keeps re-runs from fighting the previous run's file lock.
     private (bool ok, string output) RunTestProject(string project, string name, string pluginOutputDir)
     {
-        if (InProcessGate.Enabled)
-        {
-            var staging = Path.Combine(Path.GetTempPath(), "clavis-test-gate", name, Guid.NewGuid().ToString("N")[..8]);
-            var built = TestBuild.compile(project, pluginOutputDir, InProcessGate.ReferenceRoots(), staging);
-            if (built.IsError)
-                return (false, built.ErrorValue);
-            return InProcessGate.RunTest(built.ResultValue, pluginOutputDir);
-        }
-
-        var outcome = TestRunner.run(project);
-        return (outcome.Passed, outcome.Output);
+        var staging = Path.Combine(Path.GetTempPath(), "clavis-test-gate", name, Guid.NewGuid().ToString("N")[..8]);
+        var built = TestBuild.compile(project, pluginOutputDir, InProcessGate.ReferenceRoots(), staging);
+        if (built.IsError)
+            return (false, built.ErrorValue);
+        return InProcessGate.RunTest(built.ResultValue, pluginOutputDir);
     }
 
     private bool RunTests(string operationId, string itemDir, string workingCopy, string name, string pluginOutputDir)

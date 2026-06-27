@@ -12,8 +12,9 @@ public sealed record FormatDescriptor(string Name, string Sample, string Descrip
 /// travel as strings). Anything unrecognised leaves the value unchanged.
 public static partial class PlaceholderFormats
 {
-    [GeneratedRegex(@"^(?<name>[A-Za-z]+)(?:\((?<arg>.*)\))?$")]
-    private static partial Regex NamedPattern();
+    // Runtime Regex rather than [GeneratedRegex]: the in-process build (FabioSoft.Build) does not run C#
+    // source generators, so a generated partial method would have no body. Behaviour is identical.
+    private static readonly Regex NamedPattern = new(@"^(?<name>[A-Za-z]+)(?:\((?<arg>.*)\))?$");
 
     public static readonly IReadOnlyList<FormatDescriptor> Known =
     [
@@ -64,7 +65,7 @@ public static partial class PlaceholderFormats
 
     private static (string? Name, string? Arg) ParseNamed(string format)
     {
-        var match = NamedPattern().Match(format);
+        var match = NamedPattern.Match(format);
 
         return match.Success
             ? (match.Groups["name"].Value, match.Groups["arg"].Success ? match.Groups["arg"].Value : null)

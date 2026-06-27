@@ -4,13 +4,11 @@ using FabioSoft.Nucleus.Kernel;
 
 namespace FabioSoft.Nucleus.Plugins.MarketplacePlugin;
 
-/// Bridges the lifecycle pipeline to the in-process build engine when ClavisInProcessBuild is on. The host
-/// publishes the reference roots as environment variables (the same ones the kernel uses), so the pipeline
-/// resolves them without new wiring.
+/// Bridges the lifecycle pipeline to the in-process build engine (Roslyn/FCS) - the only build path. The
+/// host publishes the reference roots as environment variables (the same ones the kernel uses), so the
+/// pipeline resolves them without new wiring.
 internal static class InProcessGate
 {
-    public static bool Enabled => Environment.GetEnvironmentVariable("CLAVIS_INPROCESS_BUILD") == "1";
-
     public static string[] ReferenceRoots() =>
         new[]
         {

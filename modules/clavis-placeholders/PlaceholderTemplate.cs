@@ -9,18 +9,18 @@ namespace FabioSoft.Clavis.Placeholders;
 /// .NET format strings containing colons (HH:mm:ss) survive intact.
 public static partial class PlaceholderTemplate
 {
-    [GeneratedRegex(@"\{([^{}]+)\}")]
-    private static partial Regex TokenPattern();
+    // Runtime Regex rather than [GeneratedRegex]: the in-process build (FabioSoft.Build) does not run C#
+    // source generators, so a generated partial method would have no body. Behaviour is identical.
+    private static readonly Regex TokenPattern = new(@"\{([^{}]+)\}");
 
-    [GeneratedRegex(@"^(?<name>[^()]+)\((?<arg>.*)\)$")]
-    private static partial Regex HeadPattern();
+    private static readonly Regex HeadPattern = new(@"^(?<name>[^()]+)\((?<arg>.*)\)$");
 
     public static IReadOnlyList<TemplateSegment> Parse(string template, IReadOnlySet<string> components)
     {
         var segments = new List<TemplateSegment>();
         var last = 0;
 
-        foreach (Match match in TokenPattern().Matches(template))
+        foreach (Match match in TokenPattern.Matches(template))
         {
             if (match.Index > last)
             {
@@ -69,7 +69,7 @@ public static partial class PlaceholderTemplate
 
     private static (string Name, string? Arg) ParseHead(string head)
     {
-        var match = HeadPattern().Match(head);
+        var match = HeadPattern.Match(head);
 
         return match.Success
             ? (match.Groups["name"].Value, match.Groups["arg"].Value)

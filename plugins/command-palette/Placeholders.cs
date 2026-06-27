@@ -6,8 +6,9 @@ namespace FabioSoft.Nucleus.Plugins.CommandPalette;
 /// injected so the resolution is deterministic in tests. Unknown placeholders are left untouched.
 public static partial class Placeholders
 {
-    [GeneratedRegex(@"\{(\w+)\}")]
-    private static partial Regex TokenPattern();
+    // Runtime Regex rather than [GeneratedRegex]: the in-process build (FabioSoft.Build) does not run C#
+    // source generators, so a generated partial method would have no body. Behaviour is identical.
+    private static readonly Regex TokenPattern = new(@"\{(\w+)\}");
 
     /// The default placeholder set. Each value is produced on demand at resolution time.
     public static IReadOnlyDictionary<string, Func<string>> Default { get; } =
@@ -20,6 +21,6 @@ public static partial class Placeholders
         };
 
     public static string Resolve(string value, IReadOnlyDictionary<string, Func<string>> tokens) =>
-        TokenPattern().Replace(value, match =>
+        TokenPattern.Replace(value, match =>
             tokens.TryGetValue(match.Groups[1].Value, out var produce) ? produce() : match.Value);
 }
