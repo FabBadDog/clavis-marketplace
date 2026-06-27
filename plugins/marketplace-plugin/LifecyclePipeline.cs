@@ -59,6 +59,7 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
         }
         catch (Exception ex)
         {
+            bus.LogError(Source, $"{info.Name} pipeline threw: {ex}");
             bus.Send(new MarketplaceFailed(operationId, $"{info.Name}: {ex.Message}"));
         }
     }
@@ -70,10 +71,13 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
         // 1. Compile (gate + assembly for surface reflection).
         bus.Send(new MarketplaceProgress(operationId, "compiling", info.Name));
         var buildDir = isShared ? InstallLayout.stagingDirectory(home) : GateBuildDir(info.Name);
-        var compiled = PluginCompiler.compile(itemDir, buildDir);
+        var compiled = InProcessGate.Enabled
+            ? InProcessGate.Compile(itemDir, buildDir)
+            : PluginCompiler.compile(itemDir, buildDir);
         if (compiled.IsCompilationFailed)
         {
             var errors = ((CompilationResult.CompilationFailed)compiled).errors;
+            bus.LogError(Source, $"{info.Name} compile failed: {errors}");
             bus.Send(new MarketplaceFailed(operationId, $"{info.Name} failed to compile:\n{Tail(errors)}"));
             return;
         }
@@ -176,6 +180,10 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
         bus.Send(new MarketplaceCompleted(operationId, summary));
     }
 
+    // The test gate runs via `dotnet test`. The in-process xUnit runner (XunitRunner) + test-project compile
+    // (TestBuild) are ready, but compiling an xUnit v3 test project in-process needs NuGet contentFiles /
+    // source-package support in the build engine (xunit.v3.assert ships its Assert as source, and xunit.v3 is
+    // a meta-package), which is not yet implemented - so the gate stays on dotnet test for now.
     private bool RunTests(string operationId, string itemDir, string workingCopy, string name)
     {
         bus.Send(new MarketplaceProgress(operationId, "unit tests", name));
