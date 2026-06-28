@@ -51,6 +51,9 @@ internal static class InProcessGate
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
+            // The host is a GUI process, so a console child would pop (and flash) its own window per spawn
+            // unless suppressed - the test gate runs one per plugin.
+            CreateNoWindow = true,
         };
         startInfo.ArgumentList.Add(testAssemblyPath);
         startInfo.ArgumentList.Add(pluginOutputDir);

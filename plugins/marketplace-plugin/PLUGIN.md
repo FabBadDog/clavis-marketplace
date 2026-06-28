@@ -1,7 +1,7 @@
 ---
 name: marketplace-plugin
 pluginId: MarketplacePlugin
-version: 1.0.63
+version: 1.0.64
 apiVersion: 1.0.0
 description: Interactive marketplace surface - register marketplaces, search, and install/update/uninstall plugins.
 dependencies:
