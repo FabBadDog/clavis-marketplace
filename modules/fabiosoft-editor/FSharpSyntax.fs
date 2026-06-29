@@ -1,6 +1,16 @@
-<?xml version="1.0"?>
-<!-- Minimal F# highlighting for AvalonEdit (which ships no F# definition). Colors target a dark
-     background to match the Clavis palette. Extend as needed; this is a pragmatic first cut. -->
+namespace FabioSoft.Editor
+
+/// The F# highlighting definition for AvalonEdit, inlined as a string rather than an embedded resource.
+/// The compile-on-launch F# build (FSharpCompile, plain fsc) embeds no manifest resources, so the old
+/// Assembly.GetManifestResourceStream path always returned null and every .fs file failed to open. Loading
+/// from a StringReader keeps the editor self-contained with no dependency on the build engine's resource
+/// handling. Colours target a dark background to match the Clavis palette.
+[<RequireQualifiedAccess>]
+module internal FSharpSyntax =
+
+    [<Literal>]
+    let definition =
+        """<?xml version="1.0"?>
 <SyntaxDefinition name="F#" extensions=".fs;.fsi;.fsx"
                   xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
 
@@ -94,4 +104,4 @@
     </Rule>
 
   </RuleSet>
-</SyntaxDefinition>
+</SyntaxDefinition>"""

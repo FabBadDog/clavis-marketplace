@@ -10,6 +10,9 @@ language: fsharp
 rootNamespace: FabioSoft.Editor
 useWpf: true
 sources:
+  - FSharpSyntax.fs
+  - YamlSyntax.fs
+  - MarkdownHighlighting.fs
   - CodeEditor.fs
 packages:
   - { name: AvalonEdit, version: 6.3.1.120 }
