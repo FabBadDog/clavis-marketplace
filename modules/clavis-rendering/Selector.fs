@@ -5,9 +5,11 @@ open System.Collections.Generic
 open System.Diagnostics.CodeAnalysis
 open System.Windows
 open System.Windows.Controls
+open System.Windows.Data
 open System.Windows.Input
 open System.Windows.Media
 open System.Windows.Media.Animation
+open System.Windows.Shapes
 
 /// The outcome of a client's validation callback: either the input is accepted (with the canonical text
 /// that gets recorded to history and handed to OnAccept), or it is rejected with a message the popup
@@ -63,6 +65,22 @@ type SelectorOptions() =
     /// Optional first-chance key hook (e.g. the command palette's Alt+Enter shortcut capture). Runs
     /// before the built-in key handling; return true to mark the key handled.
     member val OnUnhandledKey: Func<KeyEventArgs, bool> = null with get, set
+
+    /// When false, the 1px rule under the input is omitted - the blue caret alone marks focus. Default true
+    /// keeps the underline (the picker popups use it); the command palette turns it off for less chrome.
+    member val ShowInputRule = true with get, set
+
+    /// Optional detail pane: when set, the popup splits into a left list and a right pane that renders the
+    /// highlighted item through this template (its full description, kind, source). Null keeps the single-
+    /// column list, so the picker popups are unchanged.
+    member val DetailTemplate: DataTemplate = null with get, set
+
+    /// Width in DIPs of the detail pane (used only when DetailTemplate is set).
+    member val DetailWidth = 280.0 with get, set
+
+    /// Optional right-aligned footer hint (e.g. "Enter to run"). Empty hides the footer unless a busy
+    /// status (set via SetBusy) is being shown.
+    member val FooterHint = "" with get, set
 
 /// The free-text input history of a selector: recorded acceptances, recalled with Up past the top of the
 /// list, cancelled with Esc, committed with Enter. Pure - the window applies the returned state and text.
@@ -175,6 +193,30 @@ type SelectorWindow(options: SelectorOptions) as this =
 
     let root = Border(BorderThickness = Thickness(1.0), Padding = Thickness(16.0, 14.0, 16.0, 12.0))
 
+    // The right-hand detail pane (only mounted when options.DetailTemplate is set). The left margin is the
+    // sole separator from the list - whitespace, no divider line, no fill.
+    let detail =
+        ContentControl(
+            ContentTemplate = options.DetailTemplate,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = Thickness(30.0, 0.0, 0.0, 0.0))
+
+    // Footer loading indicator: a breathing dot (a circle) + status text, with an optional right-aligned
+    // hint. Hidden until SetBusy turns it on (and re-hidden when loading completes, unless a hint remains).
+    let footerDot =
+        Ellipse(Width = 7.0, Height = 7.0, VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed)
+
+    let footerStatus =
+        TextBlock(
+            FontSize = 11.0,
+            Margin = Thickness(8.0, 0.0, 0.0, 0.0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed)
+
+    let footerHint = TextBlock(FontSize = 11.0, VerticalAlignment = VerticalAlignment.Center)
+
+    let footer = Grid(Margin = Thickness(0.0, 14.0, 0.0, 0.0))
+
     // Match the events panel: a chrome-free row whose only selection cue is a faint background fill. The
     // selected fill is stronger than hover because the popup is keyboard-driven.
     static let frozenFill (hex: string) =
@@ -187,8 +229,12 @@ type SelectorWindow(options: SelectorOptions) as this =
 
     static let buildItemContainerStyle () =
 
+        // A transparent 2px left edge at rest (kept in the layout so selection never shifts the row); on
+        // selection it recolours to the primary accent - the design language's list-row selection cue.
         let border = FrameworkElementFactory(typeof<Border>, Name = "Bd")
         border.SetValue(Border.BackgroundProperty, Brushes.Transparent)
+        border.SetValue(Border.BorderThicknessProperty, Thickness(2.0, 0.0, 0.0, 0.0))
+        border.SetValue(Border.BorderBrushProperty, Brushes.Transparent)
         border.SetValue(Border.PaddingProperty, Thickness(8.0, 0.0, 8.0, 0.0))
         border.AppendChild(FrameworkElementFactory(typeof<ContentPresenter>))
 
@@ -200,6 +246,7 @@ type SelectorWindow(options: SelectorOptions) as this =
 
         let selected = Trigger(Property = ListBoxItem.IsSelectedProperty, Value = true)
         selected.Setters.Add(Setter(Border.BackgroundProperty, selectedFill, "Bd"))
+        selected.Setters.Add(Setter(Border.BorderBrushProperty, DynamicResourceExtension("ClavisBrush"), "Bd"))
         template.Triggers.Add selected
 
         let style = Style(typeof<ListBoxItem>)
@@ -226,12 +273,15 @@ type SelectorWindow(options: SelectorOptions) as this =
         message.Text <- text
         message.Visibility <- Visibility.Visible
 
+    let fetchSuggestions () =
+
+        match options.GetSuggestions with
+        | null -> [] :> IReadOnlyList<obj>
+        | get -> get.Invoke(input.Text)
+
     let refresh () =
 
-        let suggestions =
-            match options.GetSuggestions with
-            | null -> [] :> IReadOnlyList<obj>
-            | get -> get.Invoke(input.Text)
+        let suggestions = fetchSuggestions ()
         list.ItemsSource <- suggestions
         if suggestions.Count > 0 then
             list.SelectedIndex <- 0
@@ -284,8 +334,9 @@ type SelectorWindow(options: SelectorOptions) as this =
 
         let text = input.Text
         let selected = list.SelectedItem
-        if options.FreeText && text.Trim().Length = 0 then
-            // Free text needs a value; an empty line is a no-op (matches the old palette).
+        if options.FreeText && text.Trim().Length = 0 && isNull selected then
+            // Free text with neither a typed value nor a highlighted row is a no-op. A highlighted row is
+            // accepted even on an empty input, so browsing the list and pressing Enter runs that row.
             ()
         elif not options.FreeText && isNull selected then
             // Strict selection needs a highlighted row.
@@ -379,18 +430,69 @@ type SelectorWindow(options: SelectorOptions) as this =
             if not (isNull list.SelectedItem) then
                 tryAccept ())
 
-        let inputBorder = Border(BorderThickness = Thickness(0.0, 0.0, 0.0, 1.0))
-        inputBorder.SetResourceReference(Border.BorderBrushProperty, "LineBrush")
-        inputBorder.Child <- input
+        // The input, optionally underlined by the single 1px rule. With the rule off the blue caret marks
+        // focus and the input's own bottom padding keeps the spacing.
+        let inputElement: FrameworkElement =
+            if options.ShowInputRule then
+                let inputBorder = Border(BorderThickness = Thickness(0.0, 0.0, 0.0, 1.0))
+                inputBorder.SetResourceReference(Border.BorderBrushProperty, "LineBrush")
+                inputBorder.Child <- input
+                inputBorder
+            else
+                input
+
+        // The results: just the list, or the list beside a detail pane bound to the highlighted item.
+        let content: FrameworkElement =
+            match options.DetailTemplate with
+            | null -> list
+            | _ ->
+                detail.SetBinding(ContentControl.ContentProperty, Binding("SelectedItem", Source = list)) |> ignore
+                // Scroll a long description rather than letting it grow the popup past the list's height.
+                let detailScroll =
+                    ScrollViewer(
+                        Content = detail,
+                        MaxHeight = list.MaxHeight,
+                        VerticalAlignment = VerticalAlignment.Top,
+                        VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                        HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled)
+                let grid = Grid()
+                grid.ColumnDefinitions.Add(ColumnDefinition(Width = GridLength(1.0, GridUnitType.Star)))
+                grid.ColumnDefinitions.Add(ColumnDefinition(Width = GridLength options.DetailWidth))
+                Grid.SetColumn(list, 0)
+                Grid.SetColumn(detailScroll, 1)
+                grid.Children.Add list |> ignore
+                grid.Children.Add detailScroll |> ignore
+                grid
+
+        footerDot.SetResourceReference(Shape.FillProperty, "WarnBrush")
+        footerStatus.SetResourceReference(TextBlock.ForegroundProperty, "TextDimBrush")
+        footerStatus.SetResourceReference(TextBlock.FontFamilyProperty, "MonoFont")
+        footerHint.SetResourceReference(TextBlock.ForegroundProperty, "TextDimBrush")
+        footerHint.SetResourceReference(TextBlock.FontFamilyProperty, "MonoFont")
+        footer.ColumnDefinitions.Add(ColumnDefinition(Width = GridLength(1.0, GridUnitType.Star)))
+        footer.ColumnDefinitions.Add(ColumnDefinition(Width = GridLength.Auto))
+        let footerLeft = StackPanel(Orientation = Orientation.Horizontal)
+        footerLeft.Children.Add footerDot |> ignore
+        footerLeft.Children.Add footerStatus |> ignore
+        Grid.SetColumn(footerLeft, 0)
+        Grid.SetColumn(footerHint, 1)
+        footer.Children.Add footerLeft |> ignore
+        footer.Children.Add footerHint |> ignore
+        if options.FooterHint.Length > 0 then
+            footerHint.Text <- options.FooterHint
+            footer.Visibility <- Visibility.Visible
+        else
+            footer.Visibility <- Visibility.Collapsed
 
         let stack = StackPanel()
         stack.Children.Add prompt |> ignore
-        stack.Children.Add inputBorder |> ignore
+        stack.Children.Add inputElement |> ignore
         stack.Children.Add message |> ignore
-        stack.Children.Add list |> ignore
+        stack.Children.Add content |> ignore
+        stack.Children.Add footer |> ignore
 
         root.SetResourceReference(Border.BackgroundProperty, "BlackBrush")
-        root.SetResourceReference(Border.BorderBrushProperty, "FrameBrush")
+        root.SetResourceReference(Border.BorderBrushProperty, "PopupFrameBrush")
         root.RenderTransform <- rootTransform
         root.Child <- stack
         this.Content <- root
@@ -406,10 +508,37 @@ type SelectorWindow(options: SelectorOptions) as this =
 
     member _.ClearMessage() = clearMessage ()
 
+    /// Show or hide the footer's breathing status dot + text - the loading indicator. When turned off the
+    /// footer collapses again unless a static FooterHint keeps it visible.
+    member _.SetBusy(busy: bool, text: string) =
+
+        if busy then
+            footerStatus.Text <- text
+            footerStatus.Visibility <- Visibility.Visible
+            footerDot.Visibility <- Visibility.Visible
+            footer.Visibility <- Visibility.Visible
+            Motion.breathe footerDot
+        else
+            Motion.stopBreathing footerDot
+            footerDot.Visibility <- Visibility.Collapsed
+            footerStatus.Visibility <- Visibility.Collapsed
+            footer.Visibility <- (if options.FooterHint.Length > 0 then Visibility.Visible else Visibility.Collapsed)
+
     /// Replace the input text without re-entering history mode.
     member _.SetText(text: string) =
         setInput text
         refresh ()
+
+    /// Re-query suggestions for the current input while keeping the highlighted row in place. Used when an
+    /// external change (e.g. a keymap edit) alters what a row should display but not the set or its order,
+    /// so the list updates live without the selection jumping back to the top.
+    member _.Refresh() =
+
+        let index = list.SelectedIndex
+        let suggestions = fetchSuggestions ()
+        list.ItemsSource <- suggestions
+        if suggestions.Count > 0 then
+            list.SelectedIndex <- if index >= 0 && index < suggestions.Count then index else 0
 
     member _.Dismiss() = hideAnimated ()
 

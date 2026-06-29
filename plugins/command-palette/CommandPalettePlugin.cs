@@ -16,6 +16,10 @@ public sealed class CommandPalettePlugin : IPlugin<CommandPaletteConfig>
 
     private volatile IReadOnlyDictionary<string, string> _aliases = AliasCatalog.BuiltIns;
     private volatile IReadOnlyList<CommandItem> _externalCommands = [];
+
+    // Agent commands and skills arrive asynchronously (AgentCommandsAvailable). Until the first such event,
+    // the palette shows a "loading skills" indicator so an early-opened popup does not look complete.
+    private volatile bool _externalCommandsReceived;
     private volatile IReadOnlyDictionary<string, string> _shortcuts = new Dictionary<string, string>();
     private readonly Dictionary<string, CommandDescriptor> _panelCommands = new(StringComparer.Ordinal);
 
@@ -47,6 +51,8 @@ public sealed class CommandPalettePlugin : IPlugin<CommandPaletteConfig>
                 _externalCommands = available.Commands
                     .Select(command => CommandItem.FromAgentCommand(command.Name, command.Description))
                     .ToList();
+                _externalCommandsReceived = true;
+                Application.Current?.Dispatcher.InvokeAsync(() => _palette?.SetLoading(false));
                 BroadcastCommands(bus);
             }
 
@@ -101,6 +107,15 @@ public sealed class CommandPalettePlugin : IPlugin<CommandPaletteConfig>
         var keymapSubscription = bus.Subscribe<KeymapChanged>(changed =>
         {
             _shortcuts = BuildShortcutLookup(changed.Bindings);
+            // An open palette holds a snapshot of the rows, so refresh it in place when bindings change
+            // (e.g. the user just bound/unbound a shortcut) so the displayed shortcut updates live.
+            Application.Current?.Dispatcher.InvokeAsync(() =>
+            {
+                if (_palette is { IsVisible: true } palette)
+                {
+                    palette.RefreshSuggestions();
+                }
+            });
             return Task.CompletedTask;
         });
 
@@ -270,7 +285,8 @@ public sealed class CommandPalettePlugin : IPlugin<CommandPaletteConfig>
             GetSuggestions,
             Route,
             message => Perform(bus, message),
-            (command, gesture) => bus.Send(new SetKeyBinding(command, KeymapScope.Application, "", gesture)));
+            (command, gesture) => bus.Send(new SetKeyBinding(command, KeymapScope.Application, "", gesture)),
+            gesture => bus.Send(new RemoveKeyBinding(gesture, KeymapScope.Application, "")));
 
         if (_palette.IsVisible)
         {
@@ -279,6 +295,7 @@ public sealed class CommandPalettePlugin : IPlugin<CommandPaletteConfig>
         else
         {
             _palette.Show();
+            _palette.SetLoading(!_externalCommandsReceived);
         }
     }
 

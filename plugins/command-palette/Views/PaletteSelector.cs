@@ -14,7 +14,11 @@ internal sealed class PaletteSelector
     private readonly Func<string, RouteOutcome> _route;
     private readonly Action<RouteOutcome> _perform;
     private readonly Action<string, string> _assignBinding;
+    private readonly Action<string> _removeBinding;
     private readonly SelectorWindow _window;
+
+    private const string LoadingText = "Loading skills…";
+    private const string FooterHint = "Enter to run · Alt+Enter to bind · Alt+Backspace to unbind";
 
     private RouteOutcome? _pendingOutcome;
     private bool _capturing;
@@ -25,18 +29,23 @@ internal sealed class PaletteSelector
         Func<string, IReadOnlyList<CommandItem>> getSuggestions,
         Func<string, RouteOutcome> route,
         Action<RouteOutcome> perform,
-        Action<string, string> assignBinding)
+        Action<string, string> assignBinding,
+        Action<string> removeBinding)
     {
         _route = route;
         _perform = perform;
         _assignBinding = assignBinding;
+        _removeBinding = removeBinding;
 
         _window = new SelectorWindow(new SelectorOptions
         {
             Width = width,
             FreeText = true,
+            ShowInputRule = false,
             GetSuggestions = input => getSuggestions(input),
-            ItemTemplate = LoadItemTemplate(),
+            ItemTemplate = LoadTemplate("CommandItemTemplate"),
+            DetailTemplate = LoadTemplate("CommandDetailTemplate"),
+            FooterHint = FooterHint,
             Validate = Validate,
             OnAccept = (_, _) => Accept(),
             CompleteText = CompleteText,
@@ -49,6 +58,14 @@ internal sealed class PaletteSelector
     public void Show() => _window.ShowSelector();
 
     public void Hide() => _window.Dismiss();
+
+    /// Toggles the footer's "loading skills" indicator. Agent commands and skills arrive asynchronously
+    /// (AgentCommandsAvailable), so an early-opened palette shows this until they land.
+    public void SetLoading(bool loading) => _window.SetBusy(loading, LoadingText);
+
+    /// Re-query the suggestions in place (keeping the highlighted row), so a shortcut bound or removed
+    /// while the palette is open updates the displayed shortcut without a close/reopen.
+    public void RefreshSuggestions() => _window.Refresh();
 
     public void Close() => _window.Dispatcher.Invoke(_window.Close);
 
@@ -112,9 +129,18 @@ internal sealed class PaletteSelector
             return true;
         }
 
-        if (e.Key == Key.Enter && (Keyboard.Modifiers & ModifierKeys.Alt) == ModifierKeys.Alt)
+        // With Alt held, WPF delivers the key as Key.System with the real key in SystemKey, so resolve it
+        // the same way CaptureGesture does - otherwise Alt+Enter never matches.
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.Enter && (Keyboard.Modifiers & ModifierKeys.Alt) == ModifierKeys.Alt)
         {
             BeginCapture();
+            return true;
+        }
+
+        if (key == Key.Back && (Keyboard.Modifiers & ModifierKeys.Alt) == ModifierKeys.Alt)
+        {
+            RemoveBinding();
             return true;
         }
 
@@ -139,6 +165,25 @@ internal sealed class PaletteSelector
         _window.ShowMessage($"Press a shortcut for '{item.DisplayName}' - Esc to cancel");
     }
 
+    // Alt+Backspace removes the highlighted command's shortcut (the application binding shown beside it).
+    // A command with no shortcut reports so and is left untouched.
+    private void RemoveBinding()
+    {
+        if (_window.SelectedItem is not CommandItem item)
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(item.Shortcut))
+        {
+            _window.ShowMessage($"'{item.DisplayName}' has no shortcut to remove");
+            return;
+        }
+
+        _removeBinding(item.Shortcut);
+        _window.ShowMessage($"Removed {item.Shortcut}");
+    }
+
     private void CaptureGesture(KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
@@ -161,13 +206,14 @@ internal sealed class PaletteSelector
         _window.ShowMessage($"Bound {gesture}");
     }
 
-    private static DataTemplate LoadItemTemplate()
+    // Both row templates are loose XAML resources whose dictionary key matches the file name.
+    private static DataTemplate LoadTemplate(string key)
     {
         var assemblyName = typeof(PaletteSelector).Assembly.GetName().Name;
         var dictionary = new ResourceDictionary
         {
-            Source = new Uri($"pack://application:,,,/{assemblyName};component/Views/CommandItemTemplate.xaml")
+            Source = new Uri($"pack://application:,,,/{assemblyName};component/Views/{key}.xaml")
         };
-        return (DataTemplate)dictionary["CommandItemTemplate"];
+        return (DataTemplate)dictionary[key];
     }
 }

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>CLAVIS Command Palette - Redesign Explorations</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    /* CLAVIS default-theme palette (wpf-host/Theme/Styles.xaml) */
+    --black:        #000000;
+    --surface:      #0E0E14;  /* hover / selection / popup fill */
+    --raised:       #36363F;  /* current badge fill */
+    --line:         #5A5A66;  /* the single border */
+    --code-bg:      #14141C;
+    --code-border:  #282834;
+    --rail:         #1B1B22;
+    --text-bright:  #E8E8EC;  /* TextBrightBrush */
+    --text:         #C8C8D0;  /* TextBrush / BodyBrush */
+    --text-dim:     #9A9AA4;  /* TextDimBrush / SecondaryBrush */
+    --clavis:       #9FD5F0;  /* primary accent - blue (STATE) */
+    --human:        #ADA6F2;  /* secondary accent - periwinkle (IDENTITY) */
+    --red:          #E47E7E;
+    --yellow:       #E4C47E;
+    --green:        #7BD49B;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--black);
+    color: var(--text);
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+    padding: 44px 48px 120px;
+  }
+
+  /* ---- page chrome ---- */
+  h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600; font-size: 28px; letter-spacing: .02em;
+    color: var(--text-bright); margin: 0 0 6px;
+  }
+  .sub { color: var(--text-dim); margin: 0 0 8px; max-width: 86ch; }
+  .lead { color: var(--text); margin: 0 0 30px; max-width: 86ch; }
+  .problems { display: flex; gap: 14px; flex-wrap: wrap; margin: 0 0 8px; }
+  .problem {
+    border: 1px solid var(--code-border); background: var(--surface);
+    padding: 12px 16px; max-width: 27ch; flex: 1 1 240px;
+  }
+  .problem .n {
+    font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 10px;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px;
+  }
+  .problem .t { color: var(--text-bright); font-size: 13.5px; }
+
+  h2 {
+    font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 17px;
+    letter-spacing: .10em; text-transform: uppercase; color: var(--text-dim);
+    margin: 64px 0 0; padding-bottom: 9px; border-bottom: 1px solid var(--line);
+  }
+  h2 .idx { color: var(--clavis); margin-right: 10px; }
+  .rationale { color: var(--text-dim); max-width: 88ch; margin: 14px 0 26px; }
+  .rationale b { color: var(--text); font-weight: 500; }
+  .rationale .tag {
+    font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 10px;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--clavis);
+    border: 1px solid var(--code-border); padding: 2px 7px; margin-right: 8px;
+  }
+  code { font-family: 'JetBrains Mono', monospace; color: var(--text-bright); font-size: 12.5px; }
+
+  /* ---- the overlay backdrop each popup sits on (the one tint: black 85%) ---- */
+  .stage {
+    background:
+      repeating-linear-gradient(135deg, #070709 0 22px, #050506 22px 44px);
+    border: 1px solid var(--code-border);
+    padding: 46px 0 54px;
+    display: flex; justify-content: center;
+    position: relative;
+  }
+  .stage::before {
+    content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.85);
+  }
+
+  /* ---- the popup itself: black fill, single 1px line frame ---- */
+  .palette {
+    position: relative; width: 640px; background: var(--black);
+    border: 1px solid var(--line); padding: 16px 18px 12px;
+  }
+
+  /* search input */
+  .pinput { display: flex; align-items: baseline; gap: 10px; }
+  .pinput .caret-line { flex: 1; display: flex; align-items: baseline; }
+  .pinput input,
+  .pinput .typed {
+    font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 500;
+    color: var(--text-bright); background: transparent; border: 0; outline: 0; width: 100%;
+  }
+  .pinput .typed .ph { color: var(--text-dim); }
+  .pinput .caret { display: inline-block; width: 1px; height: 19px; background: var(--clavis);
+    margin-left: 1px; transform: translateY(3px); animation: blink 1.1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .pinput .lead-glyph { width: 13px; height: 13px; border: 1.6px solid var(--text-dim);
+    border-radius: 50%; position: relative; transform: translateY(2px); }
+  .pinput .lead-glyph::after { content: ''; position: absolute; width: 6px; height: 1.6px;
+    background: var(--text-dim); right: -5px; bottom: 0px; transform: rotate(45deg); transform-origin: left; }
+
+  /* the dual-rule that exists today (shown only in the "before") */
+  .rule-bottom { border-bottom: 1px solid var(--line); margin: 12px 0 6px; }
+
+  /* breathing status dot (600ms, per design language) */
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--clavis); animation: breathe 1.6s ease-in-out infinite; flex: none; }
+  .dot.warn { background: var(--yellow); }
+  @keyframes breathe { 0%,100% { opacity: 1; } 50% { opacity: .28; } }
+
+  /* status / footer line */
+  .status {
+    display: flex; align-items: center; gap: 8px; margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim);
+  }
+  .status .right { margin-left: auto; }
+
+  .kind-word {
+    font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 9.5px;
+    letter-spacing: .11em; text-transform: uppercase;
+  }
+  .sk { color: var(--yellow); }      /* skill   -> WarnBrush */
+  .al { color: var(--human); }       /* alias   -> HumanBrush */
+  .ag { color: var(--human); }       /* agent   -> InputBrush (periwinkle) */
+  .ms { color: var(--clavis); }      /* message -> ClavisBrush */
+  .sc-sk { background: var(--yellow); } .sc-al { background: var(--human); }
+  .sc-ag { background: var(--human); } .sc-ms { background: var(--clavis); }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .name { font-family: 'Rajdhani', sans-serif; font-weight: 500; }
+  .shortcut { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--human); }
+  .desc { color: var(--text-dim); }
+  .src { color: var(--text-dim); font-size: 11px; }
+  .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* a tiny "compare" hint above each stage */
+  .hint { font-size: 11.5px; color: var(--text-dim); margin: 0 0 12px; }
+  .hint b { color: var(--green); font-weight: 500; }
+
+  /* ============ shared list scaffolding ============ */
+  .list { margin-top: 10px; }
+
+  /* ====== Concept 0: the current palette (reference) ====== */
+  .c0 .row { display: grid; grid-template-columns: 184px 96px 58px 96px 1fr; gap: 0;
+    padding: 5px 8px; align-items: start; }
+  .c0 .row.sel { background: var(--surface); }
+  .c0 .badge { justify-self: start; background: var(--raised); padding: 3px 6px;
+    font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 9px; letter-spacing: .05em;
+    line-height: 1; align-self: start; margin-top: 1px; }
+  .c0 .name { color: var(--text-bright); font-size: 14px; }
+  .c0 .desc { font-size: 13px; }
+
+  /* ====== Concept 1: Quiet Columns (subtract chrome) ====== */
+  .c1 .row { display: grid; grid-template-columns: 16px 190px 96px 1fr auto; gap: 12px;
+    padding: 6px 8px; align-items: baseline; }
+  .c1 .row.sel { box-shadow: inset 2px 0 0 var(--clavis); background: var(--surface); }
+  .c1 .kdot { width: 7px; height: 7px; border-radius: 50%; align-self: center; }
+  .c1 .name { color: var(--text); font-size: 14.5px; }
+  .c1 .row.sel .name { color: var(--text-bright); }
+  .c1 .desc { font-size: 13px; }
+
+  /* ====== Concept 2: Two-line cards ====== */
+  .c2 .row { display: grid; grid-template-columns: 16px 1fr auto; gap: 12px; padding: 8px 8px; align-items: start; }
+  .c2 .row.sel { box-shadow: inset 2px 0 0 var(--clavis); background: var(--surface); }
+  .c2 .kdot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; }
+  .c2 .pl { display: flex; align-items: baseline; gap: 10px; }
+  .c2 .name { color: var(--text-bright); font-size: 15px; }
+  .c2 .sl { margin-top: 1px; font-size: 12.5px; }
+  .c2 .sl .src { text-transform: uppercase; letter-spacing: .06em; font-family: 'Rajdhani'; font-weight:600; font-size: 10px; }
+  .c2 .sep { color: var(--code-border); margin: 0 7px; }
+
+  /* ====== Concept 3: Grouped by kind, description on focus ====== */
+  .c3 .group { font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 10px;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim);
+    padding: 12px 8px 5px; }
+  .c3 .row { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 5px 8px 5px 14px;
+    align-items: baseline; position: relative; }
+  .c3 .row::before { content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 2px; }
+  .c3 .row.k-sk::before { background: var(--yellow); } .c3 .row.k-al::before { background: var(--human); }
+  .c3 .row.k-ag::before { background: var(--human); } .c3 .row.k-ms::before { background: var(--clavis); }
+  .c3 .row.sel { background: var(--surface); }
+  .c3 .name { color: var(--text); font-size: 14px; }
+  .c3 .row.sel .name { color: var(--text-bright); }
+  .c3 .detail { margin: 10px 8px 2px 14px; padding-top: 10px; border-top: 1px solid var(--code-border);
+    color: var(--text-dim); font-size: 13px; }
+  .c3 .detail b { color: var(--text-bright); font-weight: 600; font-family:'Rajdhani'; font-size:13px; }
+
+  /* ====== Concept 4: Master / detail ====== */
+  .c4 .body { display: grid; grid-template-columns: 1fr 250px; margin-top: 10px; }
+  .c4 .pane-l { border-right: 1px solid var(--code-border); padding-right: 4px; }
+  .c4 .row { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; padding: 6px 10px 6px 4px; align-items: center; }
+  .c4 .row.sel { box-shadow: inset 2px 0 0 var(--clavis); background: var(--surface); }
+  .c4 .kdot { width: 7px; height: 7px; border-radius: 50%; }
+  .c4 .name { color: var(--text); font-size: 14px; }
+  .c4 .row.sel .name { color: var(--text-bright); }
+  .c4 .pane-r { padding: 4px 4px 4px 18px; }
+  .c4 .pane-r .dn { font-family:'Rajdhani'; font-weight:600; font-size:16px; color: var(--text-bright); }
+  .c4 .pane-r .meta { display:flex; gap:10px; align-items:center; margin: 7px 0 12px; }
+  .c4 .pane-r .full { color: var(--text); font-size: 13px; line-height: 1.6; }
+
+  /* ====== Concept 5: Spotlight minimal ====== */
+  .c5 .palette { width: 600px; }
+  .c5 .row { display: grid; grid-template-columns: 3px 1fr auto; gap: 14px; padding: 9px 6px; align-items: baseline; }
+  .c5 .tick { width: 3px; align-self: stretch; }
+  .c5 .row.sel { background: var(--surface); }
+  .c5 .row .tick { background: transparent; }
+  .c5 .row.sel.k-sk .tick { background: var(--yellow); } .c5 .row.sel.k-al .tick { background: var(--human); }
+  .c5 .row.sel.k-ag .tick { background: var(--human); } .c5 .row.sel.k-ms .tick { background: var(--clavis); }
+  .c5 .name { color: var(--text); font-size: 15px; }
+  .c5 .row.sel .name { color: var(--text-bright); }
+  .c5 .desc { font-size: 13px; color: var(--text-dim); }
+  .c5 .shortcut { background: var(--surface); padding: 2px 7px; font-size: 10.5px; }
+
+  .legendrow { display:flex; gap: 22px; flex-wrap: wrap; margin: 4px 0 0; font-size: 11.5px; color: var(--text-dim); }
+  .legendrow span { display:inline-flex; align-items:center; gap:6px; }
+  .legendrow i { width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+  .toc { display:flex; gap: 10px; flex-wrap: wrap; margin: 22px 0 0; }
+  .toc a { font-family:'Rajdhani'; font-weight:600; font-size:12px; letter-spacing:.04em;
+    color: var(--text); text-decoration: none; border:1px solid var(--code-border);
+    background: var(--surface); padding: 7px 12px; }
+  .toc a:hover { border-color: var(--line); color: var(--text-bright); }
+  .toc a b { color: var(--clavis); margin-right: 7px; }
+</style>
+</head>
+<body>
+
+  <h1>CLAVIS Command Palette - Redesign Explorations</h1>
+  <p class="sub">Five directions for the <code>command-palette</code> popup (rendered today through the shared <code>SelectorWindow</code>). Real default-theme palette, three voices: Rajdhani (chrome), Inter (prose), JetBrains Mono (machine).</p>
+  <p class="lead">Each concept attacks the same three issues. Selected row in every mock is <code>deep-research</code> so you can compare how each handles a long skill description.</p>
+
+  <div class="problems">
+    <div class="problem"><div class="n">Problem 1</div><div class="t">No sign that skills are still loading - they arrive async after the popup can open.</div></div>
+    <div class="problem"><div class="n">Problem 2</div><div class="t">Too many lines &amp; boxes - an outer frame, a rule under the input, and a filled badge box on every row.</div></div>
+    <div class="problem"><div class="n">Problem 3</div><div class="t">Long skill descriptions overflow / dominate the row and are hard to scan.</div></div>
+  </div>
+
+  <div class="legendrow">
+    <span><i style="background:var(--yellow)"></i> SKILL</span>
+    <span><i style="background:var(--human)"></i> AGENT</span>
+    <span><i style="background:var(--human)"></i> ALIAS</span>
+    <span><i style="background:var(--clavis)"></i> MESSAGE</span>
+    <span><span class="dot warn"></span> loading indicator (breathing, 600ms)</span>
+  </div>
+
+  <div class="toc">
+    <a href="#c0"><b>0</b>Today</a>
+    <a href="#c1"><b>1</b>Quiet Columns</a>
+    <a href="#c2"><b>2</b>Two-line Cards</a>
+    <a href="#c3"><b>3</b>Grouped + Focus Detail</a>
+    <a href="#c4"><b>4</b>Master / Detail</a>
+    <a href="#c5"><b>5</b>Spotlight</a>
+  </div>
+
+  <!-- ================= CONCEPT 0: TODAY ================= -->
+  <h2 id="c0"><span class="idx">0</span>The palette today (reference)</h2>
+  <p class="rationale">For comparison. <b>Outer frame</b> + <b>rule under the input</b> + a <b>filled grey badge box on every row</b> + a strict 5-column table. The <code>deep-research</code> description is clipped by its column; nothing tells you skills are still arriving.</p>
+  <div class="stage">
+    <div class="palette c0">
+      <div class="pinput"><div class="lead-glyph"></div><div class="caret-line"><div class="typed">re<span class="caret"></span></div></div></div>
+      <div class="rule-bottom"></div>
+      <div class="list">
+        <div class="row"><div class="name ell">code-review</div><div class="src">user</div><div class="badge sk">SKILL</div><div class="shortcut"></div><div class="desc ell">Review the changed code for correctness bugs and cleanups</div></div>
+        <div class="row sel"><div class="name ell">deep-research</div><div class="src">user</div><div class="badge sk">SKILL</div><div class="shortcut"></div><div class="desc ell">Deep research harness - fan-out web searches, fetch sources, adversarially verify claims, synthesize a cited report</div></div>
+        <div class="row"><div class="name ell">init</div><div class="src">built-in</div><div class="badge ag">AGENT</div><div class="shortcut"></div><div class="desc ell">Initialize a new CLAUDE.md file with codebase documentation</div></div>
+        <div class="row"><div class="name ell">model</div><div class="src">alias</div><div class="badge al">ALIAS</div><div class="shortcut">Ctrl+M</div><div class="desc ell">Pick the agent model</div></div>
+        <div class="row"><div class="name ell">toggle-git-log</div><div class="src">alias</div><div class="badge al">ALIAS</div><div class="shortcut">Ctrl+G</div><div class="desc ell">Show or hide the git log panel</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CONCEPT 1: QUIET COLUMNS ================= -->
+  <h2 id="c1"><span class="idx">1</span>Quiet Columns</h2>
+  <p class="rationale"><span class="tag">least change</span> Keep the familiar columnar scan but <b>subtract chrome</b>: badge box &rarr; a single <b>kind dot</b> (a circle), drop the rule under the input (a blue caret marks focus instead), selection becomes a <b>2px primary left edge + brighten</b> (the design-language list-row treatment) rather than a wash. Descriptions truncate to one line. A footer status line carries the <b>breathing loading dot</b>.</p>
+  <div class="stage">
+    <div class="palette c1">
+      <div class="pinput"><div class="lead-glyph"></div><div class="caret-line"><div class="typed">re<span class="caret"></span></div></div></div>
+      <div class="list">
+        <div class="row"><span class="kdot sc-sk"></span><div class="name ell">code-review</div><div class="src">user</div><div class="desc ell">Review the changed code for correctness bugs and cleanups</div><div class="shortcut"></div></div>
+        <div class="row sel"><span class="kdot sc-sk"></span><div class="name ell">deep-research</div><div class="src">user</div><div class="desc ell">Deep research harness - fan-out web searches, fetch sources, verify claims, synthesize a cited report</div><div class="shortcut"></div></div>
+        <div class="row"><span class="kdot sc-ag"></span><div class="name ell">init</div><div class="src">built-in</div><div class="desc ell">Initialize a new CLAUDE.md file with codebase documentation</div><div class="shortcut"></div></div>
+        <div class="row"><span class="kdot sc-al"></span><div class="name ell">model</div><div class="src">alias</div><div class="desc ell">Pick the agent model</div><div class="shortcut">Ctrl+M</div></div>
+        <div class="row"><span class="kdot sc-al"></span><div class="name ell">toggle-git-log</div><div class="src">alias</div><div class="desc ell">Show or hide the git log panel</div><div class="shortcut">Ctrl+G</div></div>
+      </div>
+      <div class="status"><span class="dot warn"></span> Loading skills&hellip; <span class="right">17 commands</span></div>
+    </div>
+  </div>
+
+  <!-- ================= CONCEPT 2: TWO-LINE CARDS ================= -->
+  <h2 id="c2"><span class="idx">2</span>Two-line Cards</h2>
+  <p class="rationale"><span class="tag">content-first</span> No columns, no boxes at all. Each result is a small block: <b>name + shortcut</b> on the primary line, <b>source &middot; description</b> dim below. The long description gets a whole line to breathe and wraps to two before clipping, so skills are finally readable. Kind is a leading dot. This is the boldest "content before chrome" reading.</p>
+  <div class="stage">
+    <div class="palette c2">
+      <div class="pinput"><div class="lead-glyph"></div><div class="caret-line"><div class="typed">re<span class="caret"></span></div></div></div>
+      <div class="list">
+        <div class="row"><span class="kdot sc-sk"></span><div><div class="pl"><span class="name">code-review</span></div><div class="sl"><span class="src">user skill</span><span class="sep">&middot;</span><span class="desc">Review the changed code for correctness bugs and cleanups</span></div></div><div class="shortcut"></div></div>
+        <div class="row sel"><span class="kdot sc-sk"></span><div><div class="pl"><span class="name">deep-research</span></div><div class="sl"><span class="src">user skill</span><span class="sep">&middot;</span><span class="desc">Deep research harness - fan-out web searches, fetch sources, adversarially verify claims, synthesize a cited report.</span></div></div><div class="shortcut"></div></div>
+        <div class="row"><span class="kdot sc-ag"></span><div><div class="pl"><span class="name">init</span></div><div class="sl"><span class="src">built-in</span><span class="sep">&middot;</span><span class="desc">Initialize a new CLAUDE.md file with codebase documentation</span></div></div><div class="shortcut"></div></div>
+        <div class="row"><span class="kdot sc-al"></span><div><div class="pl"><span class="name">model</span></div><div class="sl"><span class="src">alias</span><span class="sep">&middot;</span><span class="desc">Pick the agent model</span></div></div><div class="shortcut">Ctrl+M</div></div>
+        <div class="row"><span class="kdot sc-al"></span><div><div class="pl"><span class="name">toggle-git-log</span></div><div class="sl"><span class="src">alias</span><span class="sep">&middot;</span><span class="desc">Show or hide the git log panel</span></div></div><div class="shortcut">Ctrl+G</div></div>
+      </div>
+      <div class="status"><span class="dot warn"></span> Loading skills&hellip; <span class="right">17 commands</span></div>
+    </div>
+  </div>
+
+  <!-- ================= CONCEPT 3: GROUPED + FOCUS DETAIL ================= -->
+  <h2 id="c3"><span class="idx">3</span>Grouped by kind, description on focus</h2>
+  <p class="rationale"><span class="tag">scannable</span> Rows carry <b>only name + shortcut</b> with a 2px coloured kind edge; commands are grouped under tiny section heads. The <b>full description shows only for the highlighted row</b>, in a detail strip at the bottom - so long skill descriptions stop competing for space and the list stays dense and fast to scan. Loading shows as a pending group.</p>
+  <div class="stage">
+    <div class="palette c3">
+      <div class="pinput"><div class="lead-glyph"></div><div class="caret-line"><div class="typed"><span class="ph">Search commands&hellip;</span><span class="caret"></span></div></div></div>
+      <div class="list">
+        <div class="group">Skills <span style="color:var(--yellow)">&middot;</span> loading <span class="dot warn" style="vertical-align:middle"></span></div>
+        <div class="row k-sk"><div class="name">code-review</div><div class="shortcut"></div></div>
+        <div class="row k-sk sel"><div class="name">deep-research</div><div class="shortcut"></div></div>
+        <div class="group">Agent</div>
+        <div class="row k-ag"><div class="name">init</div><div class="shortcut"></div></div>
+        <div class="row k-ag"><div class="name">review</div><div class="shortcut"></div></div>
+        <div class="group">Aliases</div>
+        <div class="row k-al"><div class="name">model</div><div class="shortcut">Ctrl+M</div></div>
+        <div class="row k-al"><div class="name">toggle-git-log</div><div class="shortcut">Ctrl+G</div></div>
+      </div>
+      <div class="detail"><b>deep-research</b> &nbsp;<span class="kind-word sk">SKILL</span> &nbsp;&middot;&nbsp; user<br>Deep research harness - fan-out web searches, fetch sources, adversarially verify claims, synthesize a cited report. Pass the refined question as args.</div>
+    </div>
+  </div>
+
+  <!-- ================= CONCEPT 4: MASTER / DETAIL ================= -->
+  <h2 id="c4"><span class="idx">4</span>Master / Detail</h2>
+  <p class="rationale"><span class="tag">richest</span> A narrow result list on the left (name + kind dot + shortcut only), a <b>detail pane</b> on the right showing the highlighted command's <b>full, untruncated description</b> + kind + source. Completely solves long descriptions and per-row clutter; one extra <code>line</code> divider (allowed: it is the master-detail separator from the design language). Footer carries the loading dot.</p>
+  <div class="stage">
+    <div class="palette c4" style="width:680px">
+      <div class="pinput"><div class="lead-glyph"></div><div class="caret-line"><div class="typed">re<span class="caret"></span></div></div></div>
+      <div class="body">
+        <div class="pane-l">
+          <div class="row"><span class="kdot sc-sk"></span><div class="name ell">code-review</div><div class="shortcut"></div></div>
+          <div class="row sel"><span class="kdot sc-sk"></span><div class="name ell">deep-research</div><div class="shortcut"></div></div>
+          <div class="row"><span class="kdot sc-ag"></span><div class="name ell">init</div><div class="shortcut"></div></div>
+          <div class="row"><span class="kdot sc-al"></span><div class="name ell">model</div><div class="shortcut">Ctrl+M</div></div>
+          <div class="row"><span class="kdot sc-al"></span><div class="name ell">toggle-git-log</div><div class="shortcut">Ctrl+G</div></div>
+        </div>
+        <div class="pane-r">
+          <div class="dn">deep-research</div>
+          <div class="meta"><span class="kind-word sk">SKILL</span><span class="src mono">user</span></div>
+          <div class="full">Deep research harness - fan-out web searches, fetch sources, adversarially verify claims, and synthesize a cited report. Best for a deep, multi-source, fact-checked report on any topic.</div>
+        </div>
+      </div>
+      <div class="status"><span class="dot warn"></span> Loading skills&hellip; <span class="right">Enter to run &nbsp;&middot;&nbsp; Alt+Enter to bind</span></div>
+    </div>
+  </div>
+
+  <!-- ================= CONCEPT 5: SPOTLIGHT ================= -->
+  <h2 id="c5"><span class="idx">5</span>Spotlight minimal</h2>
+  <p class="rationale"><span class="tag">minimal</span> Stripped to the essentials, macOS-Spotlight-like. Kind is a <b>2px coloured tick on the selected row only</b> (zero per-row boxes). Shortcut is a faint <code>surface</code> chip; description is dim trailing text, single line. The whole thing leans on the search field. A single footer combines the <b>breathing loading dot</b>, a result count, and key hints.</p>
+  <div class="stage">
+    <div class="c5">
+      <div class="palette">
+        <div class="pinput"><div class="lead-glyph"></div><div class="caret-line"><div class="typed">re<span class="caret"></span></div></div></div>
+        <div class="list">
+          <div class="row k-sk"><span class="tick"></span><div class="name ell">code-review <span class="desc">- review changed code for bugs &amp; cleanups</span></div><div class="shortcut"></div></div>
+          <div class="row k-sk sel"><span class="tick"></span><div class="name ell">deep-research <span class="desc">- fan-out web research, verify, synthesize a report</span></div><div class="shortcut"></div></div>
+          <div class="row k-ag"><span class="tick"></span><div class="name ell">init <span class="desc">- new CLAUDE.md from codebase docs</span></div><div class="shortcut"></div></div>
+          <div class="row k-al"><span class="tick"></span><div class="name ell">model <span class="desc">- pick the agent model</span></div><div class="shortcut">Ctrl+M</div></div>
+          <div class="row k-al"><span class="tick"></span><div class="name ell">toggle-git-log <span class="desc">- show or hide the git log panel</span></div><div class="shortcut">Ctrl+G</div></div>
+        </div>
+        <div class="status"><span class="dot warn"></span> loading skills <span class="right">17 results &nbsp;&middot;&nbsp; &uarr;&darr; navigate &nbsp;&middot;&nbsp; &crarr; run</span></div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

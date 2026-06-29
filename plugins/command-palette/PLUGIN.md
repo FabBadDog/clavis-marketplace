@@ -25,6 +25,7 @@ globalUsings:
   - FabioSoft.Contracts.Workspace
 resources:
   - Views/CommandItemTemplate.xaml
+  - Views/CommandDetailTemplate.xaml
 ---
 
 # CommandPalette
@@ -53,7 +54,8 @@ window.
 - `GetConfig`, `SaveConfig` - loads its alias config; seeds a starter file when none exists.
 - `RequestKeymap`, `RequestPanelCommands`, `PanelKindsRequested` - pulls current keymap/panel commands/panel
   kinds on activation (order-independent).
-- `SetKeyBinding` - when the user binds a gesture to a command from the palette.
+- `SetKeyBinding` / `RemoveKeyBinding` - when the user binds (Alt+Enter) or unbinds (Alt+Backspace) a
+  command's shortcut from the palette.
 - Any concrete bus-message type a routed command constructs, published via reflection by `BusSender`
   (e.g. `TogglePanel`, `ShowSlideIn`).
 - `LogEntry` via `bus.LogInfo`/`LogWarn`.
@@ -75,8 +77,17 @@ window.
 
 - The popup is the shared `SelectorWindow` (clavis-rendering) in free-text mode: `PaletteSelector` wires
   the suggestion provider, the routing-backed validation, Tab completion, and the palette-specific
-  Alt+Enter shortcut capture into `SelectorOptions`; search, list navigation, input history, and the
-  open/close animation live in the shared control.
+  shortcut gestures (Alt+Enter captures a binding for the highlighted command; Alt+Backspace removes its
+  shortcut) into `SelectorOptions`; search, list navigation, input history, and the open/close animation
+  live in the shared control.
+- Master/detail layout: the master list (`CommandItemTemplate`) is just the command name + its shortcut;
+  the highlighted command's kind, source and full description render in the detail pane
+  (`CommandDetailTemplate`) via `SelectorOptions.DetailTemplate`. The palette also turns off the input rule
+  (`ShowInputRule = false`) and sets a `FooterHint`, keeping the popup chrome-light.
+- Loading indicator: agent commands and skills arrive asynchronously (`AgentCommandsAvailable`), so until
+  the first such event the palette shows a breathing "Loading skills" footer dot (`PaletteSelector.SetLoading`
+  -> the shared control's `SetBusy`). `_externalCommandsReceived` gates it on open and clears it when the
+  commands land.
 - Window interaction runs on the WPF dispatcher; bus subscriptions run on bus threads. The window is lazily
   created on first toggle and reused.
 - A user-authored alias overrides a synthesised `toggle-<kind>` alias of the same name.

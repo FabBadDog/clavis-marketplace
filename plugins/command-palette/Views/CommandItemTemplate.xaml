@@ -2,63 +2,40 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <!-- The master-list row: command name + its shortcut. Kind, source and the full description live in the
+         detail pane (CommandDetailTemplate) for the highlighted row, so the list stays a dense, scannable
+         column with no badges, boxes or column rules. The name brightens when the row is selected. -->
     <DataTemplate x:Key="CommandItemTemplate">
-        <Grid Margin="0,5">
+        <Grid Margin="0,1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="200" />
-                <ColumnDefinition Width="120" />
-                <ColumnDefinition Width="64" />
-                <ColumnDefinition Width="104" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Column="0"
+            <TextBlock x:Name="NameText"
+                       Grid.Column="0"
                        Text="{Binding DisplayName}"
                        FontSize="{DynamicResource BodyFontSize}"
                        FontWeight="Medium"
-                       HorizontalAlignment="Left"
-                       VerticalAlignment="Top"
+                       VerticalAlignment="Center"
                        TextTrimming="CharacterEllipsis"
                        Margin="0,0,12,0"
-                       Foreground="{DynamicResource TextBrightBrush}"
+                       Foreground="{DynamicResource TextBrush}"
                        FontFamily="{DynamicResource UiFont}" />
 
             <TextBlock Grid.Column="1"
-                       Text="{Binding Path=Source}"
-                       FontSize="{DynamicResource LabelFontSize}"
-                       HorizontalAlignment="Left"
-                       VerticalAlignment="Top"
-                       TextTrimming="CharacterEllipsis"
-                       Margin="0,1,12,0"
-                       Foreground="{DynamicResource SecondaryBrush}"
-                       FontFamily="{DynamicResource UiFont}" />
-
-            <ContentControl Grid.Column="2"
-                            Content="{Binding KindBadge}"
-                            ContentTemplate="{DynamicResource BadgeTemplate}"
-                            HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Stretch"
-                            VerticalAlignment="Top" />
-
-            <TextBlock Grid.Column="3"
                        Text="{Binding Shortcut}"
                        FontSize="{DynamicResource MetaFontSize}"
-                       HorizontalAlignment="Left"
-                       VerticalAlignment="Top"
-                       TextTrimming="CharacterEllipsis"
-                       Margin="0,1,12,0"
-                       Foreground="{DynamicResource ClavisBrush}"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource HumanBrush}"
                        FontFamily="{DynamicResource MonoFont}" />
-
-            <TextBlock Grid.Column="4"
-                       Text="{Binding Description}"
-                       Margin="12,0,0,0"
-                       FontSize="{DynamicResource BodyFontSize}"
-                       HorizontalAlignment="Left"
-                       VerticalAlignment="Top"
-                       TextWrapping="Wrap"
-                       Foreground="{DynamicResource TextDimBrush}" />
         </Grid>
+
+        <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}, Path=IsSelected}" Value="True">
+                <Setter TargetName="NameText" Property="Foreground" Value="{DynamicResource TextBrightBrush}" />
+            </DataTrigger>
+        </DataTemplate.Triggers>
     </DataTemplate>
 
 </ResourceDictionary>

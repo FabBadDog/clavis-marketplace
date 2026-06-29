@@ -33,6 +33,10 @@
     <SolidColorBrush x:Key="BlackBrush" Color="#000000" />
     <SolidColorBrush x:Key="FrameBrush" Color="#5A5A66" />
     <SolidColorBrush x:Key="LineBrush" Color="#5A5A66" />
+    <!-- A dimmer frame for black-on-black popups (the command palette / selector). The standard line
+         (#5A5A66) reads as a hard box around an overlay; this darker grey lets the frame recede so the
+         content carries the popup. Falls back here when a theme does not override it. -->
+    <SolidColorBrush x:Key="PopupFrameBrush" Color="#3A3A44" />
     <SolidColorBrush x:Key="FaintBrush" Color="#0E0E14" />
     <SolidColorBrush x:Key="TextBrush" Color="#C8C8D0" />
     <SolidColorBrush x:Key="TextBrightBrush" Color="#E8E8EC" />
