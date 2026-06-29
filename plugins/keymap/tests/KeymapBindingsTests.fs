@@ -17,6 +17,12 @@ let ``defaults bind the palette toggle to ctrl shift p`` () =
     %(gesture "ToggleCommandPalette" KeymapBindings.Defaults).Should().Be(Some "Ctrl+Shift+P")
 
 [<Fact>]
+let ``defaults bind the panel picker to ctrl p`` () =
+
+    // Act / Assert
+    %(gesture "SelectPanel" KeymapBindings.Defaults).Should().Be(Some "Ctrl+P")
+
+[<Fact>]
 let ``set adds a binding to an empty set`` () =
 
     // Act

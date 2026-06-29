@@ -10,6 +10,9 @@ public static class KeymapBindings
     public static IReadOnlyList<KeyBinding> Defaults { get; } =
     [
         App("Ctrl+Shift+P", "ToggleCommandPalette"),
+        // The panel picker (SelectPanel) lists every user-openable panel kind; Ctrl+P mirrors the
+        // command palette's Ctrl+Shift+P so the two pickers sit on the same gesture family.
+        App("Ctrl+P", "SelectPanel"),
         App("Ctrl+E", "ToggleShortcutHelp"),
         App("Ctrl+W", "CloseActiveWindow"),
         Sys("Ctrl+Shift+V", "ToggleClavis"),

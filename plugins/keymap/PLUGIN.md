@@ -61,7 +61,7 @@ config round-trip.
 - Persisted as `KeyMap.yaml` under `~/.clavis/config` (raw-text passthrough handled by the Configuration
   plugin; this plugin owns the (de)serialization in `KeymapFile`).
 - Default bindings (seeded on first run) live in `KeymapBindings.Defaults` - application chords
-  (`ToggleCommandPalette`, `ToggleShortcutHelp`, `CloseActiveWindow`), `ToggleClavis` (system), per-kind
+  (`ToggleCommandPalette`, `SelectPanel`, `ToggleShortcutHelp`, `CloseActiveWindow`), `ToggleClavis` (system), per-kind
   `TogglePanel <kind>` and panel-scoped `Escape`/`CloseActivePanel`, plus the events-panel command set.
 - Three scopes (`KeymapScope`): `system`, `application`, `panel` (most-specific wins). Gestures are
   normalized to a canonical chord spelling (`KeyGesture`) so YAML/user gestures compare equal to pressed

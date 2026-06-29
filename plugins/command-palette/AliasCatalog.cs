@@ -26,6 +26,7 @@ public static class AliasCatalog
             ["close-window"] = "CloseActiveWindow",
             ["open-chat"] = "OpenConversation",
             ["palette"] = "ToggleCommandPalette",
+            ["panels"] = "SelectPanel",
             ["shortcuts"] = "ToggleShortcutHelp"
         };
 

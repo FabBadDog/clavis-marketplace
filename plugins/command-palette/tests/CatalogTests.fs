@@ -53,6 +53,12 @@ let ``serialize starter contains the built-in aliases`` () =
     // Assert
     %yaml.Should().Contain("exit")
 
+[<Fact>]
+let ``built-ins include the panels alias for the panel picker`` () =
+
+    // Act / Assert
+    %AliasCatalog.BuiltIns["panels"].Should().Be("SelectPanel")
+
 [<Theory>]
 [<InlineData("appointments", "Manage the calendar (user)", CommandKind.Skill, "Manage the calendar", "user", "appointments")>]
 [<InlineData("compact", "Free up context by summarizing", CommandKind.Agent, "Free up context by summarizing", "built-in", "compact")>]
