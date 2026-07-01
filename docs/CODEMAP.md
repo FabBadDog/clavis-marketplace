@@ -32,7 +32,7 @@ libraries.
 
 | Item (`assemblyName`) | Purpose | Key types |
 |---|---|---|
-| `clavis-rendering` (`FabioSoft.Clavis.Rendering`) | Shared WPF controls + theme primitives + motion. | `MarkdownPresenter`, `DockingSurface`/`DockingModel`, `Motion`, `SegmentedSelector`, `SelectorWindow`/`SelectorOptions`/`SelectorHistory` |
+| `clavis-rendering` (`FabioSoft.Clavis.Rendering`) | Shared WPF controls + theme primitives + motion. | `MarkdownPresenter`, `DockingSurface`/`DockingModel`, `Motion`, `SegmentedSelector`, `SelectorWindow`/`SelectorOptions`/`SelectorHistory`, `PlaceholderStrip`, `PlaceholderEditor` |
 | `clavis-controls` (`FabioSoft.Clavis.Controls`) | Shared form/input/layout widgets themed via host resource keys. | `Inputs`, `ActionButton`, `LabeledField`, `SectionHeader`, `StatusDot`, `TreeBrowser` |
 | `fabiosoft-editor` (`FabioSoft.Editor`) | Application-neutral AvalonEdit wrapper. | `CodeEditor`, `CodeEditorSyntax` |
 | `fabiosoft-claude` (`FabioSoft.Claude`) | Standalone `claude.exe` bridge: spawns the process, parses NDJSON stream-json. Zero Clavis deps. | `Session`, `StreamEvent`, `ClaudeCommand` |
@@ -55,7 +55,7 @@ WpfHost's named regions / docking surface.
 | `KeyMap` / `KeymapPanel` | Keybinding store / keybinding editor panel. |
 | `EventsPanel` | Raw bus-activity firehose with keyboard filters. |
 | `GitLogPanel` | Live `git log` panel. |
-| `MarkdownPanel` | Editable markdown note panel. |
+| `MarkdownPanel` | User-authored markdown panels (live placeholders) + a manager to create/edit them. |
 | `CodeEditorPanel` | File browser + `FabioSoft.Editor` code editor panel. |
 | `UsageLimits` | Usage-limit plane + runway slide-in. |
 | `Settings` | Settings UI. |

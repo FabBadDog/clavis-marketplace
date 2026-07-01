@@ -1,59 +1,81 @@
 ---
 name: markdown-panel
 pluginId: MarkdownPanel
-version: 1.0.1
+version: 1.1.0
 apiVersion: 1.0.0
-description: Editable markdown note dockable panel.
+description: User-authored markdown panels with live placeholders, plus a manager to create and edit them.
 dependencies:
   - { name: workspace-contracts, version: 1 }
+  - { name: services-contracts, version: 1 }
+  - { name: placeholders-contracts, version: 1 }
+  - { name: clavis-placeholders, version: 1 }
   - { name: clavis-rendering, version: 2 }
+  - { name: clavis-controls, version: 1 }
+  - { name: yamldotnet, version: 1 }
 language: csharp
 assemblyName: MarkdownPanel
 rootNamespace: FabioSoft.Nucleus.Plugins.MarkdownPanel
 useWpf: true
 globalUsings:
+  - FabioSoft.Nucleus.Contracts
   - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Services
+  - FabioSoft.Contracts.Placeholders
 ---
 
 # MarkdownPanel
 
 ## Purpose
 
-Registers the `markdown` dockable panel kind: an editable markdown note. It renders through the shared
-`MarkdownPresenter` and flips to a plain-text editor on double-click or the pencil affordance; Ctrl+Enter
-saves and Esc cancels. The note text is the panel's per-instance state, seeded from the saved blob and
-written back through the panel context so the host persists it.
+Lets the user define lightweight custom panels that display information. Each **definition** is a title +
+a markdown body that may embed placeholder tokens (`{git.branch}`, `{agent.name:uppercase}`,
+`{bar:agent.contextPercent}`, ...). Every definition is its own dockable panel kind (`markdown:{id}`) that
+renders its body with placeholders resolved **live** - the rendered output updates as values change while
+the panel is shown. Definitions are created, edited, renamed, and deleted from the **Markdown Panels**
+manager (kind `markdown-panels`).
 
-## Location
+Two panel kinds:
 
-`src/plugins/MarkdownPanel/` (`UseWPF`). Registers the panel kind string **`markdown`** (title
-"markdown").
+- **`markdown-panels`** (manager, `IsUserOpenable=true`): a list of definitions with New / Save / Open /
+  Delete, a body editor with placeholder IntelliSense (the shared `PlaceholderEditor`), and a live resolved
+  preview. Being user-openable it gets a `toggle-markdown-panels` palette command and a default shortcut.
+- **`markdown:{id}`** (display, `IsUserOpenable=false`): a display-only panel for one definition, opened
+  from the manager. Not offered in the generic panel picker.
 
-## Config (`MarkdownPanelConfig`)
+Per-definition kinds fit the host's singleton-per-kind model: several definitions can be docked at once,
+re-opening one focuses its existing panel, and the layout persists *which* definition is docked where via
+the slot's kind.
 
-- `DefaultTemplate` (default `"# Notes\n"`) - seed text used for a new instance when there is no saved
-  state.
+## Storage
+
+Definitions are durable config in the plugin's `configuration.yaml` section (a `panels:` list of
+`{ id, title, body }`), loaded and saved through the Configuration round-trip and (de)serialized with
+YamlDotNet (`MarkdownPanelFile`). First run seeds one example definition. The body is the single source of
+truth - editing it updates every open panel bound to that definition.
 
 ## Messages published
 
-- `PanelKindRegistration` - announces the `markdown` kind (min size, title, `IsUserOpenable=false`, and a
-  deferred view factory). Sent once on activation and re-sent on every `PanelKindsRequested`.
-- `LogEntry` via `bus.LogInfo` on activation.
-
-The note text is **not** published directly: on save the view calls `context.OnStateChanged`, and the
-PanelRegistry turns that into the `PanelStateChanged` bus message for the host to persist.
+- `PanelKindRegistration` - the manager kind and one display kind per definition. Re-sent on every
+  `PanelKindsRequested` and after the catalog changes.
+- `GetConfig` / `SaveConfig` - load on activation; persist on seed and on every create/edit/delete.
+- `PlaceholdersRequested` - on activation, to fill placeholder values immediately.
+- `OpenPanel` - opens a definition's display panel (from the manager's Open action).
+- `ClosePanel` - closes a deleted definition's open display panels.
+- `SetPanelTitle` - retitles a renamed definition's open display tabs.
+- `LogEntry` via `bus.LogInfo` / `bus.LogWarn`.
 
 ## Messages subscribed
 
-- `PanelKindsRequested` - re-announces the `markdown` kind so the registry catches it regardless of
-  activation order.
+- `ConfigResult` / `ConfigChanged` - load the definitions (seed the starter on `ConfigNotFound`).
+- `PanelKindsRequested` - re-announce all kinds (activation-order independent).
+- `PlaceholderSnapshot` - merge live values and re-render open panels + the manager preview.
+- `RegisterPlaceholderProvider` - collect descriptors for the manager's IntelliSense.
+- `PanelClosed` - drop the closed instance from the live-view maps.
 
 ## Notes
 
-- **`IsUserOpenable=false`** - a previously-docked note still restores from a saved layout, but the kind
-  is not offered as something to open (no toggle command, no shortcut) until markdown-note template
-  management exists. Flip the flag to `true` once that lands.
-- **Per-instance state is the note text** - seeded from `PanelInstanceContext.SavedState` (falling back to
-  `DefaultTemplate`), pushed back via `context.OnStateChanged` on each Ctrl+Enter save.
-- Editing is in-view only: double-click or the hover pencil glyph enters edit mode; Ctrl+Enter saves and
-  re-renders, Esc cancels without persisting.
+- Display panels set `MarkdownPresenter.Animate = false`: the body re-renders as values tick, and an
+  entrance animation on every render would flicker.
+- Bus callbacks marshal WPF updates to the dispatcher; the live-view and value maps are concurrent.
+- A stale saved layout that references a deleted definition's kind restores a closeable "loading..."
+  placeholder (the kind never registers); normal deletes close their open panels first, so this is rare.

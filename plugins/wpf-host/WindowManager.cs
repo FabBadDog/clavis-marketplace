@@ -265,6 +265,21 @@ internal sealed class WindowManager : IDisposable
             return Task.CompletedTask;
         }));
 
+        // A named panel instance is closed by id (e.g. when a markdown definition is deleted, its owner
+        // closes every open panel bound to it). Completes the previously-unwired ClosePanel contract.
+        _subscriptions.Add(_bus.Subscribe<ClosePanel>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => ClosePanel(message.InstanceId));
+            return Task.CompletedTask;
+        }));
+
+        // Retitle a live panel's tab (e.g. when its markdown definition is renamed while docked).
+        _subscriptions.Add(_bus.Subscribe<SetPanelTitle>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => RetitlePanel(message.InstanceId, message.Title));
+            return Task.CompletedTask;
+        }));
+
         _subscriptions.Add(_bus.Subscribe<ToggleShortcutHelp>(_ =>
         {
             Application.Current.Dispatcher.InvokeAsync(() => GetFocused()?.ToggleHelp());
@@ -979,6 +994,43 @@ internal sealed class WindowManager : IDisposable
         {
             _bus.Send(new PanelClosed(closed));
             ScheduleSave();
+        }
+    }
+
+    /// Close a docked panel instance by id, wherever it is docked: remove it from its surface, announce
+    /// PanelClosed, and persist. Mirrors the tab-close path so an emptied secondary window is retired via
+    /// Surface.PanelRemoved. The primary window's locked sole panel (the conversation) is never removed.
+    /// A slide-in instance is left to the window/close paths (markdown display panels dock as tabs).
+    private void ClosePanel(Guid instanceId)
+    {
+        foreach (var host in _windows.Values)
+        {
+            if (host.Surface.PanelIds.Contains(instanceId))
+            {
+                if (host.IsSolePanelLocked)
+                {
+                    return;
+                }
+
+                host.Surface.RemovePanel(instanceId);
+                _bus.Send(new PanelClosed(instanceId));
+                ScheduleSave();
+                return;
+            }
+        }
+    }
+
+    /// Retitle a docked panel's tab in place. The surface's LayoutChanged (fired by RetitlePanel) schedules
+    /// the layout save, so the new title persists.
+    private void RetitlePanel(Guid instanceId, string title)
+    {
+        foreach (var host in _windows.Values)
+        {
+            if (host.Surface.PanelIds.Contains(instanceId))
+            {
+                host.Surface.RetitlePanel(instanceId, title);
+                return;
+            }
         }
     }
 

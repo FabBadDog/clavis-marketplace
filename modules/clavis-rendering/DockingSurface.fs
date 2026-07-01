@@ -208,6 +208,18 @@ module DockingModel =
 
         mapNode update root
 
+    /// Replace the title of the slot with the given panel id, leaving every other slot untouched. Returns
+    /// the new tree; the surface rebuilds from it because a header is built once from the value.
+    let setTitle panelId title root =
+        let update node =
+            { node with
+                Panels =
+                    node.Panels
+                    |> Array.map (fun slot ->
+                        if slot.PanelId = panelId then { slot with Title = title } else slot) }
+
+        mapNode update root
+
     let setSizes splitGroupId sizes root =
         let rec apply node =
             if isLeaf node then
@@ -1040,6 +1052,15 @@ type DockingSurface() as this =
             panelViews[panelId] <- view
             this.Rebuild()
         | _ -> ()
+
+    /// Retitle a docked panel's tab in place (used when a markdown panel's definition is renamed while it
+    /// is open). Rebuilds the slot with the new title and re-renders - a raw in-place title mutation would
+    /// not update the header, which is built once from the value. A no-op for a panel not hosted here.
+    member this.RetitlePanel(panelId: Guid, title: string) =
+        if panelViews.ContainsKey panelId then
+            model <- DockingModel.setTitle panelId title model
+            this.Rebuild()
+            layoutChanged.Trigger(this, EventArgs.Empty)
 
     member _.PanelIds = panelViews.Keys |> Seq.toList
 

@@ -192,3 +192,47 @@ let ``slots enumerates every panel across the tree`` () =
 
     // Assert
     %count.Should().Be(3)
+
+[<Fact>]
+let ``setTitle changes the matching slot only`` () =
+
+    // Arrange
+    let first = gid ()
+    let second = gid ()
+    let root = DockingModel.leaf (gid ()) [| slot first; slot second |] 0
+
+    // Act
+    let result = DockingModel.setTitle first "Renamed" root
+
+    // Assert
+    %result.Panels[0].Title.Should().Be("Renamed")
+    %result.Panels[1].Title.Should().Be("t")
+
+[<Fact>]
+let ``setTitle updates a slot nested in a split`` () =
+
+    // Arrange
+    let target = gid ()
+    let root =
+        DockingModel.split (gid ()) DockingModel.Vertical [| 0.5; 0.5 |]
+            [| DockingModel.leaf (gid ()) [||] 0
+               DockingModel.leaf (gid ()) [| slot target |] 0 |]
+
+    // Act
+    let result = DockingModel.setTitle target "Renamed" root
+
+    // Assert
+    %(DockingModel.findSlot target result |> Option.map (fun found -> found.Title)).Should().Be(Some "Renamed")
+
+[<Fact>]
+let ``setTitle leaves the tree unchanged for an unknown id`` () =
+
+    // Arrange
+    let existing = gid ()
+    let root = DockingModel.leaf (gid ()) [| slot existing |] 0
+
+    // Act
+    let result = DockingModel.setTitle (gid ()) "Renamed" root
+
+    // Assert
+    %result.Panels[0].Title.Should().Be("t")

@@ -25,6 +25,7 @@ public static class KeymapBindings
         App("Ctrl+K", "TogglePanel keymap"),
         App("Ctrl+U", "TogglePanel usage-limits"),
         App("Ctrl+O", "TogglePanel code-editor"),
+        App("Ctrl+M", "TogglePanel markdown-panels"),
 
         // Esc dismisses the focused panel. Scoped per kind so it only applies when that panel holds focus,
         // and only for kinds that have no intrinsic Esc behaviour of their own (the events panel and the

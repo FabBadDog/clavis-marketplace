@@ -113,6 +113,14 @@ type PanelStateChanged(instanceId: Guid, state: string) =
     member _.InstanceId = instanceId
     member _.State = state
 
+/// Retitle a live panel instance's tab (and its persisted slot title). A panel whose title is derived
+/// from user-editable data (e.g. a markdown panel bound to a renamed definition) publishes this so its
+/// open tab updates without being reopened. The host applies it to the surface and persists the layout.
+[<Sealed>]
+type SetPanelTitle(instanceId: Guid, title: string) =
+    member _.InstanceId = instanceId
+    member _.Title = title
+
 /// Re-open the chat conversation in the primary window. The conversation is a singleton panel; if it is
 /// already open this focuses it, otherwise the host re-seeds it. Lets a closed chat be brought back.
 [<Sealed>]
