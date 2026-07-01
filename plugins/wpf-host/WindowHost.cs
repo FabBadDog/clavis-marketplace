@@ -70,9 +70,10 @@ internal sealed partial class WindowHost
         Regions = new RegionManager();
         Surface = new DockingSurface();
 
-        // A window's sole panel renders chromeless (no panel tab), so the surface shows no handle for it; the
-        // primary window additionally forbids closing or dragging out that last panel (IsSolePanelLocked), so
-        // the main window always keeps a panel. A panel sharing the surface with others keeps its tab/handle.
+        // The primary window locks its sole remaining panel: it fills the window and cannot be closed or
+        // dragged out, so the main window always keeps a panel. Every other lone panel (and a lone chat in
+        // a secondary window) gets a hover-revealed drag/close handle like any panel.
+        Surface.LockSolePanel = isPrimary;
         Surface.PanelCloseRequested += (_, panelId) => PanelCloseRequested?.Invoke(this, panelId);
 
         Window = ResourceLoader.Load<Window>("Views/MainWindow.xaml");
