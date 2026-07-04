@@ -198,7 +198,8 @@ public sealed class MarkdownPanelPlugin : IPlugin<MarkdownPanelConfig>
     private string CreateDefinition()
     {
         var id = Guid.NewGuid().ToString("N");
-        _definitions = MarkdownCatalog.Add(_definitions, id, MarkdownCatalog.DefaultTitle, "");
+        var title = MarkdownCatalog.NextDefaultTitle(_definitions);
+        _definitions = MarkdownCatalog.Add(_definitions, id, title, "");
         var created = MarkdownCatalog.Find(_definitions, id);
         if (created is not null)
         {

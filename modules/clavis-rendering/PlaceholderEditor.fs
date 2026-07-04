@@ -73,7 +73,7 @@ type PlaceholderEditor(descriptors: Func<IReadOnlyList<PlaceholderDescriptor>>) 
     let popup =
         Popup(
             PlacementTarget = editor,
-            Placement = PlacementMode.Bottom,
+            Placement = PlacementMode.Relative,
             StaysOpen = false,
             Child =
                 Border(
@@ -82,6 +82,14 @@ type PlaceholderEditor(descriptors: Func<IReadOnlyList<PlaceholderDescriptor>>) 
                     BorderThickness = Thickness(1.0),
                     Background = resolveBrush "BlackBrush" Brushes.Black,
                     BorderBrush = resolveBrush "FrameBrush" Brushes.Gray))
+
+    // Anchors the popup under the caret's own line rather than the bottom of the whole (possibly tall,
+    // multiline) box - otherwise, in a growable editor, the list can render well away from where the user
+    // is actually typing.
+    let positionAtCaret () =
+        let caretRect = editor.GetRectFromCharacterIndex(editor.CaretIndex)
+        popup.HorizontalOffset <- caretRect.Left
+        popup.VerticalOffset <- caretRect.Bottom
 
     let close () = popup.IsOpen <- false
 
@@ -97,6 +105,7 @@ type PlaceholderEditor(descriptors: Func<IReadOnlyList<PlaceholderDescriptor>>) 
             for item in result.Items do
                 list.Items.Add(CompletionRow(item, result.ReplaceStart)) |> ignore
             list.SelectedIndex <- 0
+            positionAtCaret ()
             popup.IsOpen <- true
 
     let accept () =

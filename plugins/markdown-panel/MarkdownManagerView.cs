@@ -40,8 +40,16 @@ internal sealed class MarkdownManagerView
     private readonly MarkdownManagerController _controller;
     private readonly ListBox _list = new();
     private readonly TextBox _title = Inputs.text("panel title");
+    private readonly TextBlock _validationMessage = new()
+    {
+        Visibility = Visibility.Collapsed,
+        TextWrapping = TextWrapping.Wrap,
+        FontSize = 13,
+        Margin = new Thickness(0, 0, 0, 8)
+    };
     private readonly PlaceholderEditor _body;
     private readonly MarkdownPresenter _preview = new() { Animate = false };
+    private Button _deleteButton = null!;
     private string? _selectedId;
     private bool _loading;
 
@@ -52,6 +60,14 @@ internal sealed class MarkdownManagerView
         Element = Build();
 
         _list.SelectionChanged += (_, _) => OnSelectionChanged();
+
+        _title.TextChanged += (_, _) =>
+        {
+            if (!_loading)
+            {
+                ClearValidationError();
+            }
+        };
 
         var bodyBox = (TextBox)_body.Element;
         bodyBox.TextChanged += (_, _) =>
@@ -117,15 +133,25 @@ internal sealed class MarkdownManagerView
         _list.BorderThickness = new Thickness(0);
         _list.DisplayMemberPath = nameof(MarkdownDefinition.Title);
 
+        _validationMessage.SetResourceReference(TextBlock.ForegroundProperty, "ErrorBrush");
+        _validationMessage.SetResourceReference(TextBlock.FontFamilyProperty, "UiFont");
+
+        // Mirrors the "Title" header on the right so the list's first row lines up with the Title textbox
+        // rather than sitting a header-height higher than it.
+        var listHeader = SectionHeader.create("Panels");
+        DockPanel.SetDock(listHeader, Dock.Top);
+
         var newButton = ActionButton.create("New", new Action(OnNew));
         newButton.Margin = new Thickness(0, 8, 0, 0);
+        DockPanel.SetDock(newButton, Dock.Bottom);
 
         var left = new DockPanel { Width = 200, Margin = new Thickness(0, 0, 12, 0) };
-        DockPanel.SetDock(newButton, Dock.Bottom);
+        left.Children.Add(listHeader);
         left.Children.Add(newButton);
         left.Children.Add(_list);
 
         var right = new Grid();
+        AddAutoRow(right);
         AddAutoRow(right);
         AddAutoRow(right);
         AddAutoRow(right);
@@ -136,17 +162,18 @@ internal sealed class MarkdownManagerView
 
         AddRow(right, SectionHeader.create("Title"), 0);
         AddRow(right, _title, 1);
-        AddRow(right, SectionHeader.create("Body"), 2);
-        AddRow(right, Framed(_body.Element), 3);
-        AddRow(right, SectionHeader.create("Preview"), 4);
+        AddRow(right, _validationMessage, 2);
+        AddRow(right, SectionHeader.create("Body"), 3);
+        AddRow(right, Framed(_body.Element), 4);
+        AddRow(right, SectionHeader.create("Preview"), 5);
         var previewScroll = new ScrollViewer
         {
             Content = _preview,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             Padding = new Thickness(8)
         };
-        AddRow(right, Framed(previewScroll), 5);
-        AddRow(right, BuildActions(), 6);
+        AddRow(right, Framed(previewScroll), 6);
+        AddRow(right, BuildActions(), 7);
 
         var grid = new Grid { Margin = new Thickness(14) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -164,12 +191,13 @@ internal sealed class MarkdownManagerView
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
         var save = ActionButton.primary("Save", new Action(OnSave));
         var open = ActionButton.create("Open", new Action(OnOpen));
-        var delete = ActionButton.danger("Delete", new Action(OnDelete));
+        _deleteButton = ActionButton.danger("Delete", new Action(OnDelete));
+        _deleteButton.IsEnabled = false;
         save.Margin = new Thickness(0, 0, 8, 0);
         open.Margin = new Thickness(0, 0, 8, 0);
         actions.Children.Add(save);
         actions.Children.Add(open);
-        actions.Children.Add(delete);
+        actions.Children.Add(_deleteButton);
         return actions;
     }
 
@@ -199,6 +227,8 @@ internal sealed class MarkdownManagerView
             _selectedId = definition.Id;
             LoadEditor(definition);
         }
+
+        _deleteButton.IsEnabled = _selectedId is not null;
     }
 
     private void LoadEditor(MarkdownDefinition definition)
@@ -207,6 +237,7 @@ internal sealed class MarkdownManagerView
         _title.Text = definition.Title;
         _body.Text = definition.Body;
         _loading = false;
+        ClearValidationError();
         RefreshPreview();
     }
 
@@ -217,6 +248,20 @@ internal sealed class MarkdownManagerView
         _body.Text = "";
         _loading = false;
         _preview.Markdown = "";
+        ClearValidationError();
+        _deleteButton.IsEnabled = _selectedId is not null;
+    }
+
+    private void ShowValidationError(string message)
+    {
+        _validationMessage.Text = message;
+        _validationMessage.Visibility = Visibility.Visible;
+    }
+
+    private void ClearValidationError()
+    {
+        _validationMessage.Text = "";
+        _validationMessage.Visibility = Visibility.Collapsed;
     }
 
     private void OnNew()
@@ -233,6 +278,13 @@ internal sealed class MarkdownManagerView
             return;
         }
 
+        if (MarkdownCatalog.IsTitleTaken(_controller.GetDefinitions(), _selectedId, _title.Text))
+        {
+            ShowValidationError($"A panel named \"{MarkdownCatalog.NormalizeTitle(_title.Text)}\" already exists.");
+            return;
+        }
+
+        ClearValidationError();
         _controller.Save(_selectedId, _title.Text, _body.Text);
         RefreshPreview();
     }
@@ -248,6 +300,13 @@ internal sealed class MarkdownManagerView
     private void OnDelete()
     {
         if (_selectedId is null)
+        {
+            return;
+        }
+
+        var title = MarkdownCatalog.NormalizeTitle(_title.Text);
+        var owner = Window.GetWindow(Element);
+        if (!ConfirmDialog.Confirm(owner, $"Delete \"{title}\"? This cannot be undone.", "Delete"))
         {
             return;
         }

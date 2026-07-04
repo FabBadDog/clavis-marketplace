@@ -34,4 +34,33 @@ public static class MarkdownCatalog
         var trimmed = (title ?? "").Trim();
         return trimmed.Length == 0 ? DefaultTitle : trimmed;
     }
+
+    /// True when another definition already has this title once normalized (case-insensitive) - names must
+    /// be unique so the manager list and open panel tabs stay unambiguous.
+    public static bool IsTitleTaken(IReadOnlyList<MarkdownDefinition> definitions, string id, string title)
+    {
+        var normalized = NormalizeTitle(title);
+        return definitions.Any(definition =>
+            !string.Equals(definition.Id, id, StringComparison.Ordinal) &&
+            string.Equals(definition.Title, normalized, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// A default title guaranteed not to collide with any existing one ("Untitled", then "Untitled 2",
+    /// "Untitled 3", ...), so repeated New clicks never produce ambiguous duplicate names.
+    public static string NextDefaultTitle(IReadOnlyList<MarkdownDefinition> definitions)
+    {
+        var titles = new HashSet<string>(definitions.Select(definition => definition.Title), StringComparer.OrdinalIgnoreCase);
+        if (!titles.Contains(DefaultTitle))
+        {
+            return DefaultTitle;
+        }
+
+        var suffix = 2;
+        while (titles.Contains($"{DefaultTitle} {suffix}"))
+        {
+            suffix++;
+        }
+
+        return $"{DefaultTitle} {suffix}";
+    }
 }

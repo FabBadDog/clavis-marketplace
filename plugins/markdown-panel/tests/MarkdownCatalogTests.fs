@@ -78,3 +78,39 @@ let ``NormalizeTitle is idempotent`` (title: string) =
 let ``Add then Delete restores the original set`` (id: Guid) =
     let key = id.ToString()
     MarkdownCatalog.Delete(MarkdownCatalog.Add(Array.empty<MarkdownDefinition>, key, "t", "b"), key).Count = 0
+
+[<Fact>]
+let ``IsTitleTaken is true when another definition has the same normalized title`` () =
+
+    // Arrange
+    let two = [| MarkdownDefinition("a", "Alpha", "body-a"); MarkdownDefinition("b", "Beta", "body-b") |]
+
+    // Act
+    let result = MarkdownCatalog.IsTitleTaken(two, "a", "  beta  ")
+
+    // Assert
+    %result.Should().BeTrue()
+
+[<Fact>]
+let ``IsTitleTaken is false when the title matches the definition's own current title`` () =
+    %MarkdownCatalog.IsTitleTaken(one, "a", "Alpha").Should().BeFalse()
+
+[<Fact>]
+let ``IsTitleTaken is false when no other definition shares the title`` () =
+    %MarkdownCatalog.IsTitleTaken(one, "a", "Unique").Should().BeFalse()
+
+[<Fact>]
+let ``NextDefaultTitle returns Untitled when nothing collides`` () =
+    %MarkdownCatalog.NextDefaultTitle(one).Should().Be("Untitled")
+
+[<Fact>]
+let ``NextDefaultTitle skips to the next free suffix when earlier defaults are taken`` () =
+
+    // Arrange
+    let taken = [| MarkdownDefinition("a", "Untitled", "b"); MarkdownDefinition("b", "Untitled 2", "b") |]
+
+    // Act
+    let result = MarkdownCatalog.NextDefaultTitle(taken)
+
+    // Assert
+    %result.Should().Be("Untitled 3")
