@@ -438,8 +438,10 @@ internal sealed class WindowManager : IDisposable
 
         foreach (var host in OrderedWindows().Reverse())
         {
-            host.Window.Show();
-            Motion.fallInWindow(host.Window);
+            // showWindowFallingIn (not Show()+fallInWindow) parks the window off-screen before its first
+            // paint - these windows have never been shown, so a plain Show() would present them at their
+            // resting bounds for a frame before the animation had a chance to move them.
+            Motion.showWindowFallingIn(host.Window, null);
         }
 
         // The primary is now shown, so it is a valid owner: link any secondary restored before the reveal,

@@ -103,6 +103,14 @@ type SlideInHost(edge: string) as this =
         // its controls from tab traversal until it is slid in; Open re-enables them.
         this.IsEnabled <- false
 
+        // A slide-in that has never been opened has no measured size yet, so its very first parking
+        // transform (computed from ActualHeight/Width, still 0 during early layout) can land short of the
+        // edge - leaving its one-edge border (ClavisBrush) visible as a stray line where the panel would
+        // dock. Opacity 0 guarantees nothing paints regardless of that transform's exact offset; Open()
+        // restores it. (Hide() does not need this - by the time a slide-in is hidden it has been open at
+        // least once, so its transform is already correct from a real measured size.)
+        this.Opacity <- 0.0
+
         // Size as a fraction of the window body. Re-applied whenever the parent resizes so the slide-in
         // keeps its proportion, and parked off-screen while hidden so its measured slot never overlaps the
         // docked content.
@@ -192,6 +200,7 @@ type SlideInHost(edge: string) as this =
         // only when the user tabs into it, so a slide-in never grabs focus merely by appearing.
         this.IsEnabled <- true
         this.Visibility <- Visibility.Visible
+        this.Opacity <- 1.0
         animate 0.0
 
     member this.Hide() =

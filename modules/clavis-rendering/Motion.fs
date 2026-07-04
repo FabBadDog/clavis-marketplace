@@ -167,6 +167,16 @@ module Motion =
         | :? float as top -> top
         | _ -> window.Top
 
+    // ActualHeight is only populated once a window has completed a layout pass, which requires it to have
+    // been shown at least once - a window falling in for the very first time still reads 0 here. Height is
+    // always explicitly assigned before a window's first reveal, so it is the correct clearance for that
+    // case; an already-shown window (resized since) keeps using its true current ActualHeight.
+    let private effectiveHeight (window: Window) =
+        if window.ActualHeight > 0.0 then
+            window.ActualHeight
+        else
+            window.Height
+
     let private fallInCore (window: Window) (fromY: float) (target: float) (onDone: Action) =
         let frames = fallKeyframes fromY target 720.0
         frames.Completed.Add(fun _ ->
@@ -180,7 +190,7 @@ module Motion =
     /// accelerating and settling with a small bounce. The animation is released on completion so the
     /// window stays draggable.
     let fallInWindow (window: Window) =
-        fallInCore window (-(window.ActualHeight + fallClearance)) (restingTop window) null
+        fallInCore window (-(effectiveHeight window + fallClearance)) (restingTop window) null
 
     /// Show a hidden window with the gravity drop-in, without flashing it at its resting place first: a
     /// previously-shown window's composed surface is otherwise presented at its old position the instant
@@ -189,7 +199,7 @@ module Motion =
     /// (captured before parking and restored as the local value on completion), then onDone runs.
     let showWindowFallingIn (window: Window) (onDone: Action) =
         let resting = restingTop window
-        let fromY = -(window.ActualHeight + fallClearance)
+        let fromY = -(effectiveHeight window + fallClearance)
         window.Top <- fromY
         window.Show()
         fallInCore window fromY resting onDone

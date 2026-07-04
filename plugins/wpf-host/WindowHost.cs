@@ -81,6 +81,8 @@ internal sealed partial class WindowHost
         // paint, and the primary's only use for transparency was the startup splash crossfade, which is
         // dropped for a faster first paint. Set before the window is sourced (Show), since AllowsTransparency
         // is fixed once the HWND exists. Secondary windows keep transparency so they still fade in and out.
+        // (Confirmed by pixel comparison this is not the cause of the title-bar line-rendering artifact -
+        // kept opaque for its measured first-paint win regardless.)
         if (isPrimary)
         {
             Window.AllowsTransparency = false;
