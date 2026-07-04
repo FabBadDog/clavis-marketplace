@@ -140,8 +140,8 @@ are sized independently.
 | `heading` | Inter | **prose** | 16 | SemiBold | Document & section headings |
 | `body` | Inter | **prose** | 14 | Normal | Responses, descriptions, body copy |
 | `label` | Rajdhani | chrome | 11 | Medium | Chrome labels, buttons, tabs, section heads, badges |
-| `mono` | JetBrains Mono | chrome | 11.5 | Normal | Code, data, identifiers, log detail, commits |
-| `meta` | JetBrains Mono | chrome | 11 | Normal | Durations, counts, timestamps |
+| `mono` | JetBrains Mono | chrome | 10.5 | Normal | Code, data, identifiers, log detail, commits |
+| `meta` | JetBrains Mono | chrome | 10 | Normal | Durations, counts, timestamps |
 | `micro` | Rajdhani | chrome | 9 | Medium | Severity tags, dense status/kind labels |
 
 Code inline & blocks render at `mono` (with the slightly raised `code-bg`/`code-border`). In the WPF

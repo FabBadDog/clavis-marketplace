@@ -18,7 +18,7 @@ open FabioSoft.Clavis.Placeholders
 type PlaceholderStrip() =
     static let engine = PlaceholderEngine()
 
-    static let microSize = 11.0
+    static let microSize = 10.0
     static let iconSize = 11.0
     static let barWidth = 90.0
     static let barHeight = 3.0
