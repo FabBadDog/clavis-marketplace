@@ -85,25 +85,6 @@ type SlideInRequest(panelId: Guid, edge: string) =
     member _.PanelId = panelId
     member _.Edge = edge
 
-/// The cursor's screen position in physical pixels. Captured the instant a drag ends so the host can map
-/// it to whichever window sits under the pointer; WPF exposes no managed screen-cursor query.
-[<RequireQualifiedAccess>]
-[<ExcludeFromCodeCoverage>] // thin P/Invoke wrapper
-module private NativeCursor =
-
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
-    type private NativePoint =
-        val mutable X: int
-        val mutable Y: int
-
-    [<DllImport("user32.dll")>]
-    extern bool private GetCursorPos(NativePoint& point)
-
-    let position () =
-        let mutable point = NativePoint()
-        GetCursorPos(&point) |> ignore
-        Point(float point.X, float point.Y)
-
 [<RequireQualifiedAccess>]
 module DockingModel =
 
@@ -333,15 +314,6 @@ type DockingSurface() as this =
 
     let splitterBrush = Colors.codeBorder
 
-    // The slim hover handle bar that gives a lone panel its drag/close affordance. Translucent dark so it
-    // reads as a thin strip floating over the panel's own content rather than a chrome band.
-    let handleBarBrush =
-        SolidColorBrush(Color.FromArgb(0xE0uy, 0x14uy, 0x14uy, 0x1Cuy)) |> fun brush -> brush.Freeze(); brush
-
-    // A lone panel's handle reveals only while the cursor is within this top band (or over the handle
-    // itself), so the affordance appears where it lives rather than on a hover anywhere in the panel.
-    let hoverBandHeight = 24.0
-
     // A TabControl template that shows only the selected content - no header strip. Used for lone panels so
     // a single panel carries no tab/close chrome while still hosting its view through the content site.
     let headerlessTabTemplate =
@@ -432,75 +404,23 @@ type DockingSurface() as this =
         | _ -> ()
 
     // Tab and lone-panel titles read as upper-case chrome labels (matching the window's CLAVIS caption),
-    // so a kind registered as "git log" shows as GIT LOG rather than a bare lower-case word.
+    // so a kind registered as "git log" shows as GIT LOG rather than a bare lower-case word. The shared
+    // PanelHandle builds the title + close so a slide-in's handle reads identically.
     let buildTabHeader (slot: PanelSlot) =
-        let title =
-            TextBlock(
-                Text = slot.Title.ToUpperInvariant(),
-                FontSize = 10.5,
-                FontWeight = FontWeights.Medium,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = Thickness(0.0, 0.0, 7.0, 0.0))
-        title.SetResourceReference(TextBlock.FontFamilyProperty, "UiFont")
-
-        let closeButton = CloseButton.create (Action(fun () -> panelCloseRequested.Trigger(this, slot.PanelId)))
-        closeButton.VerticalAlignment <- VerticalAlignment.Center
-
-        let header = StackPanel(Orientation = Orientation.Horizontal)
-        header.Children.Add(title) |> ignore
-        header.Children.Add(closeButton) |> ignore
-        header
+        PanelHandle.header slot.Title (fun () -> panelCloseRequested.Trigger(this, slot.PanelId))
 
     // Arm a panel drag on element (a whole tab item or a lone panel's handle), so the gesture starts no
-    // matter where on the tab the press lands - the previous header-only handle missed the tab's padding,
-    // which is why a drag "only worked on the second try". A re-entrancy guard stops a stray move re-issued
-    // mid-drag from starting a second DoDragDrop.
+    // matter where on the tab the press lands. The drag mechanics are the shared PanelHandle.attachDrag; this
+    // surface only projects its events onto the surface's own event stream, and answers "is the panel still
+    // mine?" from panelViews so the cross-window / tear-off fallback fires only when the drop moved nothing.
     let attachPanelDrag (element: FrameworkElement) (panelId: Guid) =
-        // The OS shows the no-drop cursor whenever no target sets an effect - which is always when dragging
-        // over a window that never registered as a drop target. Suppress it so a cross-window drag reads as
-        // valid; the host paints the actual drop-zone overlay on the window under the cursor.
-        element.GiveFeedback.Add(fun args ->
-            if args.Effects = DragDropEffects.None then
-                args.UseDefaultCursors <- false
-                Mouse.SetCursor(Cursors.Hand) |> ignore
-                args.Handled <- true)
-
-        // Fires continuously through the drag (on the source, which always gets these). Each tick reports
-        // the cursor's screen position so the host can drive the drop-zone overlay across windows.
-        element.QueryContinueDrag.Add(fun _ -> dragMoving.Trigger(this, NativeCursor.position ()))
-
-        let mutable dragOrigin: Point option = None
-        let mutable dragging = false
-        element.PreviewMouseLeftButtonDown.Add(fun args -> dragOrigin <- Some(args.GetPosition(this)))
-        element.PreviewMouseLeftButtonUp.Add(fun _ -> dragOrigin <- None)
-        element.PreviewMouseMove.Add(fun args ->
-            match dragOrigin with
-            | Some origin when args.LeftButton = MouseButtonState.Pressed && not dragging ->
-                let current = args.GetPosition(this)
-                let moved =
-                    abs (current.X - origin.X) > SystemParameters.MinimumHorizontalDragDistance
-                    || abs (current.Y - origin.Y) > SystemParameters.MinimumVerticalDragDistance
-                if moved then
-                    dragOrigin <- None
-                    dragging <- true
-                    try
-                        let result =
-                            DragDrop.DoDragDrop(element, DataObject(dragFormat, panelId.ToString()), DragDropEffects.Move)
-                        dragCompleted.Trigger(this, EventArgs.Empty)
-                        // A None result means no window accepted the OLE drop. If the panel still lives here
-                        // it was not moved locally either, so fall back to a cursor-resolved cross-window
-                        // move - an owned transparent target window never registers as a drop target for the
-                        // OS.
-                        if result = DragDropEffects.None && panelViews.ContainsKey panelId then
-                            dragFellThrough.Trigger(this, DragFellThrough(panelId, NativeCursor.position ()))
-                    with ex ->
-                        // OLE drag is a shared-resource operation that can throw when another process holds
-                        // the OLE lock; a failed drag is cosmetic. Clear any in-progress drag visuals and
-                        // drop it rather than attempting the cross-window fallback on an unknown failure.
-                        Trace.TraceWarning($"DockingSurface: drag operation failed: {ex.Message}")
-                        dragCompleted.Trigger(this, EventArgs.Empty)
-                    dragging <- false
-            | _ -> ())
+        PanelHandle.attachDrag
+            element
+            panelId
+            (fun point -> dragMoving.Trigger(this, point))
+            (fun point -> dragFellThrough.Trigger(this, DragFellThrough(panelId, point)))
+            (fun () -> dragCompleted.Trigger(this, EventArgs.Empty))
+            (fun () -> panelViews.ContainsKey panelId)
 
     let rec renderNode (node: LayoutNode) : FrameworkElement =
         if DockingModel.isLeaf node then
@@ -559,37 +479,12 @@ type DockingSurface() as this =
     and renderLonePanel (node: LayoutNode) (slot: PanelSlot) : FrameworkElement =
         let host = buildPanelHost node slot
 
-        let handle = buildTabHeader slot
-        TextElement.SetForeground(handle, Colors.textBright)
-
-        let handleBar =
-            Border(
-                Background = handleBarBrush,
-                Padding = Thickness(6.0, 1.0, 4.0, 1.0),
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Top,
-                Opacity = 0.0,
-                // Not hit-testable until revealed: an invisible (Opacity 0) element still hit-tests in WPF, so
-                // without this a press in the panel's content that happened to land under the parked handle
-                // would arm a drag. Gated on the shown state, the drag starts only from the visible panel tab.
-                IsHitTestVisible = false,
-                Child = handle)
+        // The same slim, hover-revealed handle (title + close + drag) a slide-in carries, so a lone tile and
+        // a slide-in read and behave identically.
+        let handleBar = PanelHandle.buildBar (buildTabHeader slot)
         host.Children.Add(handleBar) |> ignore
         attachPanelDrag handleBar slot.PanelId
-
-        // Reveal the handle only near the top edge (or while the cursor is on the handle itself), tracking a
-        // bool so the fade fires on transitions rather than on every mouse move. Hit-testing follows the
-        // reveal so the handle is a drag target only while it is actually shown.
-        let mutable shown = false
-        let setShown value =
-            if value <> shown then
-                shown <- value
-                handleBar.IsHitTestVisible <- value
-                Motion.fadeTo handleBar (if value then 1.0 else 0.0)
-
-        host.MouseMove.Add(fun args ->
-            setShown (args.GetPosition(host).Y <= hoverBandHeight || handleBar.IsMouseOver))
-        host.MouseLeave.Add(fun _ -> setShown false)
+        PanelHandle.attachHoverReveal host handleBar
 
         host :> FrameworkElement
 

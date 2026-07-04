@@ -19,6 +19,7 @@ sources:
   - FocusOverlay.fs
   - Motion.fs
   - CloseButton.fs
+  - PanelHandle.fs
   - SegmentedSelector.fs
   - Selector.fs
   - LimitWindow.fs

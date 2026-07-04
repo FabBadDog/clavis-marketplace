@@ -31,6 +31,26 @@ type SlideInHost(edge: string) as this =
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             VerticalContentAlignment = VerticalAlignment.Stretch)
 
+    // The panel view plus a slim hover-revealed handle (title + close + drag) layered over its top edge, so a
+    // slide-in can be dragged back out to re-dock or closed - the reverse of dropping a panel into an edge.
+    let layoutGrid = Grid()
+
+    let dragMoving = Event<EventHandler<Point>, Point>()
+    let dragFellThrough = Event<EventHandler<DragFellThrough>, DragFellThrough>()
+    let dragCompleted = Event<EventHandler, EventArgs>()
+    let closeRequested = Event<EventHandler<Guid>, Guid>()
+
+    let mutable currentBar: Border option = None
+    let mutable revealed = false
+
+    let setRevealed value =
+        match currentBar with
+        | Some bar when value <> revealed ->
+            revealed <- value
+            bar.IsHitTestVisible <- value
+            Motion.fadeTo bar (if value then 1.0 else 0.0)
+        | _ -> ()
+
     // Same translucent dark fill the shortcut overlay uses: the window body reads faintly through, and it
     // costs nothing (no live blur).
     let tintBrush = SolidColorBrush(Color.FromArgb(0xE6uy, 0x05uy, 0x05uy, 0x0Auy))
@@ -74,7 +94,8 @@ type SlideInHost(edge: string) as this =
 
         this.Background <- tintBrush
         this.RenderTransform <- transform
-        this.Child <- content
+        layoutGrid.Children.Add(content) |> ignore
+        this.Child <- layoutGrid
         this.SetResourceReference(Border.BorderBrushProperty, "ClavisBrush")
 
         // Parked off-screen, the panel must not be a keyboard-focus target (it stays Visibility.Visible
@@ -102,14 +123,25 @@ type SlideInHost(edge: string) as this =
             if not isOpen then
                 transform.SetValue(slideProperty, parkedOffset ()))
 
+        // Reveal the handle once the cursor reaches the slide-in's top band (or is over the handle), then keep
+        // it shown until the cursor leaves, so it can be navigated to and grabbed - matching a lone docked
+        // panel. Hiding on every out-of-band move latched the handle non-hit-testable and unreachable.
+        this.MouseMove.Add(fun args ->
+            let y = args.GetPosition(this).Y
+            let overBar = match currentBar with | Some bar -> bar.IsMouseOver | None -> false
+            if y <= PanelHandle.hoverBandHeight || overBar then
+                setRevealed true)
+        this.MouseLeave.Add(fun _ -> setRevealed false)
+
     /// The edge this slide-in is anchored to ("left", "right", "top", "bottom").
     member _.Edge = edge
 
     member _.IsOpen = isOpen
 
-    /// Host a panel's view. Replacing the content detaches the previous view from its old parent first, so
-    /// the same view can move between a docked slot and a slide-in without a duplicate-parent error.
-    member _.SetContent(view: FrameworkElement) =
+    /// Host a panel's view under the given instance id and title. Replacing the content detaches the previous
+    /// view from its old parent first, so the same view can move between a docked slot and a slide-in without
+    /// a duplicate-parent error, and rebuilds the hover handle bound to this panel.
+    member this.SetContent(panelId: Guid, title: string, view: FrameworkElement) =
         match view.Parent with
         | :? ContentControl as owner -> owner.Content <- null
         | :? Decorator as owner -> owner.Child <- null
@@ -117,7 +149,42 @@ type SlideInHost(edge: string) as this =
 
         content.Content <- view
 
+        // Rebuild the hover handle for the panel now shown: drop the previous bar, add a fresh title + close +
+        // drag bound to this panel id. Its drag events drive the same cross-window drop machinery a docked
+        // panel's handle does; isOwned answers "is this panel still slid-in here?", so a completed re-dock (the
+        // view detached from the content site) suppresses the tear-off fall-through.
+        currentBar |> Option.iter (fun bar -> layoutGrid.Children.Remove(bar))
+        revealed <- false
+        let bar = PanelHandle.buildBar (PanelHandle.header title (fun () -> closeRequested.Trigger(this, panelId)))
+        layoutGrid.Children.Add(bar) |> ignore
+        currentBar <- Some bar
+        PanelHandle.attachDrag
+            bar
+            panelId
+            (fun point -> dragMoving.Trigger(this, point))
+            (fun point -> dragFellThrough.Trigger(this, DragFellThrough(panelId, point)))
+            (fun () -> dragCompleted.Trigger(this, EventArgs.Empty))
+            (fun () -> obj.ReferenceEquals(content.Content, view))
+
     member _.View = content.Content :?> FrameworkElement
+
+    /// Fires continuously while the slide-in's handle is dragged, carrying the cursor's screen position so the
+    /// host can paint the cross-window drop hint.
+    [<CLIEvent>]
+    member _.DragMoving = dragMoving.Publish
+
+    /// Fires when a drag off the handle ends with no window accepting the drop, so the host resolves the target
+    /// under the cursor (re-dock into another window, or tear off into a new one).
+    [<CLIEvent>]
+    member _.DragFellThrough = dragFellThrough.Publish
+
+    /// Fires once when a handle drag ends, so the host can clear any cross-window drop hints.
+    [<CLIEvent>]
+    member _.DragCompleted = dragCompleted.Publish
+
+    /// Fires when the handle's close cross is clicked, carrying the panel instance to dismiss.
+    [<CLIEvent>]
+    member _.CloseRequested = closeRequested.Publish
 
     member this.Open() =
         isOpen <- true

@@ -745,6 +745,17 @@ internal sealed class WindowManager : IDisposable
 
         host.Surface.DragCompleted += (_, _) => ClearCrossWindowHints();
 
+        // A slide-in's handle drives the same cross-window drop machinery: its drag paints the drop hint,
+        // falls through to a re-dock / tear-off, and its close cross dismisses the panel. The panel is lifted
+        // from the slide-in (not the surface) at the drop sites via WindowHost.TakePanel.
+        host.SlideInDragMoving += (_, screenPoint) => UpdateCrossWindowHint(host, screenPoint);
+
+        host.SlideInDragFellThrough += (_, fell) => ResolveCrossWindowDrop(host, fell);
+
+        host.SlideInDragCompleted += (_, _) => ClearCrossWindowHints();
+
+        host.SlideInCloseRequested += (_, panelId) => CloseSlideInPanel(host, panelId);
+
         host.Window.Activated += (_, _) =>
         {
             _focusedWindowId = host.WindowId;
@@ -999,8 +1010,8 @@ internal sealed class WindowManager : IDisposable
 
     /// Close a docked panel instance by id, wherever it is docked: remove it from its surface, announce
     /// PanelClosed, and persist. Mirrors the tab-close path so an emptied secondary window is retired via
-    /// Surface.PanelRemoved. The primary window's locked sole panel (the conversation) is never removed.
-    /// A slide-in instance is left to the window/close paths (markdown display panels dock as tabs).
+    /// Surface.PanelRemoved. The primary window's locked sole panel (the conversation) is never removed. A
+    /// panel currently anchored as a slide-in is dismissed through the same slide-in close path.
     private void ClosePanel(Guid instanceId)
     {
         foreach (var host in _windows.Values)
@@ -1017,6 +1028,24 @@ internal sealed class WindowManager : IDisposable
                 ScheduleSave();
                 return;
             }
+
+            if (host.HasSlideIn(instanceId))
+            {
+                CloseSlideInPanel(host, instanceId);
+                return;
+            }
+        }
+    }
+
+    /// Dismiss a panel anchored as a slide-in (its handle's close cross, or a ClosePanel for a slide-in): lift
+    /// it out, announce PanelClosed so the owner disposes it, and retire the window if it is now empty.
+    private void CloseSlideInPanel(WindowHost host, Guid instanceId)
+    {
+        if (host.TryTakeSlideIn(instanceId) is not null)
+        {
+            _bus.Send(new PanelClosed(instanceId));
+            CloseIfEmptySecondary(host);
+            ScheduleSave();
         }
     }
 
@@ -1079,14 +1108,17 @@ internal sealed class WindowManager : IDisposable
     /// the OLE path, taken when the target window did register as a drop target (e.g. the primary window).
     private void MovePanelAcrossWindows(WindowHost targetHost, ExternalPanelDrop drop)
     {
+        // Prefer a different window's docked panel (the classic cross-window OLE case), then any window's
+        // slide-in - including this window's own, which is how a slide-in re-docks into the surface it overlays.
         var source = _windows.Values.FirstOrDefault(window =>
-            !ReferenceEquals(window, targetHost) && window.Surface.PanelIds.Contains(drop.PanelId));
+                !ReferenceEquals(window, targetHost) && window.Surface.PanelIds.Contains(drop.PanelId))
+            ?? _windows.Values.FirstOrDefault(window => window.HasSlideIn(drop.PanelId));
         if (source is null)
         {
             return;
         }
 
-        var transfer = source.Surface.TryTakePanel(drop.PanelId);
+        var transfer = source.TakePanel(drop.PanelId);
         if (transfer is null)
         {
             return;
@@ -1109,7 +1141,7 @@ internal sealed class WindowManager : IDisposable
             !ReferenceEquals(window, sourceHost) && IsPointOverSurface(window, fell.ScreenPoint));
         if (target is not null)
         {
-            var moved = sourceHost.Surface.TryTakePanel(fell.PanelId);
+            var moved = sourceHost.TakePanel(fell.PanelId);
             if (moved is not null)
             {
                 target.Surface.AddExistingPanelAt(moved, fell.ScreenPoint);
@@ -1133,7 +1165,7 @@ internal sealed class WindowManager : IDisposable
     /// flow: windows now come into being only by dragging a panel clear of every existing window.
     private void TearOffToNewWindow(WindowHost sourceHost, DragFellThrough fell)
     {
-        var transfer = sourceHost.Surface.TryTakePanel(fell.PanelId);
+        var transfer = sourceHost.TakePanel(fell.PanelId);
         if (transfer is null)
         {
             return;

@@ -137,6 +137,14 @@ internal sealed partial class WindowHost
     /// kind was last placed as a slide-in on this edge in this window.
     public event EventHandler<(Guid InstanceId, string Kind, string Edge)>? SlideInMade;
 
+    // A slide-in's handle drives the same cross-window drag/drop and close paths a docked panel's tab does.
+    // These aggregate the four edge hosts' events so the manager wires one source per window, mirroring the
+    // surface's DragMoving / DragFellThrough / DragCompleted and PanelCloseRequested.
+    public event EventHandler<Point>? SlideInDragMoving;
+    public event EventHandler<DragFellThrough>? SlideInDragFellThrough;
+    public event EventHandler? SlideInDragCompleted;
+    public event EventHandler<Guid>? SlideInCloseRequested;
+
     public void Focus() => _inputHandler?.Focus();
 
     public void FocusSurface() =>
@@ -261,20 +269,33 @@ internal sealed partial class WindowHost
         // The status bar is a fixed window-chrome row pinned to the window bottom; the active docked panel
         // drives its content (window owns the bar, the active panel owns what it shows), so it is window-owned
         // and visible for every panel, not just the chat.
+        // The body cell holds the docking surface plus the edge slide-ins layered over it, confined to the
+        // row between the title bar and status bar. Slide-ins anchor flush with their host's own edge
+        // (VerticalAlignment.Top/Stretch etc.), so hosting them at the window's own top-level cell put a
+        // top/left/right slide-in's hover handle flush with the window's top edge too - inside the
+        // WindowChrome caption band (CaptionHeight="28" in MainWindow.xaml), where the OS claims mouse
+        // hit-testing for window-drag before it reaches the handle, unless the handle opts in via
+        // WindowChrome.IsHitTestVisibleInChrome (only the window close button does). That made the handle's
+        // reveal/hide flicker exactly at the hover band - reachable from below, but unreachable once the
+        // cursor actually reached it. Confining the body to the row below the title bar keeps every slide-in
+        // (and its handle) entirely inside ordinary client area.
+        var bodyGrid = new Grid();
+        bodyGrid.Children.Add(Surface);
+
         var chromePanel = new DockPanel { LastChildFill = true };
         DockPanel.SetDock(titleBar, Dock.Top);
         chromePanel.Children.Add(titleBar);
         DockPanel.SetDock(statusRow, Dock.Bottom);
         chromePanel.Children.Add(statusRow);
-        chromePanel.Children.Add(Surface);
+        chromePanel.Children.Add(bodyGrid);
 
-        // A single-cell grid layering the chrome, the help overlay, and the edge slide-ins. Panels are
-        // tiled by the docking surface inside the chrome, so the window owns no fixed panel column.
+        // A single-cell grid layering the chrome and the help overlay. Panels are tiled by the docking
+        // surface inside the chrome, so the window owns no fixed panel column.
         var layoutGrid = new Grid();
         layoutGrid.Children.Add(chromePanel);
         layoutGrid.Children.Add(_helpOverlay);
 
-        AttachSlideHosts(layoutGrid);
+        AttachSlideHosts(bodyGrid, layoutGrid);
         _focusVisual = new FocusVisualController(Window, layoutGrid, Surface, inputBox);
 
         layoutGrid.Loaded += (_, _) => _inputHandler.Focus();
@@ -293,10 +314,16 @@ internal sealed partial class WindowHost
         _statusDot = statusDot;
         _panelTitle = new PanelTitleController(Window, Surface, titleBranch, titleText);
 
+        // The body cell holds the docking surface plus the edge slide-ins layered over it, confined below
+        // the title bar so a slide-in's hover handle never lands inside the window's WindowChrome caption
+        // band (see the matching comment in BuildPrimaryLayout for why that mattered).
+        var bodyGrid = new Grid();
+        bodyGrid.Children.Add(Surface);
+
         var dockPanel = new DockPanel { LastChildFill = true };
         DockPanel.SetDock(titleBar, Dock.Top);
         dockPanel.Children.Add(titleBar);
-        dockPanel.Children.Add(Surface);
+        dockPanel.Children.Add(bodyGrid);
 
         // Focusable so the window-level key resolver still receives shortcuts (Ctrl+W, etc.) when nothing
         // else holds focus, but never a Tab stop: traversal must not land on the bare window body, only on
@@ -306,7 +333,7 @@ internal sealed partial class WindowHost
         layers.Children.Add(dockPanel);
         layers.Children.Add(_helpOverlay);
 
-        AttachSlideHosts(layers);
+        AttachSlideHosts(bodyGrid, layers);
         _focusVisual = new FocusVisualController(Window, layers, Surface, null);
 
         // A secondary window opens with nothing focused. Take keyboard focus once shown so the window-level
@@ -444,20 +471,27 @@ internal sealed partial class WindowHost
         };
     }
 
-    /// Create the four edge slide-in overlays, layer them over the window body, and wire the click-away
-    /// auto-hide. Each overlays the whole content and parks off-screen until shown.
-    private void AttachSlideHosts(Grid grid)
+    /// Create the four edge slide-in overlays and layer them over hostGrid (the window body - the row
+    /// between the title bar and status bar, not the whole window, so a slide-in's hover handle never lands
+    /// inside the title bar's WindowChrome caption band). Each overlays the whole body and parks off-screen
+    /// until shown. Click-away auto-hide is wired against clickAwayRoot (the outer layout cell spanning the
+    /// whole window) so a click on the title bar or status bar also dismisses an open slide-in.
+    private void AttachSlideHosts(Grid hostGrid, Grid clickAwayRoot)
     {
         foreach (var edge in (string[])["left", "right", "top", "bottom"])
         {
             var host = new SlideInHost(edge);
             _slideHosts[edge] = host;
-            grid.Children.Add(host);
+            host.DragMoving += (_, point) => SlideInDragMoving?.Invoke(this, point);
+            host.DragFellThrough += (_, fell) => SlideInDragFellThrough?.Invoke(this, fell);
+            host.DragCompleted += (_, _) => SlideInDragCompleted?.Invoke(this, EventArgs.Empty);
+            host.CloseRequested += (_, panelId) => SlideInCloseRequested?.Invoke(this, panelId);
+            hostGrid.Children.Add(host);
         }
 
         // Clicking anywhere that is not inside an open slide-in dismisses the open ones (their content
         // slides away when focus moves off them).
-        grid.PreviewMouseDown += (_, e) =>
+        clickAwayRoot.PreviewMouseDown += (_, e) =>
         {
             if (e.OriginalSource is Visual source
                 && _slideHosts.Values.Any(host => host.IsOpen && host.IsAncestorOf(source)))
@@ -501,6 +535,40 @@ internal sealed partial class WindowHost
 
     public bool HasSlideIn(Guid instanceId) => _slideIns.ContainsKey(instanceId);
 
+    /// Lift a panel out of its slide-in - detaching its live view so it can be re-parented - and return the
+    /// transfer, or null when this window has no such slide-in. The panel is no longer a slide-in (the manager
+    /// then either re-docks the transfer or, for a close, drops it and announces PanelClosed).
+    public PanelTransfer? TryTakeSlideIn(Guid instanceId)
+    {
+        if (!_slideIns.Remove(instanceId, out var entry))
+        {
+            return null;
+        }
+
+        if (_slideHosts.TryGetValue(entry.Edge, out var edgeHost) && ReferenceEquals(edgeHost.View, entry.View))
+        {
+            edgeHost.Hide();
+        }
+
+        // Detach the view from the slide-in's content site so a docking surface can adopt it without a
+        // duplicate-parent error.
+        if (entry.View.Parent is ContentControl parent)
+        {
+            parent.Content = null;
+        }
+
+        _bus.Send(new SlideInClosed(instanceId));
+        return new PanelTransfer(new PanelSlot(instanceId, entry.Kind, entry.Title, ""), entry.View);
+    }
+
+    /// Lift a panel out of this window wherever it lives - a docked slot or an edge slide-in - so the
+    /// cross-window move sites treat both uniformly.
+    public PanelTransfer? TakePanel(Guid instanceId) =>
+        Surface.PanelIds.Contains(instanceId) ? Surface.TryTakePanel(instanceId) : TryTakeSlideIn(instanceId);
+
+    /// True when this window hosts the panel, docked or as a slide-in.
+    public bool OwnsPanel(Guid instanceId) => Surface.PanelIds.Contains(instanceId) || HasSlideIn(instanceId);
+
     public IReadOnlyCollection<Guid> SlideInIds => _slideIns.Keys;
 
     /// The (instance, kind) pairs currently anchored as slide-ins in this window, so the manager can find a
@@ -536,7 +604,7 @@ internal sealed partial class WindowHost
             }
         }
 
-        host.SetContent(entry.View);
+        host.SetContent(instanceId, entry.Title, entry.View);
         host.Open();
     }
 
