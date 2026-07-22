@@ -89,19 +89,62 @@ internal static class WindowChromeViews
         border.BorderThickness = new Thickness(0, 0, 0, 1);
         border.Child = dockPanel;
 
+        // With the OS caption disabled (see MainWindow.xaml) the title bar drives window drag itself:
+        // press-drag anywhere on the bar moves the window and a double-click toggles maximize. A press that
+        // lands on the close button or the right-content region is left alone so its own click still fires.
+        border.MouseLeftButtonDown += (_, args) =>
+        {
+            if (IsWithin(args.OriginalSource as DependencyObject, closeButton)
+                || IsWithin(args.OriginalSource as DependencyObject, titleBarRight))
+            {
+                return;
+            }
+
+            if (Window.GetWindow(border) is not { } window)
+            {
+                return;
+            }
+
+            if (args.ClickCount == 2)
+            {
+                window.WindowState = window.WindowState == WindowState.Maximized
+                    ? WindowState.Normal
+                    : WindowState.Maximized;
+                return;
+            }
+
+            window.DragMove();
+        };
+
         return (border, statusDot);
+    }
+
+    // Walk up the visual tree to see whether the pressed element lives inside a chrome region that owns its
+    // own click (the close button, the right content), so the title-bar drag leaves it alone.
+    private static bool IsWithin(DependencyObject? node, DependencyObject region)
+    {
+        while (node is not null)
+        {
+            if (ReferenceEquals(node, region))
+            {
+                return true;
+            }
+
+            node = node is Visual visual ? VisualTreeHelper.GetParent(visual) : LogicalTreeHelper.GetParent(node);
+        }
+
+        return false;
     }
 
     /// The window's close affordance: the shared close cross (white at rest, easing to clavis blue and
     /// growing a touch on hover, no background fill) so window chrome and panel tabs close identically.
-    /// Given a fixed caption hit box and marked hit-test-visible in chrome so the click reaches the button
-    /// rather than dragging the window.
+    /// Given a fixed hit box; ordinary client content now the OS caption is disabled, so its own click fires
+    /// and the title-bar drag skips it (see CreateTitleBar).
     private static Border CreateCloseButton(Action onClose)
     {
         var button = CloseButton.create(onClose);
         button.Width = 30;
         button.Height = 28;
-        WindowChrome.SetIsHitTestVisibleInChrome(button, true);
         return button;
     }
 

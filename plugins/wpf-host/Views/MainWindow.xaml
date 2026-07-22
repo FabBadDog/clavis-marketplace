@@ -14,8 +14,12 @@
     AllowsTransparency="True"
     ResizeMode="CanResizeWithGrip">
 
+    <!-- CaptionHeight="0": no OS caption band. The window content is scaled by a LayoutTransform
+         (UiScaleFactor), which displaces WindowChrome's IsHitTestVisibleInChrome carve-outs from the visible
+         chrome, so a caption would leave the close button unclickable. Dragging is driven manually from the
+         title bar instead (WindowChromeViews.CreateTitleBar); the resize border is kept. -->
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="28"
+        <WindowChrome CaptionHeight="0"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
                       CornerRadius="0" />

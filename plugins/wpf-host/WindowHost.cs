@@ -274,13 +274,9 @@ internal sealed partial class WindowHost
         // The body cell holds the docking surface plus the edge slide-ins layered over it, confined to the
         // row between the title bar and status bar. Slide-ins anchor flush with their host's own edge
         // (VerticalAlignment.Top/Stretch etc.), so hosting them at the window's own top-level cell put a
-        // top/left/right slide-in's hover handle flush with the window's top edge too - inside the
-        // WindowChrome caption band (CaptionHeight="28" in MainWindow.xaml), where the OS claims mouse
-        // hit-testing for window-drag before it reaches the handle, unless the handle opts in via
-        // WindowChrome.IsHitTestVisibleInChrome (only the window close button does). That made the handle's
-        // reveal/hide flicker exactly at the hover band - reachable from below, but unreachable once the
-        // cursor actually reached it. Confining the body to the row below the title bar keeps every slide-in
-        // (and its handle) entirely inside ordinary client area.
+        // top/left/right slide-in's hover handle flush with the window's top edge too - overlapping the title
+        // bar, whose own press-drag would swallow the handle's hover/click before it could reveal. Confining
+        // the body to the row below the title bar keeps every slide-in (and its handle) clear of it.
         var bodyGrid = new Grid();
         bodyGrid.Children.Add(Surface);
 
@@ -290,6 +286,14 @@ internal sealed partial class WindowHost
         DockPanel.SetDock(statusRow, Dock.Bottom);
         chromePanel.Children.Add(statusRow);
         chromePanel.Children.Add(bodyGrid);
+
+        // The window's UI-scale LayoutTransform breaks DockPanel hit-testing: the fill child (bodyGrid) is
+        // hit-tested without its docked top offset, so its hit region rides up over the title bar and - being
+        // the last child, hence topmost in Z - swallows the close button's hover and click. Lifting the docked
+        // chrome above the fill child in Z makes the title bar win that overlap, restoring the close button's
+        // input. Render is unaffected: the two never visually overlap.
+        Panel.SetZIndex(titleBar, 1);
+        Panel.SetZIndex(statusRow, 1);
 
         // A single-cell grid layering the chrome and the help overlay. Panels are tiled by the docking
         // surface inside the chrome, so the window owns no fixed panel column.
@@ -326,6 +330,11 @@ internal sealed partial class WindowHost
         DockPanel.SetDock(titleBar, Dock.Top);
         dockPanel.Children.Add(titleBar);
         dockPanel.Children.Add(bodyGrid);
+
+        // Same reason as BuildPrimaryLayout: under the UI-scale LayoutTransform the DockPanel fill child
+        // (bodyGrid) is hit-tested without its docked offset and rides over the title bar, so lift the title
+        // bar above it in Z to keep the close button's input.
+        Panel.SetZIndex(titleBar, 1);
 
         // Focusable so the window-level key resolver still receives shortcuts (Ctrl+W, etc.) when nothing
         // else holds focus, but never a Tab stop: traversal must not land on the bare window body, only on
