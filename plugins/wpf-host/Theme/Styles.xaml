@@ -12,7 +12,7 @@
     <!-- The single source of truth for code-text size (monospace code blocks, inline code, tool/reasoning
          output). MarkdownPresenter reads this resource live and scales it by its FontScale, so this one
          value drives every code surface - change it here only. See design/CLAVIS-DESIGN-LANGUAGE.md "Typography". -->
-    <sys:Double x:Key="CodeFontSize">6</sys:Double>
+    <sys:Double x:Key="CodeFontSize">10</sys:Double>
 
     <!-- Type-role sizes (the dual scale; see design/CLAVIS-DESIGN-LANGUAGE.md §4). PROSE (body / heading)
          stays generous, CHROME (label / mono / meta / micro) is compact. Kept in sync with the theme's

@@ -226,8 +226,8 @@ public static class StreamEventMapper
 
     private static string OptionLabel(PermissionUpdate update) => update switch
     {
-        PermissionUpdate.AddRules r => RuleLabel(r.behavior, r.rules, r.destination),
-        PermissionUpdate.ReplaceRules r => RuleLabel(r.behavior, r.rules, r.destination),
+        PermissionUpdate.AddRules r => RuleLabel(r.behavior, r.destination),
+        PermissionUpdate.ReplaceRules r => RuleLabel(r.behavior, r.destination),
         PermissionUpdate.RemoveRules r => Terse("remove rule", r.destination),
         PermissionUpdate.SetMode m => ModeLabel(m.mode),
         PermissionUpdate.AddDirectories d => DirectoryLabel(d.directories, d.destination),
@@ -235,24 +235,12 @@ public static class StreamEventMapper
         _ => "ALWAYS"
     };
 
-    private static string RuleLabel(string behavior, FSharpList<PermissionRuleSpec> rules, string destination)
+    // The tool and its arguments are already shown in the row above, so the "always" option states only the
+    // effect (and the scope when it isn't the default), never the command it would remember.
+    private static string RuleLabel(string behavior, string destination)
     {
-        var prefix = behavior switch { "deny" => "never", "ask" => "ask", _ => "always" };
-        var list = rules.ToList();
-        var body = list.Count switch
-        {
-            0 => "",
-            1 => RuleText(list[0]),
-            _ => $"{RuleText(list[0])} +{list.Count - 1}"
-        };
-        var text = body.Length == 0 ? prefix : $"{prefix}: {body}";
+        var text = behavior switch { "deny" => "always deny", "ask" => "always ask", _ => "always allow" };
         return Terse(text, destination);
-    }
-
-    private static string RuleText(PermissionRuleSpec spec)
-    {
-        var content = FSharpOption<string>.get_IsSome(spec.RuleContent) ? spec.RuleContent.Value : null;
-        return string.IsNullOrEmpty(content) ? spec.ToolName : $"{spec.ToolName}({content})";
     }
 
     private static string ModeLabel(string mode) => Terse(mode switch

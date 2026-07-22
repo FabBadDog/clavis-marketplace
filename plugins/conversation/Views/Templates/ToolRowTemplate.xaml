@@ -6,7 +6,7 @@
     <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
     <DataTemplate DataType="{x:Type vm:ToolItemViewModel}">
-        <StackPanel Margin="0,2,0,2">
+        <StackPanel Margin="0,2,0,8">
             <StackPanel.RenderTransform>
                 <TranslateTransform x:Name="RowSlide" Y="6" />
             </StackPanel.RenderTransform>

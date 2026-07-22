@@ -383,7 +383,7 @@ let ``Map PermissionRequest builds a labelled option per suggestion`` () =
     let perm = result :?> AgentPermissionRequest
     %perm.Options.Length.Should().Be(2) |> ignore
     %perm.Options[0].Id.Should().Be("suggestion-0") |> ignore
-    %perm.Options[0].Label.Should().Be("ALWAYS: BASH(GIT*)") |> ignore
+    %perm.Options[0].Label.Should().Be("ALWAYS ALLOW") |> ignore
     %perm.Options[1].Id.Should().Be("suggestion-1") |> ignore
     %perm.Options[1].Label.Should().Be("ACCEPT EDITS")
 
@@ -434,17 +434,17 @@ let ``ResolvePermissionDecision falls back to allow-once for an out-of-range sug
     | Deny -> failwith "Expected allow-once"
 
 [<Theory>]
-[<InlineData("allow", "localSettings", "ALWAYS: WRITE")>]
-[<InlineData("deny", "localSettings", "NEVER: WRITE")>]
-[<InlineData("allow", "projectSettings", "ALWAYS: WRITE (PROJECT)")>]
-[<InlineData("allow", "userSettings", "ALWAYS: WRITE (USER)")>]
+[<InlineData("allow", "localSettings", "ALWAYS ALLOW")>]
+[<InlineData("deny", "localSettings", "ALWAYS DENY")>]
+[<InlineData("allow", "projectSettings", "ALWAYS ALLOW (PROJECT)")>]
+[<InlineData("allow", "userSettings", "ALWAYS ALLOW (USER)")>]
 let ``Map builds terse rule labels with behavior and scope`` (behavior: string) (destination: string) (expected: string) =
 
-    // Arrange
+    // Arrange - the tool/args are shown in the row above, so the label states only effect and scope.
     let info = {
         RequestId = "pr-3"; ToolName = "Write"; ToolUseId = None
         Input = "x"; DecisionReason = None; DecisionReasonType = None
-        Suggestions = [ AddRules([ { ToolName = "Write"; RuleContent = None } ], behavior, destination) ]
+        Suggestions = [ AddRules([ { ToolName = "Write"; RuleContent = Some "cfg*" } ], behavior, destination) ]
     }
 
     // Act
@@ -454,9 +454,10 @@ let ``Map builds terse rule labels with behavior and scope`` (behavior: string) 
     %perm.Options[0].Label.Should().Be(expected)
 
 [<Fact>]
-let ``Map summarises multiple rules and directories tersely`` () =
+let ``Map labels a rule allow as ALWAYS ALLOW and keeps the directory it grants`` () =
 
-    // Arrange
+    // Arrange - a multi-rule allow still reads "ALWAYS ALLOW" (the rules are shown above), while a
+    // directory grant keeps the path since it is not otherwise on screen.
     let info = {
         RequestId = "pr-4"; ToolName = "Bash"; ToolUseId = None
         Input = "x"; DecisionReason = None; DecisionReasonType = None
@@ -471,7 +472,7 @@ let ``Map summarises multiple rules and directories tersely`` () =
     let perm = map (StreamEvent.PermissionRequest info) :?> AgentPermissionRequest
 
     // Assert
-    %perm.Options[0].Label.Should().Be("ALWAYS: BASH(GIT*) +1") |> ignore
+    %perm.Options[0].Label.Should().Be("ALWAYS ALLOW") |> ignore
     %perm.Options[1].Label.Should().Be("ALLOW ACCESS: C:/REPO")
 
 [<Fact>]
