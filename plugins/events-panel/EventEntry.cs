@@ -226,7 +226,7 @@ public static class EventEntryFactory
             AgentStreamEvent streamEvent => FromStreamEvent(timestamp, streamEvent),
             SendPrompt prompt => FromInput(timestamp, "Prompt", prompt.Text),
             SendPermissionResponse response => FromInput(
-                timestamp, "PermissionResponse", $"{response.RequestId} {(response.Allow ? "Allow" : "Deny")}"),
+                timestamp, "PermissionResponse", $"{response.RequestId} {response.OptionId}"),
             _ => FromGeneric(timestamp, activity.PayloadType)
         };
     }

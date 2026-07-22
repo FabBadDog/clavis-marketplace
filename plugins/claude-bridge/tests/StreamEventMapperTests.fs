@@ -348,6 +348,7 @@ let ``Map PermissionRequest produces AgentPermissionRequest`` () =
     let info = {
         RequestId = "pr-1"; ToolName = "Bash"; ToolUseId = Some "tu-5"
         Input = "rm -rf /tmp"; DecisionReason = Some "dangerous"; DecisionReasonType = None
+        Suggestions = []
     }
 
     // Act
@@ -361,6 +362,117 @@ let ``Map PermissionRequest produces AgentPermissionRequest`` () =
     %perm.Input.Should().Contain("rm -rf")
     %perm.ReasonText.Should().Be("dangerous")
     %perm.MatchedRulePattern.Should().Be("")
+    %perm.Options.Should().BeEmpty()
+
+[<Fact>]
+let ``Map PermissionRequest builds a labelled option per suggestion`` () =
+
+    // Arrange - an add-allow-rule suggestion and a mode switch produce the varying middle options.
+    let info = {
+        RequestId = "pr-2"; ToolName = "Bash"; ToolUseId = None
+        Input = "git status"; DecisionReason = None; DecisionReasonType = None
+        Suggestions =
+            [ AddRules([ { ToolName = "Bash"; RuleContent = Some "git*" } ], "allow", "localSettings")
+              SetMode("acceptEdits", "session") ]
+    }
+
+    // Act
+    let result = map (StreamEvent.PermissionRequest info)
+
+    // Assert
+    let perm = result :?> AgentPermissionRequest
+    %perm.Options.Length.Should().Be(2) |> ignore
+    %perm.Options[0].Id.Should().Be("suggestion-0") |> ignore
+    %perm.Options[0].Label.Should().Be("ALWAYS: BASH(GIT*)") |> ignore
+    %perm.Options[1].Id.Should().Be("suggestion-1") |> ignore
+    %perm.Options[1].Label.Should().Be("ACCEPT EDITS")
+
+[<Theory>]
+[<InlineData("deny", false)>]
+[<InlineData("allow", true)>]
+[<InlineData("unknown-id", true)>]
+let ``ResolvePermissionDecision maps allow-once and deny without updatedPermissions`` (optionId: string) (isAllow: bool) =
+
+    // Act
+    let decision = StreamEventMapper.ResolvePermissionDecision(optionId, null)
+
+    // Assert
+    match decision with
+    | Allow updatedPermissions -> %isAllow.Should().BeTrue() |> ignore; %updatedPermissions.Should().BeEmpty()
+    | Deny -> %isAllow.Should().BeFalse()
+
+[<Fact>]
+let ``ResolvePermissionDecision echoes the chosen suggestion as updatedPermissions`` () =
+
+    // Arrange
+    let suggestions =
+        [| AddRules([ { ToolName = "Bash"; RuleContent = Some "git*" } ], "allow", "localSettings")
+           SetMode("plan", "session") |]
+
+    // Act
+    let decision = StreamEventMapper.ResolvePermissionDecision("suggestion-1", suggestions)
+
+    // Assert
+    match decision with
+    | Allow [ SetMode(mode, destination) ] ->
+        %mode.Should().Be("plan") |> ignore
+        %destination.Should().Be("session")
+    | _ -> failwith "Expected an allow carrying the SetMode suggestion"
+
+[<Fact>]
+let ``ResolvePermissionDecision falls back to allow-once for an out-of-range suggestion`` () =
+
+    // Arrange
+    let suggestions = [| AddRules([], "allow", "session") |]
+
+    // Act
+    let decision = StreamEventMapper.ResolvePermissionDecision("suggestion-9", suggestions)
+
+    // Assert
+    match decision with
+    | Allow updatedPermissions -> %updatedPermissions.Should().BeEmpty()
+    | Deny -> failwith "Expected allow-once"
+
+[<Theory>]
+[<InlineData("allow", "localSettings", "ALWAYS: WRITE")>]
+[<InlineData("deny", "localSettings", "NEVER: WRITE")>]
+[<InlineData("allow", "projectSettings", "ALWAYS: WRITE (PROJECT)")>]
+[<InlineData("allow", "userSettings", "ALWAYS: WRITE (USER)")>]
+let ``Map builds terse rule labels with behavior and scope`` (behavior: string) (destination: string) (expected: string) =
+
+    // Arrange
+    let info = {
+        RequestId = "pr-3"; ToolName = "Write"; ToolUseId = None
+        Input = "x"; DecisionReason = None; DecisionReasonType = None
+        Suggestions = [ AddRules([ { ToolName = "Write"; RuleContent = None } ], behavior, destination) ]
+    }
+
+    // Act
+    let perm = map (StreamEvent.PermissionRequest info) :?> AgentPermissionRequest
+
+    // Assert
+    %perm.Options[0].Label.Should().Be(expected)
+
+[<Fact>]
+let ``Map summarises multiple rules and directories tersely`` () =
+
+    // Arrange
+    let info = {
+        RequestId = "pr-4"; ToolName = "Bash"; ToolUseId = None
+        Input = "x"; DecisionReason = None; DecisionReasonType = None
+        Suggestions =
+            [ AddRules(
+                [ { ToolName = "Bash"; RuleContent = Some "git*" }
+                  { ToolName = "Bash"; RuleContent = Some "npm*" } ], "allow", "session")
+              AddDirectories([ "C:/repo" ], "session") ]
+    }
+
+    // Act
+    let perm = map (StreamEvent.PermissionRequest info) :?> AgentPermissionRequest
+
+    // Assert
+    %perm.Options[0].Label.Should().Be("ALWAYS: BASH(GIT*) +1") |> ignore
+    %perm.Options[1].Label.Should().Be("ALLOW ACCESS: C:/REPO")
 
 [<Fact>]
 let ``Map Aborted produces AgentAborted`` () =

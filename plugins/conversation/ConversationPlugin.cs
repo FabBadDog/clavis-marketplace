@@ -565,7 +565,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
                     bus.Send(new SendPrompt(e.SessionId, e.Text));
                     break;
                 case SendPermissionResponseEffect e:
-                    bus.Send(new SendPermissionResponse(e.SessionId, e.RequestId, e.Allow));
+                    bus.Send(new SendPermissionResponse(e.SessionId, e.RequestId, e.OptionId));
                     break;
                 case InterruptSessionEffect e:
                     bus.Send(new InterruptSession(e.SessionId));

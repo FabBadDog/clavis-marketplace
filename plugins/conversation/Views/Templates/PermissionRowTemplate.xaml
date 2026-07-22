@@ -54,8 +54,9 @@
                     </Style>
                 </StackPanel.Style>
 
-                <!-- The shared single-select control: ALLOW / DENY / ALWAYS ALLOW, the choice underlined.
-                     Left/Right navigation and Enter are resolved by the host; a click commits directly. -->
+                <!-- The shared single-select control: a leading ALLOW, one segment per provider suggestion,
+                     a trailing DENY; the choice underlined. Left/Right navigation and Enter are resolved by
+                     the host; a click commits directly. -->
                 <rendering:SegmentedSelector DataContext="{Binding Selector}" />
             </StackPanel>
         </StackPanel>

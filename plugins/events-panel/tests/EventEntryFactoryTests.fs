@@ -82,7 +82,7 @@ module FromStreamEvent =
     let ``PermissionRequest event includes input continuation`` () =
 
         // Act
-        let entry = EventEntryFactory.FromStreamEvent(now, AgentPermissionRequest(sessionId, "r1", "Bash", "tu1", "rm -rf /", "", "", "No matching permission rule"))
+        let entry = EventEntryFactory.FromStreamEvent(now, AgentPermissionRequest(sessionId, "r1", "Bash", "tu1", "rm -rf /", "", "", "No matching permission rule", [||]))
 
         // Assert
         %(entry.ContinuationLines.Count >= 1).Should().BeTrue()
@@ -279,7 +279,7 @@ module FromBusActivity =
     let ``permission response via activity is an input entry`` () =
 
         // Arrange
-        let activity = BusActivity(metadata (), typeof<SendPermissionResponse>, box (SendPermissionResponse(sessionId, "r1", true)), noReason)
+        let activity = BusActivity(metadata (), typeof<SendPermissionResponse>, box (SendPermissionResponse(sessionId, "r1", "allow")), noReason)
 
         // Act
         let entry = EventEntryFactory.FromBusActivity(activity)

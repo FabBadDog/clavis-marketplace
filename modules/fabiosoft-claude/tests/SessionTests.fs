@@ -208,7 +208,7 @@ let ``Send PermissionResponse Allow encodes correctly`` () =
     let session = Session.toSession fake.Bridge
 
     // Act
-    session.OnNext(PermissionResponse ("req-1", Allow))
+    session.OnNext(PermissionResponse ("req-1", Allow []))
     waitForMailbox ()
 
     // Assert
@@ -234,6 +234,26 @@ let ``Send PermissionResponse Deny encodes correctly`` () =
     let sent = fake.SentLines[0]
     sent.Should().Contain("\"behavior\":\"deny\"") |> ignore
     sent.Should().Contain("Denied by user")
+
+[<Fact>]
+let ``Send PermissionResponse Allow encodes updatedPermissions`` () =
+
+    // Arrange
+    let fake = FakeProcess.create ()
+    let session = Session.toSession fake.Bridge
+    let updates = [ AddRules([ { ToolName = "Bash"; RuleContent = Some "git*" } ], "allow", "localSettings") ]
+
+    // Act
+    session.OnNext(PermissionResponse ("req-3", Allow updates))
+    waitForMailbox ()
+
+    // Assert
+    let sent = fake.SentLines[0]
+    sent.Should().Contain("\"updatedPermissions\":[") |> ignore
+    sent.Should().Contain("\"type\":\"addRules\"") |> ignore
+    sent.Should().Contain("\"toolName\":\"Bash\"") |> ignore
+    sent.Should().Contain("\"ruleContent\":\"git*\"") |> ignore
+    sent.Should().Contain("\"destination\":\"localSettings\"")
 
 [<Fact>]
 let ``Send SetModel encodes a set_model control request to stdin`` () =

@@ -9,7 +9,7 @@ public sealed record SendPromptEffect(Guid SessionId, string Text) : Conversatio
 public sealed record SendPermissionResponseEffect(
     Guid SessionId,
     string RequestId,
-    bool Allow) : ConversationEffect;
+    string OptionId) : ConversationEffect;
 
 public sealed record InterruptSessionEffect(Guid SessionId) : ConversationEffect;
 

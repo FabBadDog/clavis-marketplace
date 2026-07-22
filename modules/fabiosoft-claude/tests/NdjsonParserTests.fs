@@ -806,6 +806,105 @@ let ``parse with control_request and ask rule type has None reason`` () =
     | None -> failwith "Expected PermissionRequest event"
 
 [<Fact>]
+let ``parse with control_request captures permission_suggestions`` () =
+
+    // Arrange
+    let json =
+        Json.Object [
+            "type", Json.String "control_request"
+            "request_id", Json.String "req-sug"
+            "request", Json.Object [
+                "tool_name", Json.String "Bash"
+                "input", Json.Object [ "command", Json.String "git status" ]
+                "permission_suggestions", Json.Array [|
+                    Json.Object [
+                        "type", Json.String "addRules"
+                        "behavior", Json.String "allow"
+                        "destination", Json.String "localSettings"
+                        "rules", Json.Array [|
+                            Json.Object [ "toolName", Json.String "Bash"; "ruleContent", Json.String "git*" ]
+                        |]
+                    ]
+                    Json.Object [
+                        "type", Json.String "addDirectories"
+                        "destination", Json.String "session"
+                        "directories", Json.Array [| Json.String "C:/repo" |]
+                    ]
+                |]
+            ]
+        ] |> toLine
+
+    // Act
+    let result = NdjsonParser.parse json
+
+    // Assert
+    let events = result |> List.choose Result.toOption
+    match events |> List.tryPick (function PermissionRequest info -> Some info | _ -> None) with
+    | Some info ->
+        match info.Suggestions with
+        | [ AddRules(rules, behavior, destination); AddDirectories(directories, _) ] ->
+            behavior.Should().Be("allow") |> ignore
+            destination.Should().Be("localSettings") |> ignore
+            rules.Head.ToolName.Should().Be("Bash") |> ignore
+            rules.Head.RuleContent.Should().Be(Some "git*") |> ignore
+            directories.Should().SequenceEqual([ "C:/repo" ])
+        | _ -> failwith "Unexpected suggestion shape"
+    | None -> failwith "Expected PermissionRequest event"
+
+[<Fact>]
+let ``parse with control_request and no suggestions yields an empty list`` () =
+
+    // Arrange
+    let json =
+        Json.Object [
+            "type", Json.String "control_request"
+            "request_id", Json.String "req-nos"
+            "request", Json.Object [
+                "tool_name", Json.String "Bash"
+                "input", Json.Object [ "command", Json.String "ls" ]
+            ]
+        ] |> toLine
+
+    // Act
+    let result = NdjsonParser.parse json
+
+    // Assert
+    let events = result |> List.choose Result.toOption
+    match events |> List.tryPick (function PermissionRequest info -> Some info | _ -> None) with
+    | Some info -> info.Suggestions.Should().BeEmpty()
+    | None -> failwith "Expected PermissionRequest event"
+
+[<Fact>]
+let ``parse skips an unknown suggestion type`` () =
+
+    // Arrange
+    let json =
+        Json.Object [
+            "type", Json.String "control_request"
+            "request_id", Json.String "req-unk"
+            "request", Json.Object [
+                "tool_name", Json.String "Bash"
+                "input", Json.Object [ "command", Json.String "ls" ]
+                "permission_suggestions", Json.Array [|
+                    Json.Object [ "type", Json.String "futureThing"; "destination", Json.String "session" ]
+                    Json.Object [ "type", Json.String "setMode"; "mode", Json.String "plan"; "destination", Json.String "session" ]
+                |]
+            ]
+        ] |> toLine
+
+    // Act
+    let result = NdjsonParser.parse json
+
+    // Assert
+    let events = result |> List.choose Result.toOption
+    match events |> List.tryPick (function PermissionRequest info -> Some info | _ -> None) with
+    | Some info ->
+        match info.Suggestions with
+        | [ SetMode(mode, _) ] -> mode.Should().Be("plan")
+        | _ -> failwith "Expected only the setMode suggestion"
+    | None -> failwith "Expected PermissionRequest event"
+
+[<Fact>]
 let ``parse with assistant tool_use and null stop_reason produces IsFinal false`` () =
 
     // Arrange

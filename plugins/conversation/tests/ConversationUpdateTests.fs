@@ -39,7 +39,7 @@ let private replaceSessionId sessionId (event: AgentStreamEvent) : AgentStreamEv
     | :? AgentRateLimit as e -> AgentRateLimit(sessionId, e.LimitType, e.Status, e.ResetsAt, e.IsUsingOverage)
     | :? AgentHookStart as e -> AgentHookStart(sessionId, e.HookId, e.HookName, e.HookEvent, e.IsSessionStart)
     | :? AgentHookComplete as e -> AgentHookComplete(sessionId, e.HookId, e.HookName, e.HookEvent, e.Outcome, e.ExitCode, e.Stdout, e.Stderr)
-    | :? AgentPermissionRequest as e -> AgentPermissionRequest(sessionId, e.RequestId, e.ToolName, e.ToolUseId, e.Input, e.MatchedRulePattern, e.MatchedRuleScope, e.ReasonText)
+    | :? AgentPermissionRequest as e -> AgentPermissionRequest(sessionId, e.RequestId, e.ToolName, e.ToolUseId, e.Input, e.MatchedRulePattern, e.MatchedRuleScope, e.ReasonText, e.Options)
     | :? AgentToolUse as e -> AgentToolUse(sessionId, e.ToolName, e.ToolUseId, e.Input, e.FullInput)
     | :? AgentToolResult as e -> AgentToolResult(sessionId, e.ToolUseId, e.Summary, e.FullOutput, e.Duration)
     | :? AgentTextDelta as e -> AgentTextDelta(sessionId, e.Text)
@@ -778,7 +778,7 @@ module PermissionRequestEvent =
 
         // Act
         let struct (newState, _) =
-            handle activeState (AgentPermissionRequest(Guid.Empty, "r1", "Bash", "tu1", "ls", "Bash(*)", "user", ""))
+            handle activeState (AgentPermissionRequest(Guid.Empty, "r1", "Bash", "tu1", "ls", "Bash(*)", "user", "", [||]))
 
         // Assert
         let perm = permission newState
@@ -791,7 +791,7 @@ module PermissionRequestEvent =
 
         // Act
         let struct (newState, _) =
-            handle activeState (AgentPermissionRequest(Guid.Empty, "r1", "Bash", null, "ls", "", "", "No matching permission rule"))
+            handle activeState (AgentPermissionRequest(Guid.Empty, "r1", "Bash", null, "ls", "", "", "No matching permission rule", [||]))
 
         // Assert
         let perm = permission newState
@@ -810,11 +810,40 @@ module PermissionRequestEvent =
 
         // Act
         let struct (newState, _) =
-            handle state (AgentPermissionRequest(Guid.Empty, "r1", "mcp__clavis__list_plugins", null, "", "", "", "No matching permission rule"))
+            handle state (AgentPermissionRequest(Guid.Empty, "r1", "mcp__clavis__list_plugins", null, "", "", "", "No matching permission rule", [||]))
 
         // Assert: the request must surface a row rather than vanish, or the agent blocks forever
         let perm = permission newState
         %perm.RequestId.Should().Be("r1")
+
+    [<Fact>]
+    let ``frames provider suggestions between ALLOW and DENY`` () =
+
+        // Act
+        let struct (newState, _) =
+            handle activeState (AgentPermissionRequest(
+                Guid.Empty, "r1", "Bash", "tu1", "git status", "", "", "reason",
+                [| AgentPermissionOption("suggestion-0", "ALWAYS: BASH(GIT*)") |]))
+
+        // Assert
+        let perm = permission newState
+        let ids = perm.Options |> Seq.map (fun option -> option.Id) |> List.ofSeq
+        %ids.Should().SequenceEqual([ "allow"; "suggestion-0"; "deny" ]) |> ignore
+        %perm.Options[0].Label.Should().Be("ALLOW") |> ignore
+        %perm.Options[1].Label.Should().Be("ALWAYS: BASH(GIT*)") |> ignore
+        %perm.Options[2].IsDeny.Should().BeTrue()
+
+    [<Fact>]
+    let ``with no suggestions offers just ALLOW and DENY`` () =
+
+        // Act
+        let struct (newState, _) =
+            handle activeState (AgentPermissionRequest(Guid.Empty, "r1", "Bash", null, "ls", "", "", "reason", [||]))
+
+        // Assert
+        let perm = permission newState
+        let ids = perm.Options |> Seq.map (fun option -> option.Id) |> List.ofSeq
+        %ids.Should().SequenceEqual([ "allow"; "deny" ])
 
 module PermissionDecided =
 
@@ -832,8 +861,30 @@ module PermissionDecided =
         let struct (_, effects) = ConversationUpdate.HandlePermissionDecided(state, "r1", "allow")
 
         // Assert
-        let hasResponse = effects |> Array.exists (fun e -> match e with :? SendPermissionResponseEffect as r -> r.RequestId = "r1" && r.Allow | _ -> false)
+        let hasResponse = effects |> Array.exists (fun e -> match e with :? SendPermissionResponseEffect as r -> r.RequestId = "r1" && r.OptionId = "allow" | _ -> false)
         %hasResponse.Should().BeTrue()
+
+    [<Fact>]
+    let ``passes the chosen suggestion option id through to the effect`` () =
+
+        // Arrange
+        let options =
+            [| PermissionOption("allow", "ALLOW", false)
+               PermissionOption("suggestion-0", "ALWAYS: BASH(GIT*)", false)
+               PermissionOption("deny", "DENY", true) |]
+        let permItem = PermissionItem(Permission(RequestId = "r1", ToolUseId = null, Options = options))
+        let turnWithPerm = Turn(Id = activeTurnId, Prompt = "test", Items = [| permItem |])
+        let state =
+            readyState.WithActiveSession(fun s ->
+                s.WithCurrentTurnId(Nullable activeTurnId).WithTurns([| turnWithPerm |]))
+
+        // Act
+        let struct (_, effects) = ConversationUpdate.HandlePermissionDecided(state, "r1", "suggestion-0")
+
+        // Assert
+        let optionId =
+            effects |> Array.pick (fun e -> match e with :? SendPermissionResponseEffect as r -> Some r.OptionId | _ -> None)
+        %optionId.Should().Be("suggestion-0")
 
 module ParsingError =
 

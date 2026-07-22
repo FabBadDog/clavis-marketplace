@@ -4,6 +4,7 @@ using System.Linq;
 using FabioSoft.Claude;
 using FabioSoft.Contracts.Session;
 using FabioSoft.Nucleus.Contracts;
+using Microsoft.FSharp.Collections;
 using Microsoft.FSharp.Core;
 
 namespace FabioSoft.Nucleus.Plugins.ClaudeBridge;
@@ -177,7 +178,8 @@ public static class StreamEventMapper
                 info.Input,
                 reason.MatchedRulePattern,
                 reason.MatchedRuleScope,
-                reason.ReasonText);
+                reason.ReasonText,
+                BuildPermissionOptions(info.Suggestions));
         }
 
         if (streamEvent.IsAborted)
@@ -190,4 +192,103 @@ public static class StreamEventMapper
 
     public static AgentParsingError MapError(Guid sessionId, ParsingError error) =>
         new(sessionId, ParsingErrorModule.getMessage(error), ParsingErrorModule.isIgnorable(error));
+
+    // The provider's suggested permission updates become the varying middle options of the prompt: one
+    // terse, uppercase segment per suggestion, keyed "suggestion-{index}". The UI frames these between a
+    // fixed leading ALLOW and trailing DENY, so an empty suggestion list yields the plain allow/deny prompt.
+    public static AgentPermissionOption[] BuildPermissionOptions(FSharpList<PermissionUpdate> suggestions) =>
+        suggestions
+            .Select((suggestion, index) => new AgentPermissionOption($"suggestion-{index}", OptionLabel(suggestion)))
+            .ToArray();
+
+    // Maps a chosen option id back to the provider decision. "deny" denies; "allow" (and any unrecognized
+    // id) allows once with no remembered rule; "suggestion-{index}" allows and echoes that one suggestion
+    // back as updatedPermissions so the provider persists the rule. suggestions is the request's list,
+    // recovered by the plugin; null or out-of-range indices fall back to a plain allow-once.
+    public static PermissionDecision ResolvePermissionDecision(string optionId, PermissionUpdate[]? suggestions)
+    {
+        if (optionId == "deny")
+        {
+            return PermissionDecision.Deny;
+        }
+
+        if (optionId is not null
+            && optionId.StartsWith("suggestion-", StringComparison.Ordinal)
+            && int.TryParse(optionId["suggestion-".Length..], out var index)
+            && suggestions is not null
+            && index >= 0 && index < suggestions.Length)
+        {
+            return PermissionDecision.NewAllow(ListModule.OfArray(new[] { suggestions[index] }));
+        }
+
+        return PermissionDecision.NewAllow(FSharpList<PermissionUpdate>.Empty);
+    }
+
+    private static string OptionLabel(PermissionUpdate update) => update switch
+    {
+        PermissionUpdate.AddRules r => RuleLabel(r.behavior, r.rules, r.destination),
+        PermissionUpdate.ReplaceRules r => RuleLabel(r.behavior, r.rules, r.destination),
+        PermissionUpdate.RemoveRules r => Terse("remove rule", r.destination),
+        PermissionUpdate.SetMode m => ModeLabel(m.mode),
+        PermissionUpdate.AddDirectories d => DirectoryLabel(d.directories, d.destination),
+        PermissionUpdate.RemoveDirectories d => Terse("revoke access", d.destination),
+        _ => "ALWAYS"
+    };
+
+    private static string RuleLabel(string behavior, FSharpList<PermissionRuleSpec> rules, string destination)
+    {
+        var prefix = behavior switch { "deny" => "never", "ask" => "ask", _ => "always" };
+        var list = rules.ToList();
+        var body = list.Count switch
+        {
+            0 => "",
+            1 => RuleText(list[0]),
+            _ => $"{RuleText(list[0])} +{list.Count - 1}"
+        };
+        var text = body.Length == 0 ? prefix : $"{prefix}: {body}";
+        return Terse(text, destination);
+    }
+
+    private static string RuleText(PermissionRuleSpec spec)
+    {
+        var content = FSharpOption<string>.get_IsSome(spec.RuleContent) ? spec.RuleContent.Value : null;
+        return string.IsNullOrEmpty(content) ? spec.ToolName : $"{spec.ToolName}({content})";
+    }
+
+    private static string ModeLabel(string mode) => Terse(mode switch
+    {
+        "bypassPermissions" => "bypass permissions",
+        "acceptEdits" => "accept edits",
+        "plan" => "plan mode",
+        "auto" => "auto mode",
+        "dontAsk" => "don't ask again",
+        "default" => "default mode",
+        _ => mode
+    }, "");
+
+    private static string DirectoryLabel(FSharpList<string> directories, string destination)
+    {
+        var list = directories.ToList();
+        var body = list.Count switch
+        {
+            0 => "",
+            1 => list[0],
+            _ => $"{list.Count} dirs"
+        };
+        var text = body.Length == 0 ? "allow access" : $"allow access: {body}";
+        return Terse(text, destination);
+    }
+
+    // Clavis prompt style: terse and uppercase, with a scope suffix only for the persistent destinations
+    // that need disambiguating (session and localSettings are the default "remember" targets, left bare).
+    private static string Terse(string text, string destination)
+    {
+        var scope = destination switch
+        {
+            "projectSettings" => " (project)",
+            "userSettings" => " (user)",
+            _ => ""
+        };
+        return (text + scope).ToUpperInvariant();
+    }
 }

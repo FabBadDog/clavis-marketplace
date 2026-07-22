@@ -189,9 +189,20 @@ type AgentHookComplete
     member _.Stdout = stdout
     member _.Stderr = stderr
 
+/// One "always" option the provider suggests for a permission prompt (e.g. add an allow rule for a tool,
+/// or switch mode). Id is echoed back verbatim on SendPermissionResponse to identify the pick; Label is
+/// the display text the bridge already built from the provider's suggestion. The fixed "allow once" and
+/// "deny" choices are not options - the UI frames these suggestions between a leading allow and a trailing
+/// deny, so an empty Options array simply yields the plain allow/deny prompt.
+[<Sealed>]
+type AgentPermissionOption(id: string, label: string) =
+    member _.Id = id
+    member _.Label = label
+
 /// A pending permission request, already resolved to neutral terms by the provider bridge. Either a
 /// matched permission rule (MatchedRulePattern/MatchedRuleScope set) or a human-readable ReasonText.
 /// Empty string means absent; the provider's own decision-reason vocabulary never reaches subscribers.
+/// Options are the provider's suggested "always" choices (may be empty) - the varying middle of the prompt.
 [<Sealed>]
 type AgentPermissionRequest
     (
@@ -202,7 +213,8 @@ type AgentPermissionRequest
         input: string,
         matchedRulePattern: string,
         matchedRuleScope: string,
-        reasonText: string
+        reasonText: string,
+        options: AgentPermissionOption[]
     ) =
     inherit AgentStreamEvent(sessionId)
 
@@ -213,6 +225,7 @@ type AgentPermissionRequest
     member _.MatchedRulePattern = matchedRulePattern
     member _.MatchedRuleScope = matchedRuleScope
     member _.ReasonText = reasonText
+    member _.Options = options
 
 /// One usage window reported by the agent (e.g. a rolling 5-hour budget or a weekly budget). Used and
 /// Total are abstract budget units in the provider's own metric - the UI never interprets the unit

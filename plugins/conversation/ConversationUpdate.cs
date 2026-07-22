@@ -9,7 +9,6 @@ namespace FabioSoft.Nucleus.Plugins.Conversation;
 
 public static partial class ConversationUpdate
 {
-    private static readonly string[] PermissionChoices = ["allow", "deny", "allow_always"];
     private static readonly ConversationEffect[] NoEffects = [];
 
     // --- List helpers ---
@@ -438,13 +437,20 @@ public static partial class ConversationUpdate
         string? toolUseId,
         string matchedRulePattern,
         string matchedRuleScope,
-        string reasonText)
+        string reasonText,
+        AgentPermissionOption[] suggestions)
     {
         // The bridge already resolved the decision to neutral terms: a non-empty pattern means an ask
         // rule matched (so no free-text reason); otherwise the reason text explains the prompt.
         var rulePattern = string.IsNullOrEmpty(matchedRulePattern) ? null : matchedRulePattern;
         var ruleScope = string.IsNullOrEmpty(matchedRuleScope) ? null : matchedRuleScope;
         var resolvedReasonText = rulePattern is not null ? null : reasonText;
+
+        // Frame the provider's varying suggestions between a fixed leading ALLOW (allow once) and a
+        // trailing DENY. With no suggestions this is just the plain allow/deny prompt.
+        var options = new List<PermissionOption> { new("allow", "ALLOW", false) };
+        options.AddRange(suggestions.Select(option => new PermissionOption(option.Id, option.Label, false)));
+        options.Add(new PermissionOption("deny", "DENY", true));
 
         var permissionItem = new PermissionItem(new Permission
         {
@@ -453,7 +459,8 @@ public static partial class ConversationUpdate
             MatchedRulePattern = rulePattern,
             MatchedRuleScope = ruleScope,
             ToolUseId = toolUseId,
-            RequestId = requestId
+            RequestId = requestId,
+            Options = options
         });
 
         var baseTurns = session.Turns;
@@ -720,7 +727,7 @@ public static partial class ConversationUpdate
             AgentHookStart e => HandleHookStart(session, e.HookId, e.HookName, e.IsSessionStart),
             AgentHookComplete e => HandleHookComplete(session, e.HookId, e.HookEvent, e.Outcome),
             AgentPermissionRequest e => HandlePermissionRequest(
-                session, e.RequestId, e.ToolUseId, e.MatchedRulePattern, e.MatchedRuleScope, e.ReasonText),
+                session, e.RequestId, e.ToolUseId, e.MatchedRulePattern, e.MatchedRuleScope, e.ReasonText, e.Options),
             AgentToolUse e => HandleToolUse(session, e.ToolUseId, e.ToolName, e.Input, e.FullInput),
             AgentToolResult e => HandleToolResult(session, e.ToolUseId, e.Summary, e.FullOutput, e.Duration),
             AgentTextDelta e => HandleTextDelta(session, e.Text),
@@ -883,8 +890,6 @@ public static partial class ConversationUpdate
             return (state, NoEffects);
         }
 
-        var allow = decision != "deny";
-
         var permissionOpt = session.Turns
             .SelectMany(t => t.Items)
             .OfType<PermissionItem>()
@@ -897,6 +902,12 @@ public static partial class ConversationUpdate
 
         var toolUseId = permissionOpt.Permission.ToolUseId;
 
+        // The decision is the chosen option's id ("allow" = allow once, "deny", or a suggestion id). Derive
+        // the tool row's status from the option: denied, allowed once, or "always" for any suggestion pick.
+        var chosen = permissionOpt.Permission.Options.FirstOrDefault(option => option.Id == decision);
+        var denied = chosen?.IsDeny ?? decision == "deny";
+        var resolvedStatus = denied ? "DENIED" : decision == "allow" ? "ALLOWED ONCE" : "ALWAYS ALLOWED";
+
         var turns = session.Turns.Select(turn =>
         {
             var updatedItems = turn.Items.Select(item =>
@@ -908,21 +919,14 @@ public static partial class ConversationUpdate
 
                 if (item is ToolItem ti && toolUseId is not null && ti.Tool.ToolUseId == toolUseId && ti.Tool.ShowWarning)
                 {
-                    var statusText = decision switch
-                    {
-                        "deny" => "DENIED",
-                        "allow" => "ALLOWED ONCE",
-                        "allow_always" => "ALWAYS ALLOWED",
-                        _ => ti.Tool.StatusText
-                    };
                     return new ToolItem(ti.Tool with
                     {
                         ShowWarning = false,
                         ShowDuration = true,
                         WarningText = "",
                         ScopeBadgeText = "",
-                        StatusText = statusText,
-                        IsDenied = decision == "deny"
+                        StatusText = resolvedStatus,
+                        IsDenied = denied
                     });
                 }
 
@@ -934,7 +938,7 @@ public static partial class ConversationUpdate
 
         var newSession = session with { Turns = turns };
         return (state.WithActiveSession(_ => newSession),
-            [new SendPermissionResponseEffect(session.Id, requestId, allow)]);
+            [new SendPermissionResponseEffect(session.Id, requestId, decision)]);
     }
 
     // A plugin that fails while the init phase is still active lands as an error row in the init turn,

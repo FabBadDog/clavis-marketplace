@@ -65,6 +65,40 @@ module Session =
         ]
         |> _.ToString()
 
+    let private encodeRuleSpec (spec: PermissionRuleSpec) =
+
+        match spec.RuleContent with
+        | Some content -> Json.Object [ "toolName", Json.String spec.ToolName; "ruleContent", Json.String content ]
+        | None -> Json.Object [ "toolName", Json.String spec.ToolName ]
+
+    let private encodeRuleUpdate updateType rules behavior destination =
+
+        Json.Object [
+            "type", Json.String updateType
+            "rules", Json.Array(rules |> List.map encodeRuleSpec |> List.toArray)
+            "behavior", Json.String behavior
+            "destination", Json.String destination
+        ]
+
+    let private encodeDirectoryUpdate updateType directories destination =
+
+        Json.Object [
+            "type", Json.String updateType
+            "directories", Json.Array(directories |> List.map Json.String |> List.toArray)
+            "destination", Json.String destination
+        ]
+
+    let private encodePermissionUpdate update =
+
+        match update with
+        | AddRules(rules, behavior, destination) -> encodeRuleUpdate "addRules" rules behavior destination
+        | ReplaceRules(rules, behavior, destination) -> encodeRuleUpdate "replaceRules" rules behavior destination
+        | RemoveRules(rules, behavior, destination) -> encodeRuleUpdate "removeRules" rules behavior destination
+        | SetMode(mode, destination) ->
+            Json.Object [ "type", Json.String "setMode"; "mode", Json.String mode; "destination", Json.String destination ]
+        | AddDirectories(directories, destination) -> encodeDirectoryUpdate "addDirectories" directories destination
+        | RemoveDirectories(directories, destination) -> encodeDirectoryUpdate "removeDirectories" directories destination
+
     let private encodePermissionResponse (requestId: string) (decision: PermissionDecision) =
 
         let response =
@@ -74,10 +108,11 @@ module Session =
                     "behavior", Json.String "deny"
                     "message", Json.String "Denied by user"
                 ]
-            | Allow ->
+            | Allow updatedPermissions ->
                 Json.Object [
                     "behavior", Json.String "allow"
                     "updatedInput", Json.Object []
+                    "updatedPermissions", Json.Array(updatedPermissions |> List.map encodePermissionUpdate |> List.toArray)
                 ]
         Json.Object [
             "type", Json.String "control_response"

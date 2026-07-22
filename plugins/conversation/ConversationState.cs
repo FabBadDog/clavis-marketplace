@@ -65,6 +65,10 @@ public sealed record Tool
     public bool IsDenied { get; init; }
 }
 
+// One choice in a permission prompt: Id is echoed back to identify the pick ("allow", "deny", or a
+// provider suggestion id), Label is the display text, IsDeny drives the destructive (error) styling.
+public sealed record PermissionOption(string Id, string Label, bool IsDeny);
+
 public sealed record Permission
 {
     public Guid PermissionId { get; init; } = Guid.NewGuid();
@@ -75,6 +79,9 @@ public sealed record Permission
     public string? MatchedRuleScope { get; init; }
     public string? ToolUseId { get; init; }
     public string RequestId { get; init; } = "";
+    // The ordered choices shown to the user: a leading ALLOW, one segment per provider suggestion, a
+    // trailing DENY. Always has at least ALLOW and DENY; SelectedIndex points into this list.
+    public IReadOnlyList<PermissionOption> Options { get; init; } = [];
 }
 
 public abstract record TurnItem;

@@ -133,6 +133,21 @@ type ResultData = {
     NumTurns: int
 }
 
+type PermissionRuleSpec = { ToolName: string; RuleContent: string option }
+
+/// A structured permission-rule update, matching Claude Code's PermissionUpdate shape. Carried both ways:
+/// inbound as the request's permission_suggestions (the "always" options the user may pick) and outbound
+/// as the updatedPermissions echoed back on an allow decision so the provider remembers the chosen rule.
+/// Behavior is "allow" | "deny" | "ask"; destination is one of "session" | "localSettings" |
+/// "projectSettings" | "userSettings" | "cliArg".
+type PermissionUpdate =
+    | AddRules of rules: PermissionRuleSpec list * behavior: string * destination: string
+    | ReplaceRules of rules: PermissionRuleSpec list * behavior: string * destination: string
+    | RemoveRules of rules: PermissionRuleSpec list * behavior: string * destination: string
+    | SetMode of mode: string * destination: string
+    | AddDirectories of directories: string list * destination: string
+    | RemoveDirectories of directories: string list * destination: string
+
 type PermissionRequestInfo = {
     RequestId: string
     ToolName: string
@@ -140,6 +155,9 @@ type PermissionRequestInfo = {
     Input: string
     DecisionReason: string option
     DecisionReasonType: string option
+    /// The provider's suggested permission updates for this request - the concrete "always" options the
+    /// user may pick (e.g. add an allow rule for Bash(git*)). Empty when the provider offers none.
+    Suggestions: PermissionUpdate list
 }
 
 type CommandDescriptor = {
@@ -171,7 +189,7 @@ type StreamEvent =
     | Aborted
 
 type PermissionDecision =
-    | Allow
+    | Allow of updatedPermissions: PermissionUpdate list
     | Deny
 
 type SessionInput =

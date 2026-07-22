@@ -103,7 +103,7 @@ let ``a permission request is surfaced and the decision is relayed to the agent`
         let answered =
             agent.Received
             |> List.exists (function
-                | SessionInput.PermissionResponse(requestId, PermissionDecision.Allow) -> requestId = "req-1"
+                | SessionInput.PermissionResponse(requestId, PermissionDecision.Allow _) -> requestId = "req-1"
                 | _ -> false)
 
         %answered.Should().BeTrue()

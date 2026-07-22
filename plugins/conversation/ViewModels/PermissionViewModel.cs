@@ -1,14 +1,11 @@
 using System;
+using System.Linq;
 using FabioSoft.Clavis.Rendering;
 
 namespace FabioSoft.Nucleus.Plugins.Conversation.ViewModels;
 
 public sealed class PermissionViewModel : ObservableObject
 {
-    // The decision published for each option index, matching the prompt's order (and the conversation
-    // state's SelectedIndex): Allow, Deny, Always allow.
-    private static readonly string[] Decisions = ["allow", "deny", "allow_always"];
-
     private          Permission             _state;
     private readonly Action<string, string> _publishPermission;
 
@@ -17,12 +14,12 @@ public sealed class PermissionViewModel : ObservableObject
         _state = state;
         _publishPermission = publishPermission;
 
+        // One segment per option in order (leading ALLOW, the provider's suggestions, trailing DENY); the
+        // deny option is styled destructive. The renderer adapts to whatever count of options is supplied.
         Selector = new SegmentedSelectorModel(
-        [
-            new SegmentItem("ALLOW", "TextDimBrush"),
-            new SegmentItem("DENY", "ErrorBrush"),
-            new SegmentItem("ALWAYS ALLOW", "TextDimBrush")
-        ]);
+            state.Options
+                .Select(option => new SegmentItem(option.Label, option.IsDeny ? "ErrorBrush" : "TextDimBrush"))
+                .ToArray());
         // A click commits that option; the highlight (SelectedIndex) is driven from the conversation state,
         // so Left/Right navigation (resolved by the host) stays the single source of truth for the choice.
         Selector.Committed += (_, index) => _publishPermission(_state.RequestId, DecisionFor(index));
@@ -41,9 +38,9 @@ public sealed class PermissionViewModel : ObservableObject
     public int SelectedIndex => _state.SelectedIndex;
     public bool IsResolved => _state.IsResolved;
 
-    /// The shared single-select control model: the three options, the live highlight, and click commits.
+    /// The shared single-select control model: the options, the live highlight, and click commits.
     public SegmentedSelectorModel Selector { get; }
 
-    private static string DecisionFor(int index) =>
-        index >= 0 && index < Decisions.Length ? Decisions[index] : Decisions[0];
+    private string DecisionFor(int index) =>
+        index >= 0 && index < _state.Options.Count ? _state.Options[index].Id : "allow";
 }

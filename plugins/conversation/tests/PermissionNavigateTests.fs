@@ -16,16 +16,23 @@ let private selectedIndex state =
         | :? PermissionItem as item -> Some item.Permission.SelectedIndex
         | _ -> None)
 
+// A three-option prompt: ALLOW (0), one suggestion (1), DENY (2).
+let private options =
+    [| PermissionOption("allow", "ALLOW", false)
+       PermissionOption("suggestion-0", "ALWAYS: BASH(GIT*)", false)
+       PermissionOption("deny", "DENY", true) |]
+
 let private permissionState selectedIndex isResolved =
-    let permission = Permission(RequestId = "req-1", SelectedIndex = selectedIndex, IsResolved = isResolved)
+    let permission =
+        Permission(RequestId = "req-1", SelectedIndex = selectedIndex, IsResolved = isResolved, Options = options)
     let turn = Turn(Prompt = "p", Items = [| PermissionItem(permission) :> TurnItem |])
     ConversationState.Init().WithActiveSession(fun s -> s.WithTurns([| turn |]))
 
 [<Theory>]
-[<InlineData(0, 1, 1)>] // Right: ALLOW -> DENY
-[<InlineData(1, 1, 2)>] // Right: DENY -> ALWAYS ALLOW
-[<InlineData(2, 1, 2)>] // Right clamps at ALWAYS ALLOW
-[<InlineData(2, -1, 1)>] // Left: ALWAYS ALLOW -> DENY
+[<InlineData(0, 1, 1)>] // Right: ALLOW -> suggestion
+[<InlineData(1, 1, 2)>] // Right: suggestion -> DENY
+[<InlineData(2, 1, 2)>] // Right clamps at DENY
+[<InlineData(2, -1, 1)>] // Left: DENY -> suggestion
 [<InlineData(0, -1, 0)>] // Left clamps at ALLOW
 let ``HandlePermissionNavigate moves the selection within bounds`` (start, delta, expected) =
 
@@ -65,16 +72,21 @@ let ``HandlePermissionNavigate ignores a resolved permission`` () =
 
 [<Theory>]
 [<InlineData(0, "allow")>]
-[<InlineData(1, "deny")>]
-[<InlineData(2, "allow_always")>]
-let ``PermissionDecisionAt maps the choice index to a decision`` (index, expected) =
-    %ConversationUpdate.PermissionDecisionAt(index).Should().Be(expected)
+[<InlineData(1, "suggestion-0")>]
+[<InlineData(2, "deny")>]
+let ``PermissionDecisionAt maps the choice index to the option id`` (index, expected) =
+    let permission = Permission(RequestId = "req-1", SelectedIndex = index, Options = options)
+    %ConversationUpdate.PermissionDecisionAt(permission).Should().Be(expected)
+
+[<Fact>]
+let ``PermissionDecisionAt falls back to allow when there are no options`` () =
+    %ConversationUpdate.PermissionDecisionAt(Permission(RequestId = "req-1")).Should().Be("allow")
 
 [<Theory>]
-[<InlineData(0, true)>] // ALLOW -> allow
-[<InlineData(1, false)>] // DENY -> deny
-[<InlineData(2, true)>] // ALWAYS ALLOW -> allow
-let ``HandlePermissionConfirm resolves at the highlighted choice`` (start, expectedAllow) =
+[<InlineData(0, "allow")>] // ALLOW -> allow once
+[<InlineData(1, "suggestion-0")>] // suggestion -> its id
+[<InlineData(2, "deny")>] // DENY -> deny
+let ``HandlePermissionConfirm resolves at the highlighted choice`` (start, expectedOptionId) =
 
     // Arrange
     let state = permissionState start false
@@ -83,8 +95,8 @@ let ``HandlePermissionConfirm resolves at the highlighted choice`` (start, expec
     let struct (_, effects) = ConversationUpdate.HandlePermissionConfirm(state)
 
     // Assert
-    %effects.Length.Should().Be(1)
-    %(effects[0] :?> SendPermissionResponseEffect).Allow.Should().Be(expectedAllow)
+    %effects.Length.Should().Be(1) |> ignore
+    %(effects[0] :?> SendPermissionResponseEffect).OptionId.Should().Be(expectedOptionId)
 
 [<Fact>]
 let ``HasPendingPermission reflects an unresolved permission`` () =

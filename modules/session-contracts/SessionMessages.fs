@@ -16,12 +16,15 @@ type SendPrompt(sessionId: Guid, text: string) =
     member _.SessionId = sessionId
     member _.Text = text
 
+/// Answer a pending permission request by the id of the chosen option. "allow" = allow once, "deny" =
+/// deny; any other id names one of the request's AgentPermissionOption suggestions (an "always" choice),
+/// which the bridge translates into the provider's updatedPermissions.
 [<Sealed>]
 [<Description("Answer a pending permission request")>]
-type SendPermissionResponse(sessionId: Guid, requestId: string, allow: bool) =
+type SendPermissionResponse(sessionId: Guid, requestId: string, optionId: string) =
     member _.SessionId = sessionId
     member _.RequestId = requestId
-    member _.Allow = allow
+    member _.OptionId = optionId
 
 [<Sealed>]
 [<Description("Interrupt a running session")>]

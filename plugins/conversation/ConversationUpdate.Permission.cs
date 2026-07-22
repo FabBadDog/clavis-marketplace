@@ -2,9 +2,9 @@ namespace FabioSoft.Nucleus.Plugins.Conversation;
 
 public static partial class ConversationUpdate
 {
-    // The permission prompt offers three choices in this order: ALLOW (0), DENY (1), ALWAYS ALLOW (2).
-    // Left/Right move the highlight within this range; Enter confirms the choice at the current index.
-    private const int LastPermissionIndex = 2;
+    // The permission prompt's choices are dynamic: a leading ALLOW, one segment per provider suggestion,
+    // and a trailing DENY. Left/Right move the highlight within [0, Options.Count - 1]; Enter confirms the
+    // choice at the current index.
 
     /// True while a permission prompt is awaiting a decision - the host uses this to route Left/Right/Enter
     /// to the prompt without taking tab focus.
@@ -21,7 +21,8 @@ public static partial class ConversationUpdate
             return (state, NoEffects);
         }
 
-        var newIndex = Math.Clamp(pending.Permission.SelectedIndex + delta, 0, LastPermissionIndex);
+        var lastIndex = Math.Max(0, pending.Permission.Options.Count - 1);
+        var newIndex = Math.Clamp(pending.Permission.SelectedIndex + delta, 0, lastIndex);
         if (newIndex == pending.Permission.SelectedIndex)
         {
             return (state, NoEffects);
@@ -48,17 +49,22 @@ public static partial class ConversationUpdate
         }
 
         return HandlePermissionDecided(
-            state, pending.Permission.RequestId, PermissionDecisionAt(pending.Permission.SelectedIndex));
+            state, pending.Permission.RequestId, PermissionDecisionAt(pending.Permission));
     }
 
-    /// The neutral decision string for a highlighted choice index, matching the permission buttons'
-    /// ALLOW / DENY / ALWAYS ALLOW order.
-    public static string PermissionDecisionAt(int index) => index switch
+    /// The chosen option's id for the highlighted choice index. Clamps into the option list so a stale
+    /// index falls back to allow-once rather than throwing.
+    public static string PermissionDecisionAt(Permission permission)
     {
-        1 => "deny",
-        2 => "allow_always",
-        _ => "allow"
-    };
+        var options = permission.Options;
+        if (options.Count == 0)
+        {
+            return "allow";
+        }
+
+        var index = Math.Clamp(permission.SelectedIndex, 0, options.Count - 1);
+        return options[index].Id;
+    }
 
     private static PermissionItem? PendingPermission(ConversationState state) =>
         state.ActiveSession is { } session

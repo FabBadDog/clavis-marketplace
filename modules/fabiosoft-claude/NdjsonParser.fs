@@ -398,6 +398,65 @@ module NdjsonParser =
                 NumTurns = numTurns }]
         }
 
+    let private parseRuleSpec (json: Json) =
+
+        result {
+            let! toolName = getValueOrDefault<string> "toolName" "" json
+            let! ruleContent = tryGetValue<string> "ruleContent" json
+            return { ToolName = toolName; RuleContent = ruleContent }
+        }
+
+    let private parseRules json =
+
+        result {
+            let! rules = tryGetValue<Json> "rules" json
+            match rules with
+            | Some(Json.Array items) -> return! items |> Array.toList |> List.traverseResultM parseRuleSpec
+            | _ -> return []
+        }
+
+    let private parseDirectories json =
+
+        tryGetValue<string[]> "directories" json
+        |> Result.map (Option.map Array.toList >> Option.defaultValue [])
+
+    // One permission_suggestions entry -> the neutral PermissionUpdate. An unknown discriminator yields
+    // None so a future provider addition is skipped rather than failing the whole request.
+    let private parseSuggestion (json: Json) =
+
+        result {
+            let! updateType = getValueOrDefault<string> "type" "" json
+            let! destination = getValueOrDefault<string> "destination" "" json
+            match updateType with
+            | "addRules" | "replaceRules" | "removeRules" ->
+                let! rules = parseRules json
+                let! behavior = getValueOrDefault<string> "behavior" "" json
+                let build =
+                    match updateType with
+                    | "replaceRules" -> ReplaceRules
+                    | "removeRules" -> RemoveRules
+                    | _ -> AddRules
+                return Some(build (rules, behavior, destination))
+            | "setMode" ->
+                let! mode = getValueOrDefault<string> "mode" "" json
+                return Some(SetMode(mode, destination))
+            | "addDirectories" ->
+                let! directories = parseDirectories json
+                return Some(AddDirectories(directories, destination))
+            | "removeDirectories" ->
+                let! directories = parseDirectories json
+                return Some(RemoveDirectories(directories, destination))
+            | _ -> return None
+        }
+
+    let private parseSuggestions request =
+
+        tryGetValue<Json> "permission_suggestions" request
+        |> Result.bind (function
+            | Some(Json.Array items) ->
+                items |> Array.toList |> List.traverseResultM parseSuggestion |> Result.map (List.choose id)
+            | _ -> Ok [])
+
     let private parseControlRequest root =
 
         result {
@@ -417,13 +476,15 @@ module NdjsonParser =
                         | None -> Ok "")
                 let! reason = tryGetValue<string> "decision_reason" request
                 let! reasonType = tryGetValue<string> "decision_reason_type" request
+                let! suggestions = parseSuggestions request
                 return [PermissionRequest {
                     RequestId = requestId
                     ToolName = toolName
                     ToolUseId = toolUseId
                     Input = input
                     DecisionReason = reason
-                    DecisionReasonType = reasonType }]
+                    DecisionReasonType = reasonType
+                    Suggestions = suggestions }]
         }
 
     let private parseRateLimit root =

@@ -44,6 +44,11 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
         var sessions = new ConcurrentDictionary<Guid, Session>();
         var axesBySession = new ConcurrentDictionary<Guid, SessionAxes>();
 
+        // Per-request memory of the provider's permission suggestions, keyed by request id: stashed as each
+        // permission request streams in and recovered (then removed) when the user's chosen option comes
+        // back, so the bridge can translate "suggestion-{index}" into the concrete updatedPermissions.
+        var pendingSuggestions = new ConcurrentDictionary<string, PermissionUpdate[]>();
+
         // The current snapshot of one session's axes plus the full choice catalog, for (re)publication.
         AgentCapabilities CapabilitiesOf(Guid sessionId, SessionAxes axes) =>
             new(sessionId, axes.Model, axes.Mode, axes.Effort,
@@ -102,8 +107,18 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             // no-op results); those never reach the bus.
             session
                 .Where(result => result.IsOk)
-                .Select(result => StreamEventMapper.Map(
-                    sessionId, result.ResultValue, ResolveHookDisplayName, permissionResolver.Resolve))
+                .Select(result =>
+                {
+                    // Remember the request's suggestions before mapping strips them to display labels, so
+                    // the eventual response can name the concrete rule to persist.
+                    if (result.ResultValue is StreamEvent.PermissionRequest permission)
+                    {
+                        pendingSuggestions[permission.Item.RequestId] = permission.Item.Suggestions.ToArray();
+                    }
+
+                    return StreamEventMapper.Map(
+                        sessionId, result.ResultValue, ResolveHookDisplayName, permissionResolver.Resolve);
+                })
                 .Where(mapped => mapped is not null)
                 .Subscribe(mapped =>
                 {
@@ -182,7 +197,8 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                 return Task.CompletedTask;
             }
 
-            var decision = message.Allow ? PermissionDecision.Allow : PermissionDecision.Deny;
+            pendingSuggestions.TryRemove(message.RequestId, out var suggestions);
+            var decision = StreamEventMapper.ResolvePermissionDecision(message.OptionId, suggestions);
             session.OnNext(SessionInput.NewPermissionResponse(message.RequestId, decision));
             return Task.CompletedTask;
         });
