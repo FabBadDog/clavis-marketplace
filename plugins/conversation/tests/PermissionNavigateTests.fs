@@ -18,8 +18,8 @@ let private selectedIndex state =
 
 // A three-option prompt: ALLOW (0), one suggestion (1), DENY (2).
 let private options =
-    [| PermissionOption("allow", "ALLOW", false)
-       PermissionOption("suggestion-0", "ALWAYS: BASH(GIT*)", false)
+    [| PermissionOption("allow", "ALLOW ONCE", false)
+       PermissionOption("suggestion-0", "ALLOW FOR PROJECT", false)
        PermissionOption("deny", "DENY", true) |]
 
 let private permissionState selectedIndex isResolved =

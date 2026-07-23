@@ -446,9 +446,9 @@ public static partial class ConversationUpdate
         var ruleScope = string.IsNullOrEmpty(matchedRuleScope) ? null : matchedRuleScope;
         var resolvedReasonText = rulePattern is not null ? null : reasonText;
 
-        // Frame the provider's varying suggestions between a fixed leading ALLOW (allow once) and a
-        // trailing DENY. With no suggestions this is just the plain allow/deny prompt.
-        var options = new List<PermissionOption> { new("allow", "ALLOW", false) };
+        // Frame the provider's varying suggestions between a fixed leading ALLOW ONCE and a trailing DENY.
+        // With no suggestions this is just the plain allow-once / deny prompt.
+        var options = new List<PermissionOption> { new("allow", "ALLOW ONCE", false) };
         options.AddRange(suggestions.Select(option => new PermissionOption(option.Id, option.Label, false)));
         options.Add(new PermissionOption("deny", "DENY", true));
 

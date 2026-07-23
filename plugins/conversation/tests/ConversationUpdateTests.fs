@@ -829,7 +829,7 @@ module PermissionRequestEvent =
         let perm = permission newState
         let ids = perm.Options |> Seq.map (fun option -> option.Id) |> List.ofSeq
         %ids.Should().SequenceEqual([ "allow"; "suggestion-0"; "deny" ]) |> ignore
-        %perm.Options[0].Label.Should().Be("ALLOW") |> ignore
+        %perm.Options[0].Label.Should().Be("ALLOW ONCE") |> ignore
         %perm.Options[1].Label.Should().Be("ALWAYS: BASH(GIT*)") |> ignore
         %perm.Options[2].IsDeny.Should().BeTrue()
 

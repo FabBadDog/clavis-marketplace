@@ -228,55 +228,45 @@ public static class StreamEventMapper
     {
         PermissionUpdate.AddRules r => RuleLabel(r.behavior, r.destination),
         PermissionUpdate.ReplaceRules r => RuleLabel(r.behavior, r.destination),
-        PermissionUpdate.RemoveRules r => Terse("remove rule", r.destination),
+        PermissionUpdate.RemoveRules r => "REMOVE RULE",
         PermissionUpdate.SetMode m => ModeLabel(m.mode),
-        PermissionUpdate.AddDirectories d => DirectoryLabel(d.directories, d.destination),
-        PermissionUpdate.RemoveDirectories d => Terse("revoke access", d.destination),
-        _ => "ALWAYS"
+        PermissionUpdate.AddDirectories d => DirectoryLabel(d.directories),
+        PermissionUpdate.RemoveDirectories d => "REVOKE ACCESS",
+        _ => "ALLOW"
     };
 
-    // The tool and its arguments are already shown in the row above, so the "always" option states only the
-    // effect (and the scope when it isn't the default), never the command it would remember.
+    // The tool and its arguments are already shown in the row above, so the option states the effect and how
+    // far the choice reaches - just this session, this project, or every project - never the command itself.
     private static string RuleLabel(string behavior, string destination)
     {
-        var text = behavior switch { "deny" => "always deny", "ask" => "always ask", _ => "always allow" };
-        return Terse(text, destination);
+        var verb = behavior switch { "deny" => "DENY", "ask" => "ASK", _ => "ALLOW" };
+        return destination switch
+        {
+            "userSettings" => $"ALWAYS {verb}",
+            "localSettings" or "projectSettings" => $"{verb} FOR PROJECT",
+            _ => $"{verb} IN SESSION" // session, cliArg, or anything unrecognized: the transient scope
+        };
     }
 
-    private static string ModeLabel(string mode) => Terse(mode switch
+    private static string ModeLabel(string mode) => mode switch
     {
-        "bypassPermissions" => "bypass permissions",
-        "acceptEdits" => "accept edits",
-        "plan" => "plan mode",
-        "auto" => "auto mode",
-        "dontAsk" => "don't ask again",
-        "default" => "default mode",
-        _ => mode
-    }, "");
+        "bypassPermissions" => "BYPASS PERMISSIONS",
+        "acceptEdits" => "ACCEPT EDITS",
+        "plan" => "PLAN MODE",
+        "auto" => "AUTO MODE",
+        "dontAsk" => "DON'T ASK AGAIN",
+        "default" => "DEFAULT MODE",
+        _ => mode.ToUpperInvariant()
+    };
 
-    private static string DirectoryLabel(FSharpList<string> directories, string destination)
+    private static string DirectoryLabel(FSharpList<string> directories)
     {
         var list = directories.ToList();
-        var body = list.Count switch
+        return list.Count switch
         {
-            0 => "",
-            1 => list[0],
-            _ => $"{list.Count} dirs"
+            0 => "ALLOW ACCESS",
+            1 => $"ALLOW ACCESS: {list[0].ToUpperInvariant()}",
+            _ => $"ALLOW ACCESS: {list.Count} DIRS"
         };
-        var text = body.Length == 0 ? "allow access" : $"allow access: {body}";
-        return Terse(text, destination);
-    }
-
-    // Clavis prompt style: terse and uppercase, with a scope suffix only for the persistent destinations
-    // that need disambiguating (session and localSettings are the default "remember" targets, left bare).
-    private static string Terse(string text, string destination)
-    {
-        var scope = destination switch
-        {
-            "projectSettings" => " (project)",
-            "userSettings" => " (user)",
-            _ => ""
-        };
-        return (text + scope).ToUpperInvariant();
     }
 }
