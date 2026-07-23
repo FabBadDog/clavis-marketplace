@@ -23,6 +23,9 @@ type ConfirmDialog private (owner: Window, message: string, confirmLabel: string
     let styledButton (styleKey: string) (content: string) (onClick: unit -> unit) : Button =
         let button = Button(Content = content, MinWidth = 72.0, Margin = Thickness(8.0, 0.0, 0.0, 0.0))
         button.SetResourceReference(FrameworkElement.StyleProperty, styleKey)
+        // The button styles default to the small LabelFontSize; a dialog reads at the body role, so lift the
+        // label to BodyFontSize (a local value overrides the style's setter).
+        button.SetResourceReference(Control.FontSizeProperty, "BodyFontSize")
         button.Click.Add(fun _ -> onClick ())
         button
 
@@ -51,6 +54,7 @@ type ConfirmDialog private (owner: Window, message: string, confirmLabel: string
     do
         messageText.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush")
         messageText.SetResourceReference(TextBlock.FontFamilyProperty, "UiFont")
+        messageText.SetResourceReference(TextBlock.FontSizeProperty, "BodyFontSize")
         frame.SetResourceReference(Border.BorderBrushProperty, "FrameBrush")
         frame.SetResourceReference(Border.BackgroundProperty, "BlackBrush")
 

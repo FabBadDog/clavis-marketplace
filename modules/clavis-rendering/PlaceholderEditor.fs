@@ -141,7 +141,8 @@ type PlaceholderEditor(descriptors: Func<IReadOnlyList<PlaceholderDescriptor>>) 
                 | _ -> ())
 
         list.MouseDoubleClick.Add(fun _ -> accept ())
-        editor.GotKeyboardFocus.Add(fun _ -> show ())
+        // Completions spring from typing (a `{`), not from merely focusing the editor: opening the popup on
+        // GotKeyboardFocus made it fight the click for focus, so the editor could not be focused at all.
         editor.TextChanged.Add(fun _ -> if not suppress then show ())
         editor.SelectionChanged.Add(fun _ -> if popup.IsOpen then show ())
 

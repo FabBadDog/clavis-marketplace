@@ -98,6 +98,17 @@ public sealed class MarkdownPanelPlugin : IPlugin<MarkdownPanelConfig>
             return;
         }
 
+        // Never leave the catalog empty once it has actually loaded (a fresh install with no starter, or the
+        // last panel just deleted): create a blank so the manager always has a panel to edit. Create persists
+        // and echoes a fresh catalog back through here, which finds one definition and settles. Guarded on the
+        // parsed load - not the transient pre-load [] - so a manager opened before config arrives never seeds
+        // a spurious panel alongside the user's real ones.
+        if (_definitions.Count == 0)
+        {
+            CreateDefinition();
+            return;
+        }
+
         AnnounceDisplays();
         RefreshOpenViews();
     }
