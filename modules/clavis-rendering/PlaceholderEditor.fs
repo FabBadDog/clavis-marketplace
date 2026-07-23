@@ -122,6 +122,14 @@ type PlaceholderEditor(descriptors: Func<IReadOnlyList<PlaceholderDescriptor>>) 
         | _ -> ()
 
     do
+        // Theme the editor itself: without an explicit foreground/caret it renders in the default black,
+        // invisible on the app's dark background (text typed and the caret both vanished). Mono suits editing
+        // a template's placeholder source, and BodyFontSize keeps it readable.
+        editor.SetResourceReference(Control.ForegroundProperty, "TextBrush")
+        editor.SetResourceReference(Control.FontFamilyProperty, "MonoFont")
+        editor.SetResourceReference(Control.FontSizeProperty, "BodyFontSize")
+        editor.SetResourceReference(TextBoxBase.CaretBrushProperty, "TextBrush")
+
         editor.PreviewKeyDown.Add(fun args ->
             if popup.IsOpen then
                 match args.Key with
