@@ -86,6 +86,14 @@ The **catalog is the filesystem**: every immediate child of `plugins/` or `modul
   spec (content-before-chrome, no rounded corners, color-as-meaning, the three type voices, everything
   animates), with visual mockups under `docs/design/mockups/`. It moved here from the core repo, which owns
   no UI; this is the home for all Clavis design language and mockups.
+- **Everything animates - no exceptions.** Any UI change (an element appearing, hiding, moving, or changing
+  its value/state) must be accompanied by at least a subtle animation so the UI behaves naturally; a hard
+  cut is a bug. This is the design language's core motion rule (`CLAVIS-DESIGN-LANGUAGE.md`, "Everything
+  animates", 250ms default) - honour it for every new or changed surface.
+- **Mockups are browser HTML, never artifacts.** When exploring a UI idea, author a standalone HTML file
+  under `docs/design/mockups/` (naming convention `clavis-<topic>.html`) and open it in the browser
+  (`Start-Process chrome <file>`). Do **not** publish a mockup as a Claude artifact - it belongs in this
+  folder alongside the other mockups.
 - **Declare real dependencies** in `PLUGIN.md` so build order is correct; keep them minimal.
 - **Panels** announce a `PanelKindRegistration` and restore via `RestorePanel`; persist per-instance state
   through the workspace contracts rather than inventing storage.

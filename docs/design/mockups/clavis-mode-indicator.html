@@ -1,0 +1,636 @@
+<title>CLAVIS · Mode Visualization</title>
+<style>
+  :root {
+    --bg: #0A0A0F;
+    --panel: #0E0E14;
+    --panel-raised: #14141C;
+    --title-bg: #000000;
+    --line: #282834;
+    --frame: #3A3A44;
+    --text: #C8C8D0;
+    --bright: #E8E8EC;
+    --dim: #9A9AA4;
+    --raised: #36363F;
+    --accent: #9FD5F0;   /* Clavis blue */
+
+    --plan: #7BD49B;      /* green   */
+    --auto: #E4C47E;      /* yellow  */
+    --edit: #ADA6F2;      /* periwinkle */
+    --manual: #9A9AA4;    /* dim     */
+
+    --ui: "Rajdhani", "Segoe UI Semibold", "Franklin Gothic Medium", system-ui, sans-serif;
+    --mono: "JetBrains Mono", "Cascadia Code", ui-monospace, "Consolas", monospace;
+    --body: "Inter", system-ui, -apple-system, sans-serif;
+
+    --gap: clamp(20px, 3vw, 40px);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { color-scheme: dark; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(120% 90% at 82% -10%, rgba(159,213,240,0.07), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: clamp(28px, 5vw, 68px) clamp(18px, 4vw, 40px) 80px;
+  }
+
+  /* ---- header ---- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px 1px rgba(159,213,240,0.7);
+  }
+  h1 {
+    font-family: var(--ui);
+    font-weight: 700;
+    font-size: clamp(30px, 5vw, 52px);
+    letter-spacing: 0.01em;
+    line-height: 1.02;
+    margin: 0 0 16px;
+    color: var(--bright);
+    text-wrap: balance;
+  }
+  h1 .thin { color: var(--dim); font-weight: 500; }
+  .lede {
+    max-width: 60ch;
+    font-size: 16px;
+    color: var(--text);
+    margin: 0 0 30px;
+  }
+  .lede b { color: var(--bright); font-weight: 600; }
+  kbd {
+    font-family: var(--mono);
+    font-size: 0.82em;
+    background: var(--panel-raised);
+    border: 1px solid var(--frame);
+    border-bottom-width: 2px;
+    padding: 1px 7px;
+    color: var(--bright);
+    white-space: nowrap;
+  }
+
+  /* ---- section scaffolding ---- */
+  .sect-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin: 0 0 4px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .sect-label .idx { color: var(--accent); }
+  .sect-hint { font-family: var(--body); font-size: 13px; color: var(--dim); letter-spacing: 0; text-transform: none; }
+  section { margin-top: var(--gap); }
+  hr.rule { border: 0; border-top: 1px solid var(--line); margin: calc(var(--gap) + 6px) 0 0; }
+
+  /* ---- the mock Clavis window ---- */
+  .window {
+    margin-top: 20px;
+    background: var(--panel);
+    border: 1px solid var(--frame);
+    box-shadow: 0 30px 70px -30px rgba(0,0,0,0.9);
+    overflow: hidden;
+  }
+  .titlebar {
+    height: 34px;
+    background: var(--title-bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center;
+    padding: 0 8px 0 14px;
+    gap: 10px;
+  }
+  .activity-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.35;
+    flex: none;
+    animation: breathe 3.4s ease-in-out infinite;
+  }
+  @keyframes breathe { 0%,100% { opacity: 0.22; } 50% { opacity: 0.6; } }
+  .tb-branch { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .tb-branch .accent { color: var(--accent); }
+  .tb-spacer { flex: 1; }
+  .tb-right { display: flex; align-items: center; gap: 12px; }
+  .axis { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+
+  .body-area {
+    min-height: 190px;
+    padding: 22px 24px;
+    background:
+      linear-gradient(var(--panel), var(--panel));
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .msg { font-size: 13.5px; max-width: 62ch; }
+  .msg.human { color: var(--bright); }
+  .msg.agent { color: var(--text); }
+  .msg .who {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--dim); display: block; margin-bottom: 3px;
+  }
+  .mode-explainer {
+    font-size: 12.5px; color: var(--dim); font-style: italic;
+    border-left: 2px solid var(--modeclr, var(--dim));
+    padding-left: 12px;
+    transition: border-color .35s ease;
+  }
+  .mode-explainer b { color: var(--modeclr, var(--dim)); font-style: normal; transition: color .35s ease; }
+
+  /* prompt input – Variant D lives here (ambient border) */
+  .prompt {
+    margin: 0 24px 22px;
+    background: var(--panel-raised);
+    border: 1px solid var(--frame);
+    border-left: 3px solid var(--modeclr, var(--frame));
+    padding: 11px 14px;
+    display: flex; align-items: center; gap: 10px;
+    transition: border-left-color .35s ease;
+  }
+  .prompt .caret { color: var(--modeclr, var(--accent)); font-family: var(--mono); transition: color .35s ease; }
+  .prompt .ph { color: var(--dim); font-size: 13px; }
+
+  .statusbar {
+    height: 30px;
+    border-top: 1px solid var(--frame);
+    background: rgba(10,10,16,0.85);
+    display: flex; align-items: center;
+    padding: 0 16px;
+    gap: 18px;
+    font-family: var(--mono); font-size: 10.5px; color: var(--dim);
+  }
+  .statusbar .sb-spacer { flex: 1; }
+
+  /* ---- generic mode chip / badge ---- */
+  .badge {
+    font-family: var(--ui);
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 3px 8px 2px;
+    background: var(--raised);
+    color: var(--modeclr, var(--dim));
+    transition: color .3s ease, background .3s ease;
+    white-space: nowrap;
+  }
+  .mode-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--modeclr, var(--dim));
+    box-shadow: 0 0 8px 0 var(--modeglow, transparent);
+    flex: none;
+    transition: background .3s ease, box-shadow .3s ease;
+  }
+
+  /* ---- control bar ---- */
+  .controls {
+    margin-top: 20px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  }
+  .cycle-btn {
+    font-family: var(--ui); font-weight: 600; font-size: 13px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    background: var(--panel-raised);
+    color: var(--bright);
+    border: 1px solid var(--frame);
+    padding: 10px 18px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 10px;
+    transition: border-color .2s ease, background .2s ease;
+  }
+  .cycle-btn:hover { border-color: var(--accent); background: #171720; }
+  .cycle-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cycle-btn .kbdlike {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    border: 1px solid var(--frame); padding: 1px 7px;
+  }
+  .now-showing { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .now-showing b { color: var(--modeclr, var(--accent)); }
+
+  /* ---- variant gallery ---- */
+  .gallery {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  .variant {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    display: flex; flex-direction: column;
+  }
+  .variant.recommended { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(159,213,240,0.25); }
+  .variant .v-head {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .v-name {
+    font-family: var(--ui); font-weight: 700; font-size: 16px; color: var(--bright);
+    margin: 0; display: flex; align-items: center; gap: 10px;
+  }
+  .v-tag {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); border: 1px solid rgba(159,213,240,0.4); padding: 2px 6px;
+  }
+  .v-where { font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: 0.08em; margin-top: 6px; text-transform: uppercase; }
+  .v-note { font-size: 13px; color: var(--text); margin: 8px 0 0; }
+  .v-note .con { color: var(--dim); }
+  .v-demo {
+    padding: 20px 16px;
+    background: var(--title-bg);
+    display: flex; align-items: center; justify-content: center; min-height: 78px;
+  }
+
+  /* Variant 1 – colored badge (evolve current) */
+  .demo-badge { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 11px; color: var(--dim); }
+
+  /* Variant 2 – segmented mode rail */
+  .rail { display: flex; border: 1px solid var(--line); }
+  .rail .seg {
+    font-family: var(--ui); font-weight: 600; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 5px 11px 4px;
+    color: var(--dim);
+    background: transparent;
+    border-right: 1px solid var(--line);
+    position: relative;
+    transition: color .3s ease, background .3s ease;
+  }
+  .rail .seg:last-child { border-right: 0; }
+  .rail .seg[data-active="true"] {
+    color: #0A0A0F;
+    background: var(--segclr);
+    text-shadow: none;
+  }
+
+  /* Variant 3 – dot + label pill */
+  .demo-pill { display: inline-flex; align-items: center; gap: 9px; padding: 5px 12px 5px 10px; border: 1px solid var(--frame); background: var(--panel-raised); }
+  .demo-pill .lbl { font-family: var(--ui); font-weight: 600; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--modeclr, var(--dim)); transition: color .3s ease; }
+
+  /* Variant 4 – ambient prompt border */
+  .demo-prompt {
+    width: 100%;
+    background: var(--panel-raised);
+    border: 1px solid var(--frame);
+    border-left: 3px solid var(--modeclr, var(--frame));
+    padding: 9px 12px;
+    display: flex; align-items: center; gap: 10px;
+    transition: border-left-color .3s ease;
+  }
+  .demo-prompt .caret { color: var(--modeclr, var(--accent)); font-family: var(--mono); transition: color .3s ease; }
+  .demo-prompt .ph { color: var(--dim); font-size: 12px; }
+  .demo-prompt .mini-badge {
+    margin-left: auto;
+    font-family: var(--ui); font-weight: 600; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--modeclr, var(--dim)); transition: color .3s ease;
+  }
+
+  /* ---- notes / tables ---- */
+  .notes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 16px; }
+  .note-card { background: var(--panel); border: 1px solid var(--line); padding: 16px 18px; }
+  .note-card h3 {
+    font-family: var(--ui); font-weight: 700; font-size: 15px; color: var(--bright);
+    margin: 0 0 8px; letter-spacing: 0.02em;
+  }
+  .note-card p { margin: 0; font-size: 13.5px; color: var(--text); }
+  .note-card p + p { margin-top: 8px; }
+  .note-card code { font-family: var(--mono); font-size: 0.88em; color: var(--accent); background: var(--panel-raised); padding: 1px 5px; }
+
+  table.map { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+  table.map th, table.map td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  table.map th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); font-weight: 400; }
+  table.map td { font-family: var(--mono); font-size: 12px; color: var(--text); }
+  table.map .id { color: var(--bright); }
+  table.map .swatch { display: inline-flex; align-items: center; gap: 8px; }
+  table.map .swatch::before { content: ""; width: 11px; height: 11px; border-radius: 50%; background: var(--sw); flex: none; }
+  table.map tr .disp { font-family: var(--ui); font-weight: 600; letter-spacing: 0.06em; }
+
+  .cycle-order { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; font-family: var(--mono); font-size: 12px; }
+  .cycle-order .step { padding: 4px 10px; border: 1px solid var(--line); color: var(--stepclr, var(--dim)); }
+  .cycle-order .arrow { color: var(--dim); }
+  .cycle-order .loopback { color: var(--accent); font-size: 11px; }
+
+  footer { margin-top: var(--gap); font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: 0.04em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .activity-dot { animation: none; }
+    * { transition-duration: 0.001ms !important; }
+  }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Clavis · Mode Visualization</p>
+  <h1>Four permission modes, <span class="thin">one glance to read them.</span></h1>
+  <p class="lede">
+    Clavis sessions run in one of four permission modes. This is a design study for showing
+    <b>which mode is live</b> and cycling it with <kbd>Shift</kbd> + <kbd>Tab</kbd>. Everything below is
+    the real Clavis chrome and palette. Press the key (or the button) to feel the switch, then compare
+    the ways to surface it.
+  </p>
+
+  <!-- ============ HERO: live window ============ -->
+  <section aria-labelledby="hero-label">
+    <p class="sect-label" id="hero-label"><span class="idx">01</span> In context
+      <span class="sect-hint">the recommended treatment, running inside a Clavis window</span>
+    </p>
+
+    <div class="window" id="mock">
+      <div class="titlebar">
+        <span class="activity-dot"></span>
+        <span class="tb-branch">on <span class="accent">main</span> · clavis-marketplace</span>
+        <span class="tb-spacer"></span>
+        <div class="tb-right">
+          <span class="axis">Opus 4.8</span>
+          <span class="axis">High</span>
+          <!-- Variant 2 lives here: segmented mode rail -->
+          <div class="rail" id="hero-rail" role="group" aria-label="Session mode">
+            <span class="seg" data-mode="plan">Plan</span>
+            <span class="seg" data-mode="default">Manual</span>
+            <span class="seg" data-mode="auto">Auto</span>
+            <span class="seg" data-mode="acceptEdits">Edit</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="body-area">
+        <div class="msg human"><span class="who">You</span>Refactor the permission parser and run the tests.</div>
+        <div class="msg agent"><span class="who">Clavis</span>On it - reading <span style="font-family:var(--mono);color:var(--accent)">NdjsonParser.fs</span> first.</div>
+        <div class="mode-explainer" id="hero-explainer"><b id="hero-mode-name">Manual</b> - <span id="hero-mode-desc">every privileged action asks for permission.</span></div>
+      </div>
+
+      <div class="prompt" id="hero-prompt">
+        <span class="caret">&gt;</span>
+        <span class="ph">Message Clavis...</span>
+      </div>
+
+      <div class="statusbar">
+        <span>~/.clavis</span>
+        <span class="sb-spacer"></span>
+        <span>ctx 42%</span>
+        <span>v0.9.1</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="cycle-btn" id="cycleBtn">
+        Cycle mode <span class="kbdlike">Shift + Tab</span>
+      </button>
+      <span class="now-showing">Current: <b id="nowShowing">Manual</b></span>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ============ GALLERY ============ -->
+  <section aria-labelledby="gal-label">
+    <p class="sect-label" id="gal-label"><span class="idx">02</span> Four ways to show it
+      <span class="sect-hint">all live - they follow the same Shift+Tab state</span>
+    </p>
+
+    <div class="gallery">
+      <!-- Variant 2 first: recommended -->
+      <div class="variant recommended">
+        <div class="v-head">
+          <h2 class="v-name">Segmented rail <span class="v-tag">Recommended</span></h2>
+          <p class="v-where">Title bar · right</p>
+          <p class="v-note">Shows all four modes at once with the active one lit in its color - so the <kbd>Shift</kbd>+<kbd>Tab</kbd> order and your position in it are both visible. <span class="con">Widest of the options.</span></p>
+        </div>
+        <div class="v-demo">
+          <div class="rail gallery-rail" role="group" aria-label="Session mode">
+            <span class="seg" data-mode="plan">Plan</span>
+            <span class="seg" data-mode="default">Manual</span>
+            <span class="seg" data-mode="auto">Auto</span>
+            <span class="seg" data-mode="acceptEdits">Edit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variant 1: colored badge -->
+      <div class="variant">
+        <div class="v-head">
+          <h2 class="v-name">Colored badge</h2>
+          <p class="v-where">Title bar · right</p>
+          <p class="v-note">Evolves today's chip: one word, tinted by mode. Compact. <span class="con">Doesn't hint that other modes exist or how to switch.</span></p>
+        </div>
+        <div class="v-demo">
+          <div class="demo-badge">
+            <span>Opus 4.8 · High</span>
+            <span class="badge gallery-badge">Manual</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variant 3: dot + label pill -->
+      <div class="variant">
+        <div class="v-head">
+          <h2 class="v-name">Dot + label</h2>
+          <p class="v-where">Status bar · right</p>
+          <p class="v-note">A circular status dot (mode color) beside the label - reads like the activity dots Clavis already uses. <span class="con">Quiet; good if the title bar is crowded.</span></p>
+        </div>
+        <div class="v-demo">
+          <span class="demo-pill">
+            <span class="mode-dot gallery-dot"></span>
+            <span class="lbl gallery-pill-lbl">Manual</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Variant 4: ambient prompt border -->
+      <div class="variant">
+        <div class="v-head">
+          <h2 class="v-name">Ambient input border</h2>
+          <p class="v-where">Prompt input</p>
+          <p class="v-note">The prompt's left edge and caret take the mode color - an at-the-point-of-typing signal, like Claude Code's own mode line. <span class="con">Pairs well with a badge; alone it's subtle.</span></p>
+        </div>
+        <div class="v-demo">
+          <div class="demo-prompt">
+            <span class="caret">&gt;</span>
+            <span class="ph">Message Clavis...</span>
+            <span class="mini-badge gallery-mini">Manual</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ============ NOTES ============ -->
+  <section aria-labelledby="notes-label">
+    <p class="sect-label" id="notes-label"><span class="idx">03</span> Decisions to make
+      <span class="sect-hint">naming, color, and the cycle</span>
+    </p>
+
+    <div class="notes-grid">
+      <div class="note-card">
+        <h3>"Manual" vs. "None"</h3>
+        <p>You called the default mode <b>manual</b>. The catalog id is <code>default</code> and it currently displays as <b>"None"</b> - and today the badge is <em>hidden</em> in that mode.</p>
+        <p>I'd rename the display to <b>"Manual"</b> and always show it: "None" reads as "no mode set", but it's really the deliberate ask-every-time mode. One label change in <code>ClaudeCatalog</code>.</p>
+      </div>
+
+      <div class="note-card">
+        <h3>Always visible</h3>
+        <p>The current chip disappears in default mode. For a mode you can cycle blind with a shortcut, the indicator should <b>always be on screen</b> so a stray <kbd>Shift</kbd>+<kbd>Tab</kbd> is never silent.</p>
+        <p>The segmented rail enforces this for free - the active segment always lights up.</p>
+      </div>
+
+      <div class="note-card">
+        <h3>Shift+Tab = cycle</h3>
+        <p>Bound by default to <code>shift+tab</code> via the keymap, publishing a "cycle mode" command that advances to the next mode and wraps. Re-bindable like any Clavis shortcut.</p>
+        <p>An open question: cycle <b>all four</b>, or match Claude Code and cycle a subset? I'd cycle all four in the fixed order below.</p>
+      </div>
+    </div>
+
+    <table class="map">
+      <thead>
+        <tr><th>Id</th><th>Display</th><th>Color</th><th>Meaning</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="id">plan</td>
+          <td class="disp" style="color:var(--plan)">Plan</td>
+          <td><span class="swatch" style="--sw:var(--plan)">#7BD49B green</span></td>
+          <td>Read-only until the plan is approved</td>
+        </tr>
+        <tr>
+          <td class="id">default</td>
+          <td class="disp" style="color:var(--manual)">Manual</td>
+          <td><span class="swatch" style="--sw:var(--manual)">#9A9AA4 dim</span></td>
+          <td>Every privileged action asks</td>
+        </tr>
+        <tr>
+          <td class="id">auto</td>
+          <td class="disp" style="color:var(--auto)">Auto</td>
+          <td><span class="swatch" style="--sw:var(--auto)">#E4C47E yellow</span></td>
+          <td>Edits and commands run without asking</td>
+        </tr>
+        <tr>
+          <td class="id">acceptEdits</td>
+          <td class="disp" style="color:var(--edit)">Edit</td>
+          <td><span class="swatch" style="--sw:var(--edit)">#ADA6F2 periwinkle</span></td>
+          <td>Edits auto-approved; commands still ask</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="cycle-order" aria-label="Cycle order">
+      <span class="step" style="--stepclr:var(--plan)">Plan</span>
+      <span class="arrow">-&gt;</span>
+      <span class="step" style="--stepclr:var(--manual)">Manual</span>
+      <span class="arrow">-&gt;</span>
+      <span class="step" style="--stepclr:var(--auto)">Auto</span>
+      <span class="arrow">-&gt;</span>
+      <span class="step" style="--stepclr:var(--edit)">Edit</span>
+      <span class="arrow">-&gt;</span>
+      <span class="loopback">&#8635; back to Plan</span>
+    </div>
+  </section>
+
+  <footer>Mockup only - not wired to a session. Colors and chrome mirror the live Clavis theme.</footer>
+</div>
+
+<script>
+  const MODES = [
+    { id: "plan",        name: "Plan",   color: "#7BD49B", desc: "read-only until the plan is approved." },
+    { id: "default",     name: "Manual", color: "#9A9AA4", desc: "every privileged action asks for permission." },
+    { id: "auto",        name: "Auto",   color: "#E4C47E", desc: "edits and commands run without asking." },
+    { id: "acceptEdits", name: "Edit",   color: "#ADA6F2", desc: "file edits are auto-approved; commands still ask." },
+  ];
+
+  let current = 1; // start on Manual (default)
+
+  const hero        = document.getElementById("mock");
+  const heroPrompt  = document.getElementById("hero-prompt");
+  const heroExpl    = document.getElementById("hero-explainer");
+  const heroName    = document.getElementById("hero-mode-name");
+  const heroDesc    = document.getElementById("hero-mode-desc");
+  const nowShowing  = document.getElementById("nowShowing");
+  const controls    = document.querySelector(".controls");
+
+  function paintRail(rail, mode) {
+    rail.querySelectorAll(".seg").forEach(seg => {
+      const active = seg.dataset.mode === mode.id;
+      seg.dataset.active = active ? "true" : "false";
+      if (active) seg.style.setProperty("--segclr", mode.color);
+    });
+  }
+
+  function render() {
+    const mode = MODES[current];
+
+    // hero rail + ambient prompt + explainer
+    paintRail(document.getElementById("hero-rail"), mode);
+    hero.style.setProperty("--modeclr", mode.color);
+    heroExpl.style.setProperty("--modeclr", mode.color);
+    heroPrompt.style.setProperty("--modeclr", mode.color);
+    heroName.textContent = mode.name;
+    heroDesc.textContent = mode.desc;
+
+    // control readout
+    nowShowing.textContent = mode.name;
+    controls.style.setProperty("--modeclr", mode.color);
+
+    // gallery – all variants follow the same state
+    document.querySelectorAll(".gallery-rail").forEach(r => paintRail(r, mode));
+
+    document.querySelectorAll(".gallery-badge").forEach(b => {
+      b.textContent = mode.name;
+      b.style.setProperty("--modeclr", mode.color);
+    });
+
+    document.querySelectorAll(".gallery-dot").forEach(d => {
+      d.style.setProperty("--modeclr", mode.color);
+      d.style.setProperty("--modeglow", mode.color + "cc");
+    });
+    document.querySelectorAll(".gallery-pill-lbl").forEach(l => {
+      l.textContent = mode.name;
+      l.style.setProperty("--modeclr", mode.color);
+    });
+
+    document.querySelectorAll(".demo-prompt").forEach(p => p.style.setProperty("--modeclr", mode.color));
+    document.querySelectorAll(".gallery-mini").forEach(m => {
+      m.textContent = mode.name;
+      m.style.setProperty("--modeclr", mode.color);
+    });
+  }
+
+  function cycle(dir = 1) {
+    current = (current + dir + MODES.length) % MODES.length;
+    render();
+  }
+
+  document.getElementById("cycleBtn").addEventListener("click", () => cycle(1));
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Tab" && e.shiftKey) {
+      e.preventDefault();
+      cycle(1);
+    }
+  });
+
+  render();
+</script>
