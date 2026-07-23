@@ -110,10 +110,15 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                 .Select(result =>
                 {
                     // Remember the request's suggestions before mapping strips them to display labels, so
-                    // the eventual response can name the concrete rule to persist.
+                    // the eventual response can name the concrete rule to persist. Log what the provider
+                    // offered (kind + scope, or none) so a "why is there no wider-scope option" is answerable.
                     if (result.ResultValue is StreamEvent.PermissionRequest permission)
                     {
-                        pendingSuggestions[permission.Item.RequestId] = permission.Item.Suggestions.ToArray();
+                        var suggestions = permission.Item.Suggestions.ToArray();
+                        pendingSuggestions[permission.Item.RequestId] = suggestions;
+                        bus.LogInfo(
+                            "ClaudeBridge",
+                            $"permission request {permission.Item.ToolName}: {suggestions.Length} suggestion(s) {DescribeSuggestions(suggestions)}");
                     }
 
                     return StreamEventMapper.Map(
@@ -448,6 +453,21 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
 
         return SessionModule.start(config);
     }
+
+    // A compact "kind scope" description of the provider's permission suggestions, for the diagnostic log.
+    private static string DescribeSuggestions(PermissionUpdate[] suggestions) =>
+        suggestions.Length == 0
+            ? ""
+            : "[" + string.Join(", ", suggestions.Select(suggestion => suggestion switch
+            {
+                PermissionUpdate.AddRules r => $"addRules {r.behavior}->{r.destination}",
+                PermissionUpdate.ReplaceRules r => $"replaceRules {r.behavior}->{r.destination}",
+                PermissionUpdate.RemoveRules r => $"removeRules {r.behavior}->{r.destination}",
+                PermissionUpdate.SetMode m => $"setMode {m.mode}->{m.destination}",
+                PermissionUpdate.AddDirectories d => $"addDirectories->{d.destination}",
+                PermissionUpdate.RemoveDirectories d => $"removeDirectories->{d.destination}",
+                _ => "?"
+            })) + "]";
 
     // The gateway registers its tools under this MCP server name, so allow-listing the server prefix
     // pre-approves every clavis tool. The agent introspects and drives its own host through these; making it

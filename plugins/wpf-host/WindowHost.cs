@@ -180,6 +180,23 @@ internal sealed partial class WindowHost
         }
     }
 
+    /// Enables or disables the prompt input. While a permission decision is pending the input is disabled so
+    /// it is unselectable and cannot hold focus or swallow the Left/Right/Enter keys the permission prompt
+    /// needs; re-enabling returns focus to it (when visible) so typing can resume.
+    public void SetPromptInputEnabled(bool enabled)
+    {
+        if (_inputBox is null)
+        {
+            return;
+        }
+
+        _inputBox.IsEnabled = enabled;
+        if (enabled && _inputRow is { Visibility: Visibility.Visible })
+        {
+            _inputHandler?.Focus();
+        }
+    }
+
     /// Shows or collapses the status row. The active panel's owner reports whether its status bar has any
     /// configured content; an empty bar is collapsed so the panel fills the whole space rather than showing a
     /// bare strip, and reappears (with an entrance) when content returns.

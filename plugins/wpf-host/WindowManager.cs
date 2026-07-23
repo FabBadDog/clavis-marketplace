@@ -315,6 +315,9 @@ internal sealed class WindowManager : IDisposable
         _subscriptions.Add(_bus.Subscribe<PermissionPending>(message =>
         {
             _permissionPending = message.Pending;
+            // Disable the prompt input while a decision is pending so it is unselectable and yields focus and
+            // keys to the permission selector; re-enable it (restoring focus) once the decision is made.
+            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SetPromptInputEnabled(!message.Pending));
             return Task.CompletedTask;
         }));
     }
