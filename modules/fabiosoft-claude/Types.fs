@@ -158,6 +158,9 @@ type PermissionRequestInfo = {
     /// The provider's suggested permission updates for this request - the concrete "always" options the
     /// user may pick (e.g. add an allow rule for Bash(git*)). Empty when the provider offers none.
     Suggestions: PermissionUpdate list
+    /// The raw JSON of the provider's request object, for diagnostics: it makes an empty Suggestions list
+    /// explainable (the provider sent none) rather than a mystery (something was dropped in parsing).
+    RawRequest: string
 }
 
 type CommandDescriptor = {

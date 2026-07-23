@@ -347,7 +347,7 @@ let ``Map PermissionRequest produces AgentPermissionRequest`` () =
     // Arrange
     let info = {
         RequestId = "pr-1"; ToolName = "Bash"; ToolUseId = Some "tu-5"
-        Input = "rm -rf /tmp"; DecisionReason = Some "dangerous"; DecisionReasonType = None
+        Input = "rm -rf /tmp"; DecisionReason = Some "dangerous"; DecisionReasonType = None; RawRequest = ""
         Suggestions = []
     }
 
@@ -370,7 +370,7 @@ let ``Map PermissionRequest builds a labelled option per suggestion`` () =
     // Arrange - an add-allow-rule suggestion and a mode switch produce the varying middle options.
     let info = {
         RequestId = "pr-2"; ToolName = "Bash"; ToolUseId = None
-        Input = "git status"; DecisionReason = None; DecisionReasonType = None
+        Input = "git status"; DecisionReason = None; DecisionReasonType = None; RawRequest = ""
         Suggestions =
             [ AddRules([ { ToolName = "Bash"; RuleContent = Some "git*" } ], "allow", "localSettings")
               SetMode("acceptEdits", "session") ]
@@ -445,7 +445,7 @@ let ``Map builds terse rule labels with behavior and scope`` (behavior: string) 
     // Arrange - the tool/args are shown in the row above, so the label states only effect and scope.
     let info = {
         RequestId = "pr-3"; ToolName = "Write"; ToolUseId = None
-        Input = "x"; DecisionReason = None; DecisionReasonType = None
+        Input = "x"; DecisionReason = None; DecisionReasonType = None; RawRequest = ""
         Suggestions = [ AddRules([ { ToolName = "Write"; RuleContent = Some "cfg*" } ], behavior, destination) ]
     }
 
@@ -462,7 +462,7 @@ let ``Map labels a rule allow by its scope and keeps the directory it grants`` (
     // grant keeps the path since it is not otherwise on screen.
     let info = {
         RequestId = "pr-4"; ToolName = "Bash"; ToolUseId = None
-        Input = "x"; DecisionReason = None; DecisionReasonType = None
+        Input = "x"; DecisionReason = None; DecisionReasonType = None; RawRequest = ""
         Suggestions =
             [ AddRules(
                 [ { ToolName = "Bash"; RuleContent = Some "git*" }

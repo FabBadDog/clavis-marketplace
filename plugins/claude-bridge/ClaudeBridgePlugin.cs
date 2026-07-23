@@ -114,11 +114,16 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                     // offered (kind + scope, or none) so a "why is there no wider-scope option" is answerable.
                     if (result.ResultValue is StreamEvent.PermissionRequest permission)
                     {
-                        var suggestions = permission.Item.Suggestions.ToArray();
-                        pendingSuggestions[permission.Item.RequestId] = suggestions;
+                        var info = permission.Item;
+                        var suggestions = info.Suggestions.ToArray();
+                        pendingSuggestions[info.RequestId] = suggestions;
+                        var reasonType = FSharpOption<string>.get_IsSome(info.DecisionReasonType) ? info.DecisionReasonType.Value : "none";
                         bus.LogInfo(
                             "ClaudeBridge",
-                            $"permission request {permission.Item.ToolName}: {suggestions.Length} suggestion(s) {DescribeSuggestions(suggestions)}");
+                            $"permission request {info.ToolName}: {suggestions.Length} suggestion(s) {DescribeSuggestions(suggestions)} reasonType={reasonType}");
+                        // The raw request explains an empty suggestion list: it shows whether the provider sent
+                        // none, or sent a shape we did not recognize.
+                        bus.LogDebug("ClaudeBridge", $"permission request {info.ToolName} raw: {info.RawRequest}");
                     }
 
                     return StreamEventMapper.Map(

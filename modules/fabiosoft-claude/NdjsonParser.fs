@@ -484,7 +484,8 @@ module NdjsonParser =
                     Input = input
                     DecisionReason = reason
                     DecisionReasonType = reasonType
-                    Suggestions = suggestions }]
+                    Suggestions = suggestions
+                    RawRequest = request.ToString() }]
         }
 
     let private parseRateLimit root =
