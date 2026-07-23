@@ -24,9 +24,11 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 
 ### FabioSoft.Contracts.Host
 
+- **CycleSessionMode** - pub: _none found_ - sub: Selection
 - **FocusInputRequested** - pub: AgentGateway, EventsPanel - sub: WpfHost
 - **PermissionPending** - pub: Conversation - sub: WpfHost
 - **PromptInputAvailability** - pub: Conversation - sub: WpfHost
+- **PromptModeChanged** - pub: Conversation - sub: WpfHost
 - **SelectEffort** - pub: _none found_ - sub: Selection
 - **SelectionCompleted** - pub: Selection - sub: AgentGateway
 - **SelectionRequested** - pub: AgentGateway - sub: Selection
@@ -198,7 +200,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - subscribes: GetConfig, GetState, SaveConfig, SaveState
 
 ### Conversation
-- publishes: DisposeSession, GetConfig, InterruptSession, LogEntry, PanelCommandsRegistered, PanelKindRegistration, PanelKindsRequested, PermissionDecided, PermissionPending, PlaceholderSnapshot, PlaceholdersRequested, PromptInputAvailability, RegisterPlaceholderProvider, SaveConfig, SendPermissionResponse, SendPrompt, StartNewSession, StatusBarAvailability, UiRegionContribution
+- publishes: DisposeSession, GetConfig, InterruptSession, LogEntry, PanelCommandsRegistered, PanelKindRegistration, PanelKindsRequested, PermissionDecided, PermissionPending, PlaceholderSnapshot, PlaceholdersRequested, PromptInputAvailability, PromptModeChanged, RegisterPlaceholderProvider, SaveConfig, SendPermissionResponse, SendPrompt, StartNewSession, StatusBarAvailability, UiRegionContribution
 - subscribes: ActivePanelChanged, AgentParsingError, AgentStreamEvent, AgentUsageReport, ConfigChanged, ConfigResult, FullRestartRequested, PanelKindRegistration, PanelKindsRequested, PermissionDecided, PlaceholderSnapshot, PlaceholdersRequested, PluginError, RegisterPlaceholderProvider, RequestPanelCommands, RunPanelCommand, UserAborted, UserCancelledQueued, UserConfirmedPermission, UserNavigatedPermission, UserSubmittedPrompt
 
 ### Environment
@@ -255,7 +257,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 
 ### Selection
 - publishes: LogEntry, OpenPanel, PanelKindsRequested, SelectionCompleted, SetSessionEffort, SetSessionMode, SetSessionModel
-- subscribes: AgentStreamEvent, PanelKindRegistration, SelectEffort, SelectionRequested, SelectMode, SelectModel, SelectPanel
+- subscribes: AgentStreamEvent, CycleSessionMode, PanelKindRegistration, SelectEffort, SelectionRequested, SelectMode, SelectModel, SelectPanel
 
 ### Settings
 - publishes: LogEntry
@@ -271,7 +273,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 
 ### WpfHost
 - publishes: ActivePanelChanged, ApplicationShutdown, GetState, LogEntry, OpenPanel, PanelClosed, RequestCommands, RequestKeymap, RestorePanel, RunCommand, RunPanelCommand, SaveState, SlideInClosed, SlideInRegistered, SummonClavis, UserAborted, UserCancelledQueued, UserConfirmedPermission, UserNavigatedPermission, UserSubmittedPrompt, WindowClosed, WindowFocusChanged, WindowOpened
-- subscribes: BootstrapComplete, CloseActivePanel, CloseActiveWindow, ClosePanel, CloseWindow, CommandsAvailable, EssentialPluginsReady, FocusInputRequested, KeymapChanged, OpenConversation, PanelInstanceReady, PanelStateChanged, PermissionPending, PluginActivated, PluginDiscovered, PromptInputAvailability, SetPanelTitle, ShowSlideIn, StateResult, StatusBarAvailability, SummonClavis, ToggleClavis, TogglePanel, ToggleShortcutHelp, UiRegionContribution, UiRegionRemoved, WorkspaceSnapshotRequested
+- subscribes: BootstrapComplete, CloseActivePanel, CloseActiveWindow, ClosePanel, CloseWindow, CommandsAvailable, EssentialPluginsReady, FocusInputRequested, KeymapChanged, OpenConversation, PanelInstanceReady, PanelStateChanged, PermissionPending, PluginActivated, PluginDiscovered, PromptInputAvailability, PromptModeChanged, SetPanelTitle, ShowSlideIn, StateResult, StatusBarAvailability, SummonClavis, ToggleClavis, TogglePanel, ToggleShortcutHelp, UiRegionContribution, UiRegionRemoved, WorkspaceSnapshotRequested
 
 ### other
 - publishes: _none_

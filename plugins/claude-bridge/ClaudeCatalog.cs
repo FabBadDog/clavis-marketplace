@@ -36,12 +36,14 @@ public static class ClaudeCatalog
         new("ultracode", "Ultracode", "Extra-high effort plus standing multi-agent workflow orchestration", "red"),
     ];
 
+    // Listed in the order Shift+Tab cycles through them: Plan -> None -> Auto -> Edit -> back to Plan. The
+    // resting "None" mode sits next to Plan so the cycle reads naturally, and its indicator shows no accent.
     public static IReadOnlyList<AgentModeInfo> Modes { get; } =
     [
         new("plan", "Plan", "Plan first - read-only until the plan is approved"),
+        new("default", "None", "Every privileged action asks for permission"),
         new("auto", "Auto", "Edits and commands run without asking"),
         new("acceptEdits", "Edit", "File edits are auto-approved; commands still ask"),
-        new("default", "None", "Every privileged action asks for permission"),
     ];
 
     public static IReadOnlyList<AgentModelInfo> Models { get; } =

@@ -578,6 +578,9 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
                     break;
                 case ScheduleInitTimeoutEffect:
                     break;
+                case PublishPromptModeEffect e:
+                    bus.Send(new PromptModeChanged(e.Mode, e.DisplayName));
+                    break;
             }
         }
     }

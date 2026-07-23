@@ -191,6 +191,15 @@ internal sealed class WindowManager : IDisposable
             return Task.CompletedTask;
         }));
 
+        // The conversation owner relays the session's permission mode; the host dresses the prompt input in
+        // its ambient accent (coloured left rule, caret, tag). It stays a host/conversation concern - the
+        // host resolves the accent from the mode id and learns no session vocabulary.
+        _subscriptions.Add(_bus.Subscribe<PromptModeChanged>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SetSessionMode(message.Mode, message.DisplayName));
+            return Task.CompletedTask;
+        }));
+
         // The active panel's owner reports whether its status bar has content; collapse the primary window's
         // status row when it has none so the panel fills the space (the host knows no placeholder vocabulary).
         _subscriptions.Add(_bus.Subscribe<StatusBarAvailability>(message =>

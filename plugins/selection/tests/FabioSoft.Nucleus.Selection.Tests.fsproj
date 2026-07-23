@@ -16,5 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SelectionRowsTests.fs" />
+    <Compile Include="ModeCycleTests.fs" />
   </ItemGroup>
 </Project>

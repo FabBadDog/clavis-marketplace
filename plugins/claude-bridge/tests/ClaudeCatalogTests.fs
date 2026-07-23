@@ -47,13 +47,13 @@ let ``every effort is color coded and described`` () =
         %effort.Description.Should().NotBeEmpty()
 
 [<Fact>]
-let ``modes surface as Plan Auto Edit None`` () =
+let ``modes surface in the Shift+Tab cycle order Plan None Auto Edit`` () =
 
     // Act
     let names = ClaudeCatalog.Modes |> Seq.map _.DisplayName |> List.ofSeq
 
     // Assert
-    %names.Should().Be([ "Plan"; "Auto"; "Edit"; "None" ])
+    %names.Should().Be([ "Plan"; "None"; "Auto"; "Edit" ])
 
 [<Theory>]
 [<InlineData("claude-fable-5", "ultracode", true)>]

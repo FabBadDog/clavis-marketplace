@@ -29,6 +29,8 @@ internal sealed partial class WindowHost
     private InputHandler? _inputHandler;
     private TextBox? _inputBox;
     private Border? _inputRow;
+    private Border? _modeEdge;
+    private TextBlock? _modeLabel;
     private Border? _statusRow;
     private FocusVisualController? _focusVisual;
     private PanelTitleController? _panelTitle;
@@ -259,7 +261,9 @@ internal sealed partial class WindowHost
         // panel: the watcher announces the active kind and the Conversation re-templates the chrome strips it
         // contributes here. (Secondary windows have no status bar and use PanelTitleController for the title.)
         _activePanel = new ActivePanelWatcher(_bus, Window, Surface);
-        var inputRow = WindowChromeViews.CreateInputRow(inputBox);
+        var (inputRow, modeEdge, modeLabel) = WindowChromeViews.CreateInputRow(inputBox);
+        _modeEdge = modeEdge;
+        _modeLabel = modeLabel;
         var statusRow = WindowChromeViews.CreateStatusBar(statusBar, statusBarRight);
         _statusRow = statusRow;
 
@@ -431,8 +435,10 @@ internal sealed partial class WindowHost
 
         // A focused text input keeps text-producing (plain or Shift-only) gestures for editing - unless the
         // gesture is bound to a panel-local command for the focused panel (e.g. the conversation's Ctrl+Up/
-        // Down scroll), which takes precedence over caret movement.
-        if (IsTextInputFocused() && !KeyGestureReader.isTextSafe(Keyboard.Modifiers) && !isPanelLocal)
+        // Down scroll), which takes precedence over caret movement. Tab is exempt: it never produces text in
+        // these inputs (AcceptsTab is off), so a Shift+Tab binding must still fire while the prompt is focused.
+        if (IsTextInputFocused() && !KeyGestureReader.isTextSafe(Keyboard.Modifiers) && !isPanelLocal
+            && key != Key.Tab)
         {
             return;
         }

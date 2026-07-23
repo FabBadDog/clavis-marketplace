@@ -19,7 +19,8 @@ internal static class WindowChromeViews
         {
             FontSize = 10,
             Foreground = Brush("#E8E8EC"),
-            CaretBrush = Brushes.White,
+            // A non-frozen caret brush so the host can tint it to the session's permission mode (animated).
+            CaretBrush = new SolidColorBrush(Colors.White),
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             AcceptsReturn = true,
@@ -152,19 +153,54 @@ internal static class WindowChromeViews
     // through it. Opaque enough that the input text and status stay legible.
     private static SolidColorBrush OverlayVeil() => Brush("#D80A0A10");
 
-    public static Border CreateInputRow(TextBox inputBox)
+    /// The prompt input row, returned with the two elements the host animates to reflect the session's
+    /// permission mode: ModeEdge (a thin left rule tinted to the mode) and ModeLabel (a small tag at the
+    /// right). Both start neutral/hidden; SetSessionMode drives them. The outer border keeps the top framing
+    /// line the host recolours on focus.
+    public static (Border Row, Border ModeEdge, TextBlock ModeLabel) CreateInputRow(TextBox inputBox)
     {
-        // Tighter top/bottom padding so the framing lines sit close to the text; the host recolours the top
-        // line (and the status bar's top line) to clavis while the input is focused.
+        // A thin vertical rule at the very left edge, tinted to the permission mode (transparent in the
+        // default mode). A Border (a rule), not a dot - square corners like all chrome.
+        var modeEdge = new Border
+        {
+            Width = 3,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Background = new SolidColorBrush(Colors.Transparent)
+        };
+
+        // The mode tag: a small uppercase label at the right of the input, shown only for a mode that has an
+        // accent. Starts collapsed and transparent; SetSessionMode fades it in.
+        var modeLabel = new TextBlock
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 9,
+            Opacity = 0,
+            Visibility = Visibility.Collapsed,
+            Margin = new Thickness(12, 0, 0, 0)
+        };
+        modeLabel.SetResourceReference(TextBlock.FontFamilyProperty, "UiFont");
+
+        // Content sits inset from the edges (the 3px rule plus a gap makes up the left inset); the tag docks
+        // right, the input fills the rest.
+        var content = new DockPanel { Margin = new Thickness(25, 8, 28, 8) };
+        DockPanel.SetDock(modeLabel, Dock.Right);
+        content.Children.Add(modeLabel);
+        content.Children.Add(inputBox);
+
+        var grid = new Grid();
+        grid.Children.Add(content);
+        grid.Children.Add(modeEdge);
+
+        // Tighter top/bottom via the content margin so the framing line sits close to the text; the host
+        // recolours the top line (and the status bar's top line) to clavis while the input is focused.
         var border = new Border
         {
-            Padding = new Thickness(28, 8, 28, 8),
             BorderThickness = new Thickness(0, 1, 0, 0),
-            Background = OverlayVeil()
+            Background = OverlayVeil(),
+            Child = grid
         };
         border.SetResourceReference(Border.BorderBrushProperty, "FrameBrush");
-        border.Child = inputBox;
-        return border;
+        return (border, modeEdge, modeLabel);
     }
 
     public static Border CreateStatusBar(ContentPresenter statusContent, ContentPresenter rightContent)

@@ -39,3 +39,26 @@ module internal FontKeys =
 
     [<Literal>]
     let MonoFont = "MonoFont"
+
+/// The single source of truth for a session permission-mode's accent colour, shared by the status-bar
+/// badge and the prompt-input ambient border so they always agree. A mode id maps to a theme brush
+/// resource key; the default/none/empty mode maps to nothing - it shows no accent at all (the user's rule),
+/// so an unstyled prompt border is itself the signal for the default mode.
+[<RequireQualifiedAccess>]
+module ModeAccent =
+
+    /// The brush resource key for a mode id, or None for the no-accent modes. A non-mode value (a stray
+    /// model name routed through the badge) gets the neutral dim key so it still reads as a chip.
+    let resourceKey value =
+        match value with
+        | "auto" -> Some "YellowBrush"
+        | "acceptEdits" | "accept" -> Some "SecondaryAccentBrush"
+        | "plan" -> Some "GreenBrush"
+        | "" | "default" | "none" -> None
+        | _ -> Some "TextDimBrush"
+
+    /// C#-friendly form for the WpfHost prompt border: the brush key, or null for the no-accent modes.
+    let resourceKeyOrNull value =
+        match resourceKey value with
+        | Some key -> key
+        | None -> null

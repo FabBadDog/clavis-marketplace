@@ -1224,3 +1224,43 @@ module StartupNarration =
 
         // Assert
         %(obj.ReferenceEquals(newState, readyState)).Should().BeTrue()
+
+module ModeRelay =
+
+    let private promptModeEffect (effects: ConversationEffect[]) =
+        effects |> Array.tryPick (fun e -> match e with :? PublishPromptModeEffect as p -> Some p | _ -> None)
+
+    [<Fact>]
+    let ``a confirmed mode change relays the mode to the host`` () =
+
+        // Arrange
+        let sessionId = (session readyState).Id
+        let event = AgentModeChanged(sessionId, "plan") :> AgentStreamEvent
+
+        // Act
+        let struct (_, effects) = ConversationUpdate.HandleStreamEvent(readyState, event)
+
+        // Assert
+        let relay = promptModeEffect effects
+        %relay.IsSome.Should().BeTrue()
+        %relay.Value.Mode.Should().Be("plan")
+
+    [<Fact>]
+    let ``capabilities relay the current mode and its display name to the host`` () =
+
+        // Arrange
+        let sessionId = (session readyState).Id
+        let modes = List<AgentModeInfo>([ AgentModeInfo("auto", "Auto", "Edits and commands run without asking") ])
+        let capabilities =
+            AgentCapabilities(
+                sessionId, "claude-opus-4-8", "auto", "high",
+                List<AgentModelInfo>(), modes, List<AgentEffortInfo>()) :> AgentStreamEvent
+
+        // Act
+        let struct (_, effects) = ConversationUpdate.HandleStreamEvent(readyState, capabilities)
+
+        // Assert
+        let relay = promptModeEffect effects
+        %relay.IsSome.Should().BeTrue()
+        %relay.Value.Mode.Should().Be("auto")
+        %relay.Value.DisplayName.Should().Be("Auto")

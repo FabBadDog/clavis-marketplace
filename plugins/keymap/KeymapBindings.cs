@@ -17,6 +17,10 @@ public static class KeymapBindings
         App("Ctrl+W", "CloseActiveWindow"),
         Sys("Ctrl+Shift+V", "ToggleClavis"),
 
+        // Shift+Tab cycles the session's permission mode (Plan -> None -> Auto -> Edit -> back). The host
+        // reclaims Shift+Tab from backward focus traversal for this; plain Tab still traverses forward.
+        App("Shift+Tab", "CycleSessionMode"),
+
         // One toggle gesture per panel kind: the same key opens the panel and closes it again. These run
         // through the palette router as TogglePanel commands, so a binding whose kind has no plugin present
         // simply opens nothing (the registry logs a benign "no kind registered") rather than erroring.

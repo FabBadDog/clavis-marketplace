@@ -23,6 +23,12 @@ let ``defaults bind the panel picker to ctrl p`` () =
     %(gesture "SelectPanel" KeymapBindings.Defaults).Should().Be(Some "Ctrl+P")
 
 [<Fact>]
+let ``defaults bind the mode cycle to shift tab`` () =
+
+    // Act / Assert
+    %(gesture "CycleSessionMode" KeymapBindings.Defaults).Should().Be(Some "Shift+Tab")
+
+[<Fact>]
 let ``set adds a binding to an empty set`` () =
 
     // Act

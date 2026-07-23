@@ -21,5 +21,6 @@
     <Compile Include="SegmentedSelectorModelTests.fs" />
     <Compile Include="TextRevealTests.fs" />
     <Compile Include="SelectorHistoryTests.fs" />
+    <Compile Include="ModeAccentTests.fs" />
   </ItemGroup>
 </Project>

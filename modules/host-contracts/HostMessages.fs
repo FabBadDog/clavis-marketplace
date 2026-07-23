@@ -132,6 +132,25 @@ type SelectEffort() =
 type SelectMode() =
     do ()
 
+/// Advance the active session to the next permission mode, wrapping at the end (the default Shift+Tab
+/// gesture). Handled by the Selection plugin, which knows the current mode and the mode catalog and sends
+/// the concrete mode switch - so the host only has to dispatch the command, learning no session vocabulary.
+[<Sealed>]
+[<Description("Cycle to the next agent mode")>]
+type CycleSessionMode() =
+    do ()
+
+/// The conversation owner relays the active session's permission mode to the host so it can dress the
+/// prompt input in the mode's ambient accent (coloured left edge, caret, and a small label). Mode is the
+/// provider-neutral mode id; DisplayName is its short label. The host resolves the accent from the mode id:
+/// the default/none mode resolves to no accent, so an unstyled prompt is itself the signal for that mode
+/// (whatever DisplayName carries). A host/conversation concern in the same spirit as PromptInputAvailability:
+/// the host learns no session vocabulary, only this relayed pair.
+[<Sealed>]
+type PromptModeChanged(mode: string, displayName: string) =
+    member _.Mode = mode
+    member _.DisplayName = displayName
+
 /// Open the panel selector popup: every user-openable panel kind, opening the chosen one.
 /// Handled by the Selection plugin.
 [<Sealed>]

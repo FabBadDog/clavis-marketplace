@@ -82,6 +82,15 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
             return Task.CompletedTask;
         });
 
+        // Shift+Tab (by default): advance to the next mode without a popup. No dispatcher needed - it only
+        // computes the next mode from the cached catalog and sends the switch; the indicators follow the
+        // bridge's confirmation like any other mode change.
+        var cycleModeSubscription = bus.Subscribe<CycleSessionMode>(_ =>
+        {
+            CycleMode(bus);
+            return Task.CompletedTask;
+        });
+
         var selectionRequestedSubscription = bus.Subscribe<SelectionRequested>(request =>
         {
             OnDispatcher(() => ShowRequestedSelection(bus, config, request));
@@ -93,7 +102,23 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
 
         return Task.FromResult<IDisposable>(new PluginDisposable(
             streamSubscription, panelKindSubscription, selectModelSubscription, selectEffortSubscription,
-            selectModeSubscription, selectPanelSubscription, selectionRequestedSubscription));
+            selectModeSubscription, selectPanelSubscription, cycleModeSubscription,
+            selectionRequestedSubscription));
+    }
+
+    private void CycleMode(IBus bus)
+    {
+        if (_capabilities is not { } capabilities || capabilities.Modes.Count == 0)
+        {
+            return;
+        }
+
+        var ids = capabilities.Modes.Select(mode => mode.Id).ToList();
+        var next = ModeCycle.Next(ids, capabilities.Mode);
+        if (next is not null && !string.Equals(next, capabilities.Mode, StringComparison.OrdinalIgnoreCase))
+        {
+            bus.Send(new SetSessionMode(capabilities.SessionId, next));
+        }
     }
 
     private static void OnDispatcher(Action action) =>

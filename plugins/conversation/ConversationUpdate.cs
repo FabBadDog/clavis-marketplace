@@ -163,7 +163,19 @@ public static partial class ConversationUpdate
             Models = capabilities.Models,
             Modes = capabilities.Modes,
             Efforts = capabilities.Efforts
-        }, NoEffects);
+        }, PromptModeEffect(capabilities.Modes, capabilities.Mode));
+    }
+
+    // Relay the current mode to the host so the prompt input can show its ambient accent. The display name
+    // comes from the mode catalog (falling back to the id); the host decides whether to show any accent at
+    // all (the default/none mode resolves to none). Redundant relays are harmless - the host animates only
+    // when the mode actually changes.
+    private static ConversationEffect[] PromptModeEffect(IReadOnlyList<AgentModeInfo> modes, string mode)
+    {
+        var display = modes
+            .FirstOrDefault(m => string.Equals(m.Id, mode, StringComparison.OrdinalIgnoreCase))?.DisplayName
+            ?? mode;
+        return [new PublishPromptModeEffect(mode, display)];
     }
 
     // The context window for a model: the bridge's rich catalog entry when it knows the model, else the
@@ -188,7 +200,7 @@ public static partial class ConversationUpdate
         }, NoEffects);
 
     private static (SessionState, ConversationEffect[]) HandleModeChanged(SessionState session, string mode) =>
-        (session with { Mode = mode }, NoEffects);
+        (session with { Mode = mode }, PromptModeEffect(session.Modes, mode));
 
     private static (SessionState, ConversationEffect[]) HandleEffortChanged(SessionState session, string effort) =>
         (session with { Effort = effort }, NoEffects);

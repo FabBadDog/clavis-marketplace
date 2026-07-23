@@ -25,16 +25,6 @@ type PlaceholderStrip() =
     static let iconGap = Thickness(0.0, 0.0, 4.0, 0.0)
     static let barMargin = Thickness(2.0, 0.0, 2.0, 0.0)
 
-    // The mode maps to a palette accent resource key; default/none/empty render nothing (the user's rule);
-    // any other value (e.g. a model name) gets the neutral dim key so it still reads as a chip.
-    static let modeAccentKey value =
-        match value with
-        | "auto" -> Some "YellowBrush"
-        | "acceptEdits" | "accept" -> Some "SecondaryAccentBrush"
-        | "plan" -> Some "GreenBrush"
-        | "" | "default" | "none" -> None
-        | _ -> Some "TextDimBrush"
-
     static let colorByName name : Brush =
         match name with
         | "accent" | "clavis" -> Colors.clavis :> Brush
@@ -126,7 +116,7 @@ type PlaceholderStrip() =
     // Empty, "default" and "none" render nothing; any other value (e.g. a model name) gets a neutral chip
     // instead of bare text, so {badge:agent.modelName} reads as a badge like every other badge.
     let badge (value: string) =
-        match modeAccentKey value with
+        match ModeAccent.resourceKey value with
         | None -> None
         | Some accentKey ->
             let host =

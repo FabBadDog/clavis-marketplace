@@ -35,11 +35,19 @@ internal sealed partial class WindowHost
         // Tab is trapped inside an open slide-in: while focus sits in one, cycle its own controls instead of
         // escaping to a docked panel or another window. Escaping moves focus off the slide-in, which dismisses
         // it - so tabbing field-to-field through a slide-in form (e.g. the status-line settings) used to slide
-        // it away mid-edit.
+        // it away mid-edit. Both directions are trapped so a form keeps backward field navigation.
         if (TryTrapTabInSlideIn(forward))
         {
             e.Handled = true;
             return true;
+        }
+
+        // Shift+Tab is reserved as a global gesture (by default: cycle the session mode). Outside a slide-in
+        // it is not focus traversal - fall through to keymap resolution so the bound command runs. Plain Tab
+        // still traverses focus forward.
+        if (!forward)
+        {
+            return false;
         }
 
         FocusTraversal?.Traverse(this, forward: forward);
