@@ -15,13 +15,10 @@
 
             <TextBlock Grid.Column="0"
                        Text="{Binding Name}"
-                       FontSize="15"
-                       FontWeight="Medium"
+                       Style="{DynamicResource Selector.ItemTitle}"
                        VerticalAlignment="Top"
                        TextTrimming="CharacterEllipsis"
-                       Margin="0,0,12,0"
-                       Foreground="{DynamicResource TextBrightBrush}"
-                       FontFamily="{DynamicResource UiFont}" />
+                       Margin="0,0,12,0" />
 
             <TextBlock Grid.Column="1"
                        Text="{Binding Version}"
@@ -59,12 +56,10 @@
 
             <TextBlock Grid.Column="0"
                        Text="{Binding Name}"
-                       FontSize="15"
-                       FontWeight="Medium"
+                       Style="{DynamicResource Selector.ItemTitle}"
                        VerticalAlignment="Top"
                        Margin="0,0,12,0"
-                       Foreground="{Binding Brush}"
-                       FontFamily="{DynamicResource UiFont}" />
+                       Foreground="{Binding Brush}" />
 
             <TextBlock Grid.Column="1"
                        Text="{Binding Description}"
@@ -85,12 +80,9 @@
 
             <TextBlock Grid.Column="0"
                        Text="{Binding Name}"
-                       FontSize="15"
-                       FontWeight="Medium"
+                       Style="{DynamicResource Selector.ItemTitle}"
                        VerticalAlignment="Top"
-                       Margin="0,0,12,0"
-                       Foreground="{DynamicResource TextBrightBrush}"
-                       FontFamily="{DynamicResource UiFont}" />
+                       Margin="0,0,12,0" />
 
             <TextBlock Grid.Column="1"
                        Text="{Binding Description}"
@@ -134,13 +126,10 @@
 
             <TextBlock Grid.Column="0"
                        Text="{Binding Label}"
-                       FontSize="15"
-                       FontWeight="Medium"
+                       Style="{DynamicResource Selector.ItemTitle}"
                        VerticalAlignment="Top"
                        TextWrapping="Wrap"
-                       Margin="0,0,12,0"
-                       Foreground="{DynamicResource TextBrightBrush}"
-                       FontFamily="{DynamicResource UiFont}" />
+                       Margin="0,0,12,0" />
 
             <TextBlock Grid.Column="1"
                        Text="{Binding Description}"
