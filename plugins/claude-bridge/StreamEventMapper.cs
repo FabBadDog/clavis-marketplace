@@ -187,6 +187,18 @@ public static class StreamEventMapper
             return new AgentAborted(sessionId);
         }
 
+        if (streamEvent is StreamEvent.TaskStarted taskStarted)
+        {
+            return new AgentTaskStarted(
+                sessionId, taskStarted.taskId, taskStarted.description, taskStarted.taskType);
+        }
+
+        if (streamEvent is StreamEvent.TaskCompleted taskCompleted)
+        {
+            return new AgentTaskCompleted(
+                sessionId, taskCompleted.taskId, taskCompleted.status, taskCompleted.summary);
+        }
+
         throw new ArgumentException($"Unknown StreamEvent: {streamEvent}");
     }
 

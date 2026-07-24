@@ -23,7 +23,8 @@ public sealed class ConversationViewModel : ObservableObject
 
     private void SyncTurns()
     {
-        var activeTurns = _state.ActiveSession?.Turns ?? [];
+        var session = _state.ActiveSession;
+        var activeTurns = session?.Turns ?? [];
         CollectionSync.Reconcile(
             Turns,
             activeTurns,
@@ -31,6 +32,16 @@ public sealed class ConversationViewModel : ObservableObject
             vm => vm.TurnId.ToString(),
             turn => new TurnViewModel(turn, _publishPermission),
             (vm, turn) => vm.Update(turn));
+
+        // Project the session phase onto the current turn only, as its rail whisper. Non-working phases
+        // map to an empty word (SessionPhase), so this both sets and clears the whisper as the phase moves.
+        var currentTurnId = session?.CurrentTurnId;
+        var phase = session is not null ? SessionPhase.Whisper(session.Status) : "";
+        foreach (var turnViewModel in Turns)
+        {
+            turnViewModel.PhaseWhisper =
+                currentTurnId is { } id && turnViewModel.TurnId == id ? phase : "";
+        }
     }
 
     public ObservableCollection<TurnViewModel> Turns { get; } = [];

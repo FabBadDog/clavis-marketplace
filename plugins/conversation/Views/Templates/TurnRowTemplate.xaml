@@ -289,6 +289,63 @@
                 <!-- Child items -->
                 <ItemsControl ItemsSource="{Binding Items}" Margin="0,0,0,6" />
 
+                <!-- Rail whisper: the live session phase (thinking/compacting/retrying) projected onto the
+                     active turn as PhaseWhisper, with an animated ellipsis whose three dots pulse in
+                     sequence. The whole line hides on any non-working phase or once the turn ends. -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6"
+                            Visibility="{Binding ShowPhaseWhisper, Converter={StaticResource BooleanToVisibility}}">
+                    <TextBlock Text="{Binding PhaseWhisper}"
+                               FontSize="12"
+                               FontFamily="{DynamicResource UiFont}"
+                               Foreground="{DynamicResource ClavisBrush}"
+                               Opacity="0.85" />
+                    <TextBlock Text="." FontSize="12" FontFamily="{DynamicResource UiFont}"
+                               Foreground="{DynamicResource ClavisBrush}" Opacity="0.85">
+                        <TextBlock.Triggers>
+                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0.15" To="0.85" Duration="0:0:0.5"
+                                                         AutoReverse="True" RepeatBehavior="Forever"
+                                                         BeginTime="0:0:0" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </TextBlock.Triggers>
+                    </TextBlock>
+                    <TextBlock Text="." FontSize="12" FontFamily="{DynamicResource UiFont}"
+                               Foreground="{DynamicResource ClavisBrush}" Opacity="0.85">
+                        <TextBlock.Triggers>
+                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0.15" To="0.85" Duration="0:0:0.5"
+                                                         AutoReverse="True" RepeatBehavior="Forever"
+                                                         BeginTime="0:0:0.2" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </TextBlock.Triggers>
+                    </TextBlock>
+                    <TextBlock Text="." FontSize="12" FontFamily="{DynamicResource UiFont}"
+                               Foreground="{DynamicResource ClavisBrush}" Opacity="0.85">
+                        <TextBlock.Triggers>
+                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="0.15" To="0.85" Duration="0:0:0.5"
+                                                         AutoReverse="True" RepeatBehavior="Forever"
+                                                         BeginTime="0:0:0.4" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </TextBlock.Triggers>
+                    </TextBlock>
+                </StackPanel>
+
                 <!-- Status line: transient status messages only (e.g. "Retrying API call...", "DENIED").
                      The assistant's answer is no longer streamed here - completed blocks land as TextItems
                      above and reveal with the typewriter/line fall, so the partials are not shown live. -->

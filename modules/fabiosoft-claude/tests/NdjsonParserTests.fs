@@ -479,6 +479,67 @@ let ``parse with system hook_response event returns HookComplete`` () =
         Stderr = "" })
 
 [<Fact>]
+let ``parse with system task_started returns TaskStarted event`` () =
+
+    // Arrange
+    let json =
+        Json.Object [
+            "type", Json.String "system"
+            "subtype", Json.String "task_started"
+            "task_id", Json.String "af6a6b089414be6dd"
+            "tool_use_id", Json.String "toolu_01BYzRa7P9pxNeW5FGQgM35V"
+            "description", Json.String "Return single word"
+            "subagent_type", Json.String "general-purpose"
+            "task_type", Json.String "local_agent"
+        ] |> toLine
+
+    // Act
+    let result = NdjsonParser.parse json
+
+    // Assert
+    let events = result |> List.choose Result.toOption
+    events.Should().Contain(TaskStarted("af6a6b089414be6dd", "Return single word", "local_agent"))
+
+[<Fact>]
+let ``parse with system task_notification returns TaskCompleted event`` () =
+
+    // Arrange
+    let json =
+        Json.Object [
+            "type", Json.String "system"
+            "subtype", Json.String "task_notification"
+            "task_id", Json.String "af6a6b089414be6dd"
+            "tool_use_id", Json.String "toolu_01BYzRa7P9pxNeW5FGQgM35V"
+            "status", Json.String "completed"
+            "summary", Json.String "alpha"
+        ] |> toLine
+
+    // Act
+    let result = NdjsonParser.parse json
+
+    // Assert
+    let events = result |> List.choose Result.toOption
+    events.Should().Contain(TaskCompleted("af6a6b089414be6dd", "completed", "alpha"))
+
+[<Fact>]
+let ``parse with system task_updated is recognised and yields no event`` () =
+
+    // Arrange
+    let json =
+        Json.Object [
+            "type", Json.String "system"
+            "subtype", Json.String "task_updated"
+            "task_id", Json.String "af6a6b089414be6dd"
+            "patch", Json.Object [ "status", Json.String "completed" ]
+        ] |> toLine
+
+    // Act
+    let result = NdjsonParser.parse json
+
+    // Assert
+    result.Should().BeEmpty()
+
+[<Fact>]
 let ``parse with rate_limit_event returns RateLimit event`` () =
 
     // Arrange

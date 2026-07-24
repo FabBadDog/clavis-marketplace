@@ -21,6 +21,7 @@ public sealed class TurnViewModel : ObservableObject
     private          Turn                   _state;
     private readonly Action<string, string> _publishPermission;
     private          bool                   _ignited;
+    private          string                 _phaseWhisper = "";
 
     public TurnViewModel(Turn state, Action<string, string> publishPermission)
     {
@@ -54,6 +55,7 @@ public sealed class TurnViewModel : ObservableObject
             {
                 _ignited = true;
                 OnPropertyChanged(nameof(IsActive));
+                OnPropertyChanged(nameof(ShowPhaseWhisper));
             },
             DispatcherPriority.Loaded);
     }
@@ -122,6 +124,27 @@ public sealed class TurnViewModel : ObservableObject
     public string Prompt => _state.Prompt;
     public bool IsActive => _ignited && _state.Status is Running;
     public bool IsQueued => _state.Status is Queued;
+
+    // The live session phase word ("thinking", "compacting", ...) for the rail whisper, set by the
+    // conversation view-model on the active turn only. The whisper shows only while this turn is active,
+    // so a stale word on a finished turn never lingers.
+    public string PhaseWhisper
+    {
+        get => _phaseWhisper;
+        set
+        {
+            if (_phaseWhisper == value)
+            {
+                return;
+            }
+
+            _phaseWhisper = value;
+            OnPropertyChanged(nameof(PhaseWhisper));
+            OnPropertyChanged(nameof(ShowPhaseWhisper));
+        }
+    }
+
+    public bool ShowPhaseWhisper => IsActive && _phaseWhisper.Length > 0;
     public string DurationText => Formatting.duration(_state.Duration);
     public string TokensText => Formatting.tokens(_state.TotalTokens);
 

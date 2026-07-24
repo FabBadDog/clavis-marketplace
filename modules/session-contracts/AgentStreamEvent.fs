@@ -264,6 +264,28 @@ type AgentUsageReport(windows: IReadOnlyList<AgentLimitWindow>) =
 type AgentAborted(sessionId: Guid) =
     inherit AgentStreamEvent(sessionId)
 
+/// A background task (a subagent or backgrounded command the agent spawned) has started. TaskId
+/// correlates this with its later AgentTaskCompleted. Description is the human-readable task label;
+/// TaskType is the provider's kind (e.g. "local_agent", "local_bash"). Drives the background-task tracker.
+[<Sealed>]
+type AgentTaskStarted(sessionId: Guid, taskId: string, description: string, taskType: string) =
+    inherit AgentStreamEvent(sessionId)
+
+    member _.TaskId = taskId
+    member _.Description = description
+    member _.TaskType = taskType
+
+/// A previously started background task has finished. TaskId matches the AgentTaskStarted; Status is the
+/// terminal state (e.g. "completed", "failed"); Summary is the task's one-line result. The tracker flips
+/// the matching entry to done and shows the summary.
+[<Sealed>]
+type AgentTaskCompleted(sessionId: Guid, taskId: string, status: string, summary: string) =
+    inherit AgentStreamEvent(sessionId)
+
+    member _.TaskId = taskId
+    member _.Status = status
+    member _.Summary = summary
+
 /// One selectable model offered by the provider bridge. Id is the internal name used on the wire (e.g. a
 /// provider model id); DisplayName/Version/Description are what pickers show instead of the internal name.
 /// ContextSize is the context window in tokens. SupportedEfforts lists the effort ids this model accepts -

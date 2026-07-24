@@ -108,6 +108,31 @@ let ``Map Compacting produces AgentCompacting`` () =
     %result.Should().BeOfType<AgentCompacting>()
 
 [<Fact>]
+let ``Map TaskStarted produces AgentTaskStarted`` () =
+
+    // Act
+    let result = map (StreamEvent.TaskStarted("task-1", "Return single word", "local_agent"))
+
+    // Assert
+    let started = result :?> AgentTaskStarted
+    %started.SessionId.Should().Be(sessionId) |> ignore
+    %started.TaskId.Should().Be("task-1") |> ignore
+    %started.Description.Should().Be("Return single word") |> ignore
+    %started.TaskType.Should().Be("local_agent")
+
+[<Fact>]
+let ``Map TaskCompleted produces AgentTaskCompleted`` () =
+
+    // Act
+    let result = map (StreamEvent.TaskCompleted("task-1", "completed", "alpha"))
+
+    // Assert
+    let completed = result :?> AgentTaskCompleted
+    %completed.TaskId.Should().Be("task-1") |> ignore
+    %completed.Status.Should().Be("completed") |> ignore
+    %completed.Summary.Should().Be("alpha")
+
+[<Fact>]
 let ``Map Thinking produces AgentThinking`` () =
 
     // Act

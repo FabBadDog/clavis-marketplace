@@ -150,6 +150,24 @@ module NdjsonParser =
             return [ThinkingTokens estimated]
         }
 
+    let private parseTaskStarted root =
+
+        result {
+            let! taskId = getValueOrDefault<string> "task_id" "" root
+            let! description = getValueOrDefault<string> "description" "" root
+            let! taskType = getValueOrDefault<string> "task_type" "" root
+            return [TaskStarted(taskId, description, taskType)]
+        }
+
+    let private parseTaskNotification root =
+
+        result {
+            let! taskId = getValueOrDefault<string> "task_id" "" root
+            let! status = getValueOrDefault<string> "status" "" root
+            let! summary = getValueOrDefault<string> "summary" "" root
+            return [TaskCompleted(taskId, status, summary)]
+        }
+
     let private systemSubtypeHandlers: Map<string, Json -> Result<StreamEvent list, ParsingError>> =
 
         Map.ofList [
@@ -159,8 +177,13 @@ module NdjsonParser =
             "api_retry", (fun _ -> Ok [ApiCallRetry])
             "compact_boundary", (fun _ -> Ok [Compacting])
             "thinking_tokens", parseThinkingTokens
+            "task_started", parseTaskStarted
+            "task_notification", parseTaskNotification
             // Hook progress is conveyed by the running hook's own spinner; recognise it so it is not an error.
             "hook_progress", (fun _ -> Ok [])
+            // Interim task transitions (running -> completed) are recognised so they are not "unknown"
+            // noise; the terminal task_notification carries the summary the tracker displays.
+            "task_updated", (fun _ -> Ok [])
         ]
 
     let private parseSystem root =

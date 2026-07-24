@@ -1,7 +1,7 @@
 ---
 name: conversation
 pluginId: Conversation
-version: 7.1.2
+version: 7.2.0
 essential: true
 apiVersion: 1.0.0
 description: The elm/flux conversation state, update, and view models.

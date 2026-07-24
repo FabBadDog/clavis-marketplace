@@ -190,6 +190,8 @@ type StreamEvent =
     | HookComplete of HookOutcome
     | PermissionRequest of PermissionRequestInfo
     | Aborted
+    | TaskStarted of taskId: string * description: string * taskType: string
+    | TaskCompleted of taskId: string * status: string * summary: string
 
 type PermissionDecision =
     | Allow of updatedPermissions: PermissionUpdate list

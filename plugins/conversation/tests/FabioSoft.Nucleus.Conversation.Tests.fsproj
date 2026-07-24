@@ -21,6 +21,7 @@
     <Compile Include="ContextWindowTests.fs" />
     <Compile Include="AgentValuesTests.fs" />
     <Compile Include="StatsColumnTests.fs" />
+    <Compile Include="SessionPhaseTests.fs" />
     <Compile Include="ConversationUpdateTests.fs" />
     <Compile Include="PermissionNavigateTests.fs" />
     <Compile Include="ConversationPluginTests.fs" />
