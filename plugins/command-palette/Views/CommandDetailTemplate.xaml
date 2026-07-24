@@ -1,11 +1,6 @@
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:rendering="clr-namespace:FabioSoft.Clavis.Rendering;assembly=FabioSoft.Clavis.Rendering">
-
-    <!-- Resolves a kind's accent key (e.g. "WarnBrush" for a skill) to its themed brush, so the kind word
-         carries its category colour. Same converter the shared BadgeTemplate uses. -->
-    <rendering:KeyToBrushConverter x:Key="KeyToBrush" />
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- The detail pane for the highlighted command: name, a kind + source line, then the full, untruncated
          description. This is where long skill descriptions get room to breathe, so the list can stay dense. -->
@@ -19,12 +14,9 @@
                        FontFamily="{DynamicResource UiFont}" />
 
             <StackPanel Orientation="Horizontal" Margin="0,7,0,12">
-                <TextBlock Text="{Binding KindBadge.Text}"
-                           FontSize="{DynamicResource MicroFontSize}"
-                           FontWeight="SemiBold"
-                           VerticalAlignment="Center"
-                           Foreground="{Binding KindBadge.AccentKey, Converter={StaticResource KeyToBrush}}"
-                           FontFamily="{DynamicResource UiFont}" />
+                <ContentControl Content="{Binding KindBadge}"
+                                ContentTemplate="{DynamicResource BadgeTemplate}"
+                                VerticalAlignment="Center" />
                 <TextBlock Text="{Binding Source}"
                            Margin="12,0,0,0"
                            FontSize="{DynamicResource MetaFontSize}"

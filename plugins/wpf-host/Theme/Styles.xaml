@@ -526,11 +526,13 @@
 
     <!-- Badge building blocks. A badge is never assembled by hand: it is the BadgeTemplate below, hosted in
          a ContentControl whose Content is a BadgeViewModel (Text + AccentKey). These two styles and the
-         converter are the template's pieces. The chip is a small square filled chip (RaisedBrush - a raised
-         grey distinct from the panel SurfaceBrush, so the badge reads as a filled chip). -->
+         converter are the template's pieces. The chip is outlined: a transparent fill with a 1px border in
+         the accent colour and accent-coloured text, square corners (house rule). The BorderBrush is bound
+         from the AccentKey in the template, since the accent is per-badge. -->
     <Style x:Key="Badge" TargetType="{x:Type Border}">
-        <Setter Property="Background" Value="{DynamicResource RaisedBrush}" />
-        <Setter Property="Padding" Value="6,3" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="7,3" />
     </Style>
 
     <!-- The badge label: Rajdhani micro, semibold, centred. The category colour arrives as a brush bound
@@ -551,7 +553,8 @@
          BadgeViewModel. A list consumer sets HorizontalContentAlignment=Stretch and stretches the host to
          its column, so a badge column shares one width; a lone badge sizes to its content. -->
     <DataTemplate x:Key="BadgeTemplate">
-        <Border Style="{StaticResource Badge}">
+        <Border Style="{StaticResource Badge}"
+                BorderBrush="{Binding AccentKey, Converter={StaticResource KeyToBrush}}">
             <TextBlock Style="{StaticResource Badge.Label}"
                        Text="{Binding Text}"
                        Foreground="{Binding AccentKey, Converter={StaticResource KeyToBrush}}" />
