@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -58,5 +59,14 @@ internal sealed class PlaceholderStatusBar
         _left.SetLimitWindows(snapshot);
         _center.SetLimitWindows(snapshot);
         _right.SetLimitWindows(snapshot);
+    }
+
+    // Wire the click action for a {limitPlane} wherever it renders across the three zones (it sits in the
+    // right zone by default, but the template is user-editable).
+    public void SetLimitPlaneClick(Action handler)
+    {
+        _left.SetLimitPlaneClick(handler);
+        _center.SetLimitPlaneClick(handler);
+        _right.SetLimitPlaneClick(handler);
     }
 }

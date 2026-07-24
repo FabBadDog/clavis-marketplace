@@ -13,13 +13,13 @@ public sealed class EventsPanelViewModel : INotifyPropertyChanged
     // through the panel's per-instance saved-state blob.
     private sealed record FilterState(int SeverityIndex, string Search);
 
-    // The severity floor options. Index 0 ("ALL") and 1 ("TRACE") both floor at Trace - ALL is the plain
-    // name for "show everything", which is why it leads and is the default. The trailing "MESSAGE" option is
-    // not a level: it isolates the non-log bus firehose (see PassesCategory).
-    private static readonly string[] SeverityLabels = ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "MESSAGE"];
+    // The severity floor options. Index 0 ("ALL") and 1 ("TRACE") both floor at Trace - ALL means "all log
+    // levels", which is why it leads and is the default. The trailing "MESSAGES" option is not a level: it
+    // isolates the non-log bus firehose (see PassesCategory).
+    private static readonly string[] SeverityLabels = ["ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "MESSAGES"];
 
-    // The MESSAGE filter sits last, after the log-level ladder. Selecting it shows only non-log bus messages;
-    // selecting any log level shows only real logs. ALL still shows both.
+    // The MESSAGES filter sits last, after the log-level ladder. Non-log bus messages show ONLY under it;
+    // every other option (ALL and each level floor) shows only real logs.
     private const int MessageIndex = 6;
 
     private readonly List<EventEntry> _allEntries = [];
@@ -206,9 +206,9 @@ public sealed class EventsPanelViewModel : INotifyPropertyChanged
             || Searchable(entry).Contains(_searchText, StringComparison.OrdinalIgnoreCase);
     }
 
-    // The level/category gate (search is layered on top). ALL shows everything; MESSAGE shows only the non-log
-    // bus firehose; any specific log level shows only real logs at or above that floor - so a bus message no
-    // longer masquerades as a DEBUG/INFO log and clutter the level the user raised the floor to.
+    // The level/category gate (search is layered on top). MESSAGES shows only the non-log bus firehose; every
+    // other option shows only real logs - ALL shows all levels, a specific level shows logs at or above that
+    // floor - so a plain bus message never masquerades as a log or clutters a raised level floor.
     private bool PassesCategory(EventEntry entry)
     {
         var index = SeverityModel.SelectedIndex;
@@ -217,12 +217,17 @@ public sealed class EventsPanelViewModel : INotifyPropertyChanged
             return !entry.IsLog;
         }
 
-        if (index <= 0)
+        if (!entry.IsLog)
         {
-            return true; // ALL
+            return false; // non-log messages appear only under the MESSAGES filter
         }
 
-        return entry.IsLog && entry.Level >= SeverityFloor;
+        if (index <= 0)
+        {
+            return true; // ALL log levels
+        }
+
+        return entry.Level >= SeverityFloor;
     }
 
     // Search matches against the whole row: its source, category, level, summary, and every continuation
@@ -282,7 +287,7 @@ public sealed class EventsPanelViewModel : INotifyPropertyChanged
         new SegmentItem("INFO", "LevelInfoBrush"),
         new SegmentItem("WARN", "LevelWarnBrush"),
         new SegmentItem("ERROR", "LevelErrorBrush"),
-        new SegmentItem("MESSAGE", "ClavisBrush")
+        new SegmentItem("MESSAGES", "MessageBrush")
     ];
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)

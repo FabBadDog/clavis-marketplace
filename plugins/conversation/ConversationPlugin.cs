@@ -98,6 +98,13 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
                 titleLeft = new PlaceholderStrip();
                 titleLeft.SetTemplate(currentTemplates.TitleLeft);
 
+                // Clicking a rendered {limitPlane} toggles the usage-limits panel, wherever the plane is
+                // placed across these strips.
+                void ToggleUsageLimits() => bus.Send(new TogglePanel("usage-limits"));
+                statusBar.SetLimitPlaneClick(ToggleUsageLimits);
+                agentCluster.SetLimitPlaneClick(ToggleUsageLimits);
+                titleLeft.SetLimitPlaneClick(ToggleUsageLimits);
+
                 bus.Send(new UiRegionContribution(
                     "main-content", "Conversation", 0,
                     () => ConversationViewFactory.CreateMainContent(viewModel, bus)));

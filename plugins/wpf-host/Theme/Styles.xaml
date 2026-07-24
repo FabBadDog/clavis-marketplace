@@ -121,6 +121,9 @@
     <SolidColorBrush x:Key="LevelInfoBrush" Color="#9FD5F0" />
     <SolidColorBrush x:Key="LevelWarnBrush" Color="#E4C47E" />
     <SolidColorBrush x:Key="LevelErrorBrush" Color="#E47E7E" />
+    <!-- Non-log bus messages: a distinct violet, apart from the severity hues (grey/green/blue/amber/red)
+         so a plain message never reads as a DEBUG or INFO log. -->
+    <SolidColorBrush x:Key="MessageBrush" Color="#C79BF0" />
 
     <!-- App-wide text-selection highlight for inputs: a soft gray band instead of WPF's default system
          blue, which clashes with the Clavis palette. This implicit style sets only the selection brush -
@@ -532,7 +535,7 @@
     <Style x:Key="Badge" TargetType="{x:Type Border}">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="7,3" />
+        <Setter Property="Padding" Value="7,2" />
     </Style>
 
     <!-- The badge label: Rajdhani micro, semibold, centred. The category colour arrives as a brush bound

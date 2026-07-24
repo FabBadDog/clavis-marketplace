@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using FabioSoft.Clavis.Rendering;
 using FabioSoft.Nucleus.Contracts;
 
@@ -306,6 +307,11 @@ internal static class EventsPanelView
 
             _scrollViewer.ScrollChanged -= OnScrollChanged;
             _scrollViewer.ScrollChanged += OnScrollChanged;
+
+            // The panel opens with accumulated history already present and the newest events at the bottom,
+            // so start scrolled all the way down (which also arms the stick-to-bottom auto-scroll). Deferred
+            // to Loaded priority so the items have laid out and ExtentHeight is real.
+            _scrollViewer.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => _scrollViewer?.ScrollToEnd()));
         }
 
         private void OnScrollChanged(object sender, ScrollChangedEventArgs e)

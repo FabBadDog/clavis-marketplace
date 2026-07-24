@@ -136,7 +136,7 @@ module EventsPanelViewModel =
 
         // Arrange
         let viewModel = EventsPanelViewModel()
-        let entry = EventEntry(now, EventCategory.Output, [||], [||])
+        let entry = logEntry LogLevel.Info "A" "a log"
 
         // Act
         viewModel.AddEntry(entry)
@@ -408,7 +408,7 @@ module LogVersusMessage =
         %message.IsLog.Should().BeFalse()
 
     [<Fact>]
-    let ``the default ALL floor shows both logs and bus messages`` () =
+    let ``the default ALL floor shows only logs, not bus messages`` () =
 
         // Arrange
         let viewModel = EventsPanelViewModel()
@@ -417,8 +417,9 @@ module LogVersusMessage =
         viewModel.AddEntry(logEntry LogLevel.Info "A" "a log")
         viewModel.AddEntry(messageEntry 1)
 
-        // Assert
-        %viewModel.FilteredEntryViewModels.Count.Should().Be(2)
+        // Assert: ALL means all log levels; a non-log bus message shows only under the MESSAGES filter
+        %viewModel.FilteredEntryViewModels.Count.Should().Be(1)
+        %viewModel.TotalCount.Should().Be(2)
 
     [<Fact>]
     let ``the MESSAGE filter shows only the non-log bus messages`` () =
@@ -429,7 +430,7 @@ module LogVersusMessage =
         viewModel.AddEntry(messageEntry 1)
 
         // Act
-        viewModel.SeverityModel.SelectedIndex <- 6 // MESSAGE
+        viewModel.SeverityModel.SelectedIndex <- 6 // MESSAGES
 
         // Assert
         %viewModel.FilteredEntryViewModels.Count.Should().Be(1)
@@ -447,7 +448,7 @@ module LogVersusMessage =
         // Act
         viewModel.SetSeverityFloor(LogLevel.Error)
 
-        // Assert: only the real Error log survives; the Error-level dead letter shows under MESSAGE/ALL only
+        // Assert: only the real Error log survives; the Error-level dead letter shows under MESSAGES only
         %viewModel.FilteredEntryViewModels.Count.Should().Be(1)
 
 module EventEntryViewModelLabels =

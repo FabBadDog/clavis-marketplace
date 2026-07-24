@@ -32,16 +32,19 @@ public sealed class EventEntryViewModel(EventEntry entry, DateTime? sessionStart
         _ => ""
     };
 
-    // The severity badge for the shared BadgeTemplate: the level word plus its palette resource key.
-    public BadgeViewModel LevelBadge => new(LevelLabel, entry.Level switch
-    {
-        LogLevel.Trace => "LevelTraceBrush",
-        LogLevel.Debug => "LevelDebugBrush",
-        LogLevel.Info => "LevelInfoBrush",
-        LogLevel.Warn => "LevelWarnBrush",
-        LogLevel.Error => "LevelErrorBrush",
-        _ => "TextBrush"
-    });
+    // The severity badge for the shared BadgeTemplate. A plain (non-log) bus message gets a distinct
+    // "MESSAGE" chip in its own colour; a real log shows the level word in the level palette.
+    public BadgeViewModel LevelBadge => entry.IsLog
+        ? new(LevelLabel, entry.Level switch
+        {
+            LogLevel.Trace => "LevelTraceBrush",
+            LogLevel.Debug => "LevelDebugBrush",
+            LogLevel.Info => "LevelInfoBrush",
+            LogLevel.Warn => "LevelWarnBrush",
+            LogLevel.Error => "LevelErrorBrush",
+            _ => "TextBrush"
+        })
+        : new("MESSAGE", "MessageBrush");
 
     public string SourceLabel => entry.Source;
 

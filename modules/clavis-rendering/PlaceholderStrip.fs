@@ -5,6 +5,7 @@ open System.Collections.Generic
 open System.Diagnostics.CodeAnalysis
 open System.Windows
 open System.Windows.Controls
+open System.Windows.Input
 open System.Windows.Media
 open System.Windows.Media.Animation
 open System.Windows.Shapes
@@ -54,6 +55,10 @@ type PlaceholderStrip() =
         Dictionary<string, string>() :> IReadOnlyDictionary<string, string>
     let mutable limitWindows: LimitWindow list = []
     let planeViews = List<LimitsPlaneView>()
+
+    // Invoked when the user clicks a rendered {limitPlane}. The host wires this to open the usage-limits
+    // panel; without it the plane is inert (no default action baked into the shared renderer).
+    let mutable onLimitPlaneClick: (unit -> unit) option = None
 
     // The previous render's per-segment content keys, so a value update can animate exactly the segments
     // whose content changed (e.g. the effort level after the agent confirms a switch).
@@ -140,7 +145,16 @@ type PlaceholderStrip() =
         let view = LimitsPlane.CreateGlyph()
         view.Update limitWindows
         planeViews.Add view
-        ContentControl(Content = view.Element, VerticalAlignment = VerticalAlignment.Center) :> UIElement
+        // A transparent Border makes the whole glyph hit-testable (the plane draws with a null fill, so
+        // clicks would otherwise pass straight through) and gives the click its hand cursor.
+        let host =
+            Border(
+                Background = Brushes.Transparent,
+                Cursor = Cursors.Hand,
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = ContentControl(Content = view.Element, VerticalAlignment = VerticalAlignment.Center))
+        host.MouseLeftButtonUp.Add(fun _ -> onLimitPlaneClick |> Option.iter (fun handler -> handler ()))
+        host :> UIElement
 
     // The bar is built directly in render (it needs its fill captured to animate the value), so it is not
     // listed here.
@@ -267,3 +281,11 @@ type PlaceholderStrip() =
         limitWindows <- List.ofSeq windows
         for view in planeViews do
             view.Update limitWindows
+
+    /// Wires the click action for a rendered {limitPlane} (the host opens the usage-limits panel). Passing
+    /// null clears it.
+    member _.SetLimitPlaneClick(handler: Action) =
+        onLimitPlaneClick <-
+            match box handler with
+            | null -> None
+            | _ -> Some(fun () -> handler.Invoke())

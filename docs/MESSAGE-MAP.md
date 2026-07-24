@@ -145,7 +145,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **ShowSlideIn** - pub: AgentGateway - sub: WpfHost
 - **SlideInClosed** - pub: WpfHost - sub: CommandPalette
 - **SlideInRegistered** - pub: WpfHost - sub: CommandPalette
-- **TogglePanel** - pub: AgentGateway - sub: WpfHost
+- **TogglePanel** - pub: AgentGateway, Conversation - sub: WpfHost
 - **WindowClosed** - pub: WpfHost - sub: _none found_
 - **WindowFocusChanged** - pub: WpfHost - sub: _none found_
 - **WindowOpened** - pub: WpfHost - sub: _none found_
@@ -200,7 +200,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - subscribes: GetConfig, GetState, SaveConfig, SaveState
 
 ### Conversation
-- publishes: DisposeSession, GetConfig, InterruptSession, LogEntry, PanelCommandsRegistered, PanelKindRegistration, PanelKindsRequested, PermissionDecided, PermissionPending, PlaceholderSnapshot, PlaceholdersRequested, PromptInputAvailability, PromptModeChanged, RegisterPlaceholderProvider, SaveConfig, SendPermissionResponse, SendPrompt, StartNewSession, StatusBarAvailability, UiRegionContribution
+- publishes: DisposeSession, GetConfig, InterruptSession, LogEntry, PanelCommandsRegistered, PanelKindRegistration, PanelKindsRequested, PermissionDecided, PermissionPending, PlaceholderSnapshot, PlaceholdersRequested, PromptInputAvailability, PromptModeChanged, RegisterPlaceholderProvider, SaveConfig, SendPermissionResponse, SendPrompt, StartNewSession, StatusBarAvailability, TogglePanel, UiRegionContribution
 - subscribes: ActivePanelChanged, AgentParsingError, AgentStreamEvent, AgentUsageReport, ConfigChanged, ConfigResult, FullRestartRequested, PanelKindRegistration, PanelKindsRequested, PermissionDecided, PlaceholderSnapshot, PlaceholdersRequested, PluginError, RegisterPlaceholderProvider, RequestPanelCommands, RunPanelCommand, UserAborted, UserCancelledQueued, UserConfirmedPermission, UserNavigatedPermission, UserSubmittedPrompt
 
 ### Environment
