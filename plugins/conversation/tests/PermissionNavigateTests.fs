@@ -31,10 +31,10 @@ let private permissionState selectedIndex isResolved =
 [<Theory>]
 [<InlineData(0, 1, 1)>] // Right: ALLOW -> suggestion
 [<InlineData(1, 1, 2)>] // Right: suggestion -> DENY
-[<InlineData(2, 1, 2)>] // Right clamps at DENY
+[<InlineData(2, 1, 0)>] // Right wraps DENY -> ALLOW
 [<InlineData(2, -1, 1)>] // Left: DENY -> suggestion
-[<InlineData(0, -1, 0)>] // Left clamps at ALLOW
-let ``HandlePermissionNavigate moves the selection within bounds`` (start, delta, expected) =
+[<InlineData(0, -1, 2)>] // Left wraps ALLOW -> DENY
+let ``HandlePermissionNavigate wraps the selection around the ends`` (start, delta, expected) =
 
     // Arrange
     let state = permissionState start false

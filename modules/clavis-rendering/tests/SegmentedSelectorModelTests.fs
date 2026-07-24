@@ -46,7 +46,7 @@ let ``SelectedIndex clamps above the range`` () =
     %model.SelectedIndex.Should().Be(2)
 
 [<Fact>]
-let ``MoveSelection clamps at both bounds`` () =
+let ``MoveSelection wraps around at both bounds`` () =
 
     // Arrange
     let model, _ = build ()
@@ -60,8 +60,8 @@ let ``MoveSelection clamps at both bounds`` () =
     let high = model.SelectedIndex
 
     // Assert
-    %low.Should().Be(0)
-    %high.Should().Be(2)
+    %low.Should().Be(2)
+    %high.Should().Be(0)
 
 [<Fact>]
 let ``SelectionChanged fires only when the index moves`` () =

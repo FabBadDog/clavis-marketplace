@@ -173,6 +173,7 @@ type SlideInHost(edge: string) as this =
             (fun point -> dragFellThrough.Trigger(this, DragFellThrough(panelId, point)))
             (fun () -> dragCompleted.Trigger(this, EventArgs.Empty))
             (fun () -> obj.ReferenceEquals(content.Content, view))
+            None
 
     member _.View = content.Content :?> FrameworkElement
 

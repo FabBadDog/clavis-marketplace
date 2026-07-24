@@ -413,7 +413,7 @@ type DockingSurface() as this =
     // matter where on the tab the press lands. The drag mechanics are the shared PanelHandle.attachDrag; this
     // surface only projects its events onto the surface's own event stream, and answers "is the panel still
     // mine?" from panelViews so the cross-window / tear-off fallback fires only when the drop moved nothing.
-    let attachPanelDrag (element: FrameworkElement) (panelId: Guid) =
+    let attachPanelDrag (element: FrameworkElement) (panelId: Guid) (contentGuard: FrameworkElement option) =
         PanelHandle.attachDrag
             element
             panelId
@@ -421,6 +421,7 @@ type DockingSurface() as this =
             (fun point -> dragFellThrough.Trigger(this, DragFellThrough(panelId, point)))
             (fun () -> dragCompleted.Trigger(this, EventArgs.Empty))
             (fun () -> panelViews.ContainsKey panelId)
+            contentGuard
 
     let rec renderNode (node: LayoutNode) : FrameworkElement =
         if DockingModel.isLeaf node then
@@ -483,7 +484,7 @@ type DockingSurface() as this =
         // a slide-in read and behave identically.
         let handleBar = PanelHandle.buildBar (buildTabHeader slot)
         host.Children.Add(handleBar) |> ignore
-        attachPanelDrag handleBar slot.PanelId
+        attachPanelDrag handleBar slot.PanelId None
         PanelHandle.attachHoverReveal host handleBar
 
         host :> FrameworkElement
@@ -503,12 +504,16 @@ type DockingSurface() as this =
             // Not a tab stop: a tab header is switched by click, not Tab traversal, which lands only on the
             // panels' interactive controls.
             let item = TabItem(Header = buildTabHeader slot, Style = tabItemStyle, IsTabStop = false)
-            match panelViews.TryGetValue slot.PanelId with
-            | true, view -> item.Content <- view
-            | _ -> ()
-            // The whole tab is the drag handle, not just its inner label, so a press anywhere on the tab
-            // arms the drag (the fix for "drag only works on the second try").
-            attachPanelDrag item slot.PanelId
+            let contentGuard =
+                match panelViews.TryGetValue slot.PanelId with
+                | true, view ->
+                    item.Content <- view
+                    Some(view :> FrameworkElement)
+                | _ -> None
+            // The whole tab header is the drag handle, not just its inner label, so a press anywhere on the
+            // tab arms the drag (the fix for "drag only works on the second try") - but a press in the panel
+            // body is guarded out (contentGuard) so the content is never a drag surface.
+            attachPanelDrag item slot.PanelId contentGuard
             tabControl.Items.Add(item) |> ignore
 
         if node.Panels.Length > 0 then

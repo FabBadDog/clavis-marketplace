@@ -11,8 +11,8 @@ public static partial class ConversationUpdate
     public static bool HasPendingPermission(ConversationState state) => PendingPermission(state) is not null;
 
     /// Move the highlighted choice of the pending permission prompt by delta (Left = -1, Right = +1),
-    /// clamped to the available options. A no-op when nothing is awaiting a decision, so stray arrow
-    /// keys never mutate resolved history.
+    /// wrapping around the ends so the prompt is a roundtrip (Left on ALLOW lands on DENY and vice-versa).
+    /// A no-op when nothing is awaiting a decision, so stray arrow keys never mutate resolved history.
     public static (ConversationState State, ConversationEffect[] Effects) HandlePermissionNavigate(
         ConversationState state, int delta)
     {
@@ -21,9 +21,15 @@ public static partial class ConversationUpdate
             return (state, NoEffects);
         }
 
-        var lastIndex = Math.Max(0, pending.Permission.Options.Count - 1);
-        var newIndex = Math.Clamp(pending.Permission.SelectedIndex + delta, 0, lastIndex);
-        if (newIndex == pending.Permission.SelectedIndex)
+        var count = pending.Permission.Options.Count;
+        if (count == 0)
+        {
+            return (state, NoEffects);
+        }
+
+        var current = pending.Permission.SelectedIndex;
+        var newIndex = (((current + delta) % count) + count) % count;
+        if (newIndex == current)
         {
             return (state, NoEffects);
         }

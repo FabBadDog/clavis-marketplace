@@ -119,7 +119,16 @@ module PanelHandle =
         (onFellThrough: Point -> unit)
         (onCompleted: unit -> unit)
         (isOwned: unit -> bool)
+        (contentGuard: FrameworkElement option)
         =
+        // A drag arms only from the tab header / handle, never the panel body: skip the press when it
+        // originates inside the guarded content view. Confines the gesture to the header even where the
+        // press routes through the drag element, so a panel is not accidentally repositioned by a body drag.
+        let pressWithinContent (source: obj) =
+            match contentGuard, source with
+            | Some content, (:? Visual as visual) -> content.IsAncestorOf visual
+            | _ -> false
+
         // The OS shows the no-drop cursor whenever no target sets an effect - which is always when dragging
         // over a window that never registered as a drop target. Suppress it so a cross-window drag reads as
         // valid; the host paints the actual drop-zone overlay on the window under the cursor.
@@ -135,7 +144,9 @@ module PanelHandle =
 
         let mutable dragOrigin: Point option = None
         let mutable dragging = false
-        element.PreviewMouseLeftButtonDown.Add(fun args -> dragOrigin <- Some(args.GetPosition(element)))
+        element.PreviewMouseLeftButtonDown.Add(fun args ->
+            if not (pressWithinContent args.OriginalSource) then
+                dragOrigin <- Some(args.GetPosition(element)))
         element.PreviewMouseLeftButtonUp.Add(fun _ -> dragOrigin <- None)
         element.PreviewMouseMove.Add(fun args ->
             match dragOrigin with

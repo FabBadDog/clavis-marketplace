@@ -66,9 +66,12 @@ type SegmentedSelectorModel(items: IReadOnlyList<SegmentItem>) as this =
                 propertyChanged.Trigger(this, PropertyChangedEventArgs("SelectedIndex"))
                 selectionChanged.Trigger(this, next)
 
-    /// Move the selection by delta, clamped to the option range (Left/Right navigation).
+    /// Move the selection by delta, wrapping around the ends (Left/Right navigation): past the last option
+    /// lands on the first and vice-versa, so the selector is a roundtrip.
     member this.MoveSelection(delta: int) =
-        this.SelectedIndex <- selectedIndex + delta
+        if items.Count > 0 then
+            let start = if selectedIndex < 0 then 0 else selectedIndex
+            this.SelectedIndex <- (((start + delta) % items.Count) + items.Count) % items.Count
 
     /// A user click on an option: select it (raising SelectionChanged when it moves) and signal a
     /// deliberate choice via Committed even when the index did not change.
