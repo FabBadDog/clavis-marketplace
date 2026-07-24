@@ -111,12 +111,9 @@
 
             <TextBlock Grid.Column="0"
                        Text="{Binding Title}"
-                       FontSize="15"
-                       FontWeight="Medium"
+                       Style="{DynamicResource Selector.ItemTitle}"
                        VerticalAlignment="Top"
-                       Margin="0,0,12,0"
-                       Foreground="{DynamicResource TextBrightBrush}"
-                       FontFamily="{DynamicResource UiFont}" />
+                       Margin="0,0,12,0" />
 
             <TextBlock Grid.Column="1"
                        Text="{Binding Kind}"

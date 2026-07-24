@@ -113,6 +113,18 @@
         <Setter Property="Foreground" Value="{DynamicResource TextDimBrush}" />
     </Style>
 
+    <!-- The primary title of a selector row (the command palette and every Selection picker run on the same
+         SelectorWindow). One style so every list-selection popup renders its main label identically - font,
+         size, weight and bright foreground - and the two can never drift apart. A row that needs a different
+         foreground (a per-item accent colour) overrides just that Setter locally. Alignment/margins/wrapping
+         stay per-template, since rows differ in whether they are single-line or wrap. -->
+    <Style x:Key="Selector.ItemTitle" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}" />
+    </Style>
+
     <!-- Log-severity palette, shared by the events-panel filter and the log rows so a level reads the same
          colour in both places. Reuses the palette: dim trace, green debug, blue info, yellow warn, red error.
          ALL is shown in the plain bright text brush (nothing hidden, no severity). -->

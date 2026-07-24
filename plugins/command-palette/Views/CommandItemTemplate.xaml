@@ -4,7 +4,8 @@
 
     <!-- The master-list row: command name + its shortcut. Kind, source and the full description live in the
          detail pane (CommandDetailTemplate) for the highlighted row, so the list stays a dense, scannable
-         column with no badges, boxes or column rules. The name brightens when the row is selected. -->
+         column with no badges, boxes or column rules. The name uses the shared Selector.ItemTitle style so it
+         reads identically to the panel picker and the other Selection popups. -->
     <DataTemplate x:Key="CommandItemTemplate">
         <Grid Margin="0,1">
             <Grid.ColumnDefinitions>
@@ -12,16 +13,12 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <TextBlock x:Name="NameText"
-                       Grid.Column="0"
+            <TextBlock Grid.Column="0"
                        Text="{Binding DisplayName}"
-                       FontSize="15"
-                       FontWeight="Medium"
+                       Style="{DynamicResource Selector.ItemTitle}"
                        VerticalAlignment="Center"
                        TextTrimming="CharacterEllipsis"
-                       Margin="0,0,12,0"
-                       Foreground="{DynamicResource TextBrush}"
-                       FontFamily="{DynamicResource UiFont}" />
+                       Margin="0,0,12,0" />
 
             <TextBlock Grid.Column="1"
                        Text="{Binding Shortcut}"
@@ -30,12 +27,6 @@
                        Foreground="{DynamicResource HumanBrush}"
                        FontFamily="{DynamicResource MonoFont}" />
         </Grid>
-
-        <DataTemplate.Triggers>
-            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}, Path=IsSelected}" Value="True">
-                <Setter TargetName="NameText" Property="Foreground" Value="{DynamicResource TextBrightBrush}" />
-            </DataTrigger>
-        </DataTemplate.Triggers>
     </DataTemplate>
 
 </ResourceDictionary>
