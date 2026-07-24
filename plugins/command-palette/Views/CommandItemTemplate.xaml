@@ -3,11 +3,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- The master-list row: command name + its shortcut. Kind, source and the full description live in the
-         detail pane (CommandDetailTemplate) for the highlighted row, so the list stays a dense, scannable
-         column with no badges, boxes or column rules. The name uses the shared Selector.ItemTitle style so it
-         reads identically to the panel picker and the other Selection popups. -->
+         detail pane (CommandDetailTemplate) for the highlighted row, so the list stays a clean, scannable
+         column with no badges, boxes or column rules. The name uses the shared Selector.ItemTitle style and
+         the row shares the panel picker's vertical rhythm (Margin 0,5), so the two popups read identically. -->
     <DataTemplate x:Key="CommandItemTemplate">
-        <Grid Margin="0,1">
+        <Grid Margin="0,5">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
