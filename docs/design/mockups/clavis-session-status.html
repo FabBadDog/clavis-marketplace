@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CLAVIS · Session status &amp; task signals</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Clavis default palette (from Theme/Styles.xaml) — a committed dark sci-fi world. */
+    --bg: #0A0A0F;
+    --panel: #14141C;
+    --panel-deep: #0E0E14;
+    --rail: #1B1B22;
+    --raised: #36363F;
+    --line: #282834;
+    --line-soft: #1e1e27;
+    --frame: #5A5A66;
+
+    --text: #C8C8D0;
+    --text-bright: #E8E8EC;
+    --text-dim: #9A9AA4;
+
+    --clavis: #9FD5F0;   /* primary accent — light blue */
+    --violet: #C79BF0;   /* message / distinct */
+    --human: #ADA6F2;
+    --green: #7BD49B;
+    --yellow: #E4C47E;
+    --red: #E47E7E;
+
+    --agent-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --ui-font: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+    --mono-font: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1100px 600px at 78% -10%, #16161f 0%, rgba(22,22,31,0) 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--agent-font);
+    font-weight: 400;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 64px 28px 96px;
+  }
+
+  /* ---- Type ---- */
+  .eyebrow {
+    font-family: var(--ui-font);
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--clavis);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(90deg, var(--line) 0%, transparent 100%);
+  }
+
+  h1 {
+    font-family: var(--ui-font);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.05;
+    margin: 18px 0 10px;
+    color: var(--text-bright);
+    text-wrap: balance;
+  }
+  h1 .accent { color: var(--clavis); }
+
+  .lede {
+    font-size: 17px;
+    max-width: 62ch;
+    color: var(--text);
+    margin: 0;
+  }
+  .lede b { color: var(--text-bright); font-weight: 600; }
+
+  h2 {
+    font-family: var(--ui-font);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin: 0 0 4px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  h2 .idx {
+    color: var(--clavis);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    opacity: 0.85;
+  }
+  .section-note {
+    color: var(--text-dim);
+    font-size: 14.5px;
+    margin: 0 0 20px;
+    max-width: 64ch;
+  }
+
+  section { margin-top: 56px; }
+
+  code, .mono { font-family: var(--mono-font); }
+  .k { color: var(--clavis); }
+  .s { color: var(--green); }
+  .dim { color: var(--text-dim); }
+
+  /* ---- Subtype cards ---- */
+  .subtypes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 26px;
+  }
+  @media (max-width: 720px) { .subtypes { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 16px 16px 18px;
+  }
+  .card .tag {
+    font-family: var(--mono-font);
+    font-size: 12.5px;
+    color: var(--violet);
+    display: block;
+    margin-bottom: 10px;
+    word-break: break-word;
+  }
+  .card p { margin: 0; font-size: 14px; color: var(--text); }
+  .card .payload {
+    margin-top: 12px;
+    font-family: var(--mono-font);
+    font-size: 11.5px;
+    color: var(--text-dim);
+    background: var(--panel-deep);
+    border-left: 2px solid var(--line);
+    padding: 8px 10px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .confirmed { color: var(--green); }
+  .spec { color: var(--yellow); }
+
+  .pill-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--ui-font);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+    padding: 4px 9px;
+    margin-top: 14px;
+  }
+
+  /* ---- Preview frame: a slice of the real app ---- */
+  .preview {
+    margin-top: 20px;
+    border: 1px solid var(--line);
+    background: var(--panel-deep);
+  }
+  .preview .caption {
+    font-family: var(--ui-font);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--line-soft);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .preview .caption .loc { color: var(--clavis); }
+  .stage {
+    padding: 26px 22px;
+    background:
+      radial-gradient(700px 300px at 85% 0%, #17171f 0%, rgba(0,0,0,0) 70%),
+      var(--bg);
+  }
+
+  /* window chrome bits reused across previews */
+  .statusbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--panel-deep);
+    border-top: 1px solid var(--line);
+    padding: 8px 14px;
+    font-family: var(--mono-font);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .statusbar .spacer { flex: 1; }
+
+  .dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;      /* a dot is a circle, never a box */
+    flex: 0 0 auto;
+    display: inline-block;
+  }
+  .dot.pulse { animation: breathe 1.9s ease-in-out infinite; }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.35; transform: scale(0.82); }
+    50%      { opacity: 1;    transform: scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dot.pulse { animation: none; opacity: 0.9; }
+  }
+
+  .phase {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--ui-font);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    font-size: 12.5px;
+  }
+
+  /* phase legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin-top: 20px;
+    padding: 16px 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+  .legend .row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: var(--ui-font);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 12px;
+  }
+  .legend .row .val { color: var(--text-bright); }
+  .legend .row .meta {
+    font-family: var(--mono-font);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* rail whisper */
+  .turnrow { display: grid; grid-template-columns: 72px 20px 1fr; align-items: start; }
+  .stats { text-align: right; font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); padding-top: 2px; padding-right: 10px; font-variant-numeric: tabular-nums; }
+  .railcol { position: relative; display: flex; flex-direction: column; align-items: center; }
+  .railcol .line { position: absolute; top: 12px; bottom: -6px; width: 1px; background: var(--raised); }
+  .railcol .rdot { width: 8px; height: 8px; border-radius: 50%; background: var(--clavis); margin-top: 3px; z-index: 1; }
+  .content .req { color: var(--text-bright); font-size: 14px; }
+  .content .whisper {
+    font-family: var(--ui-font);
+    font-weight: 500;
+    text-transform: lowercase;
+    letter-spacing: 0.06em;
+    font-size: 12px;
+    color: var(--clavis);
+    opacity: 0.85;
+    margin-left: 2px;
+  }
+  .content .agent { color: var(--text); font-size: 14px; margin-top: 6px; }
+
+  /* task tracker */
+  .tasktray { position: relative; display: inline-flex; flex-direction: column; align-items: flex-end; gap: 0; width: 100%; }
+  .taskpill {
+    align-self: flex-end;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--ui-font); font-weight: 500; text-transform: uppercase; letter-spacing: 0.11em; font-size: 12px;
+    color: var(--text); border: 1px solid var(--line); padding: 5px 11px; background: var(--panel);
+  }
+  .taskpill .n { color: var(--clavis); font-variant-numeric: tabular-nums; }
+  .taskpop {
+    margin-top: 8px; width: min(420px, 100%);
+    background: var(--panel); border: 1px solid var(--frame);
+  }
+  .taskpop .head {
+    font-family: var(--ui-font); font-weight: 500; text-transform: uppercase; letter-spacing: 0.13em; font-size: 11px;
+    color: var(--text-dim); padding: 9px 13px; border-bottom: 1px solid var(--line-soft);
+  }
+  .task {
+    display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 11px;
+    padding: 11px 13px; border-bottom: 1px solid var(--line-soft);
+  }
+  .task:last-child { border-bottom: 0; }
+  .task .desc { font-size: 13.5px; color: var(--text-bright); }
+  .task .kind { font-family: var(--mono-font); font-size: 11px; color: var(--text-dim); }
+  .task .state { font-family: var(--ui-font); font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px; }
+  .check {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--green); color: #0A0A0F; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700;
+  }
+
+  /* unified line above prompt */
+  .promptmock { background: var(--panel-deep); }
+  .activity-line {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 14px; border-bottom: 1px solid var(--line-soft);
+    font-family: var(--ui-font); font-weight: 500; text-transform: uppercase; letter-spacing: 0.11em; font-size: 12px; color: var(--text-dim);
+  }
+  .activity-line .sep { color: var(--raised); }
+  .activity-line .live { color: var(--clavis); }
+  .promptbox {
+    padding: 14px; color: var(--text-dim); font-family: var(--mono-font); font-size: 13px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .promptbox .caret { color: var(--clavis); }
+
+  /* recommendation */
+  .rec {
+    margin-top: 26px; background: var(--panel);
+    border: 1px solid var(--line); border-left: 3px solid var(--clavis);
+    padding: 20px 22px;
+  }
+  .rec h3 {
+    font-family: var(--ui-font); font-weight: 600; text-transform: uppercase; letter-spacing: 0.13em; font-size: 13px;
+    color: var(--clavis); margin: 0 0 10px;
+  }
+  .rec p { margin: 0 0 10px; font-size: 14.5px; }
+  .rec ul { margin: 0; padding-left: 18px; }
+  .rec li { font-size: 14px; margin-bottom: 7px; }
+  .rec li b { color: var(--text-bright); }
+
+  footer {
+    margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
+    font-family: var(--mono-font); font-size: 12px; color: var(--text-dim);
+  }
+  footer b { color: var(--green); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Design mockup · not yet built</div>
+  <h1>Surfacing <span class="accent">session status</span> &amp; background tasks</h1>
+  <p class="lede">Claude Code emits three <code class="mono k">system</code> subtypes Clavis currently drops as
+    "unknown" debug noise. Here is what they carry, and <b>ideas for turning them into visible signal</b> —
+    pick a direction and I'll build it.</p>
+
+  <section>
+    <h2><span class="idx">00</span> What the subtypes actually carry</h2>
+    <p class="section-note">Captured live from a real <code class="mono">--output-format stream-json</code>
+      session. Only <code class="mono">status:"requesting"</code> was observed — the field is an open string,
+      so the design must degrade gracefully to any value that arrives.</p>
+
+    <div class="subtypes">
+      <div class="card">
+        <span class="tag">system · status</span>
+        <p>A coarse <b>session phase</b> — the agent announcing what it is doing right now.</p>
+        <div class="payload">{ status: <span class="s">"requesting"</span> }</div>
+        <div class="pill-note"><span class="dot confirmed" style="background:var(--green)"></span>&nbsp;confirmed: requesting</div>
+      </div>
+      <div class="card">
+        <span class="tag">system · task_started</span>
+        <p>A <b>background subagent / task</b> began — carries a human description and a task type.</p>
+        <div class="payload">{ description: <span class="s">"Print alpha via bash"</span>, task_type: <span class="s">"local_bash"</span> }</div>
+        <div class="pill-note"><span class="dot" style="background:var(--clavis)"></span>&nbsp;subagent work</div>
+      </div>
+      <div class="card">
+        <span class="tag">system · task_notification</span>
+        <p>That task <b>finished</b> — carries its terminal status and a one-line summary.</p>
+        <div class="payload">{ status: <span class="s">"completed"</span>, summary: <span class="s">"…"</span> }</div>
+        <div class="pill-note"><span class="dot" style="background:var(--green)"></span>&nbsp;task done</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="idx">01</span> Phase pill in the status bar</h2>
+    <p class="section-note">The lightest touch for <code class="mono">status</code>: a breathing circle plus the
+      phase word, right-aligned in the status bar. Colour-coded, and it simply hides when the session is idle.
+      Fits the existing status bar with no new surface.</p>
+
+    <div class="preview">
+      <div class="caption">shown in · <span class="loc">status-bar-right</span></div>
+      <div class="stage" style="padding:0">
+        <div class="statusbar">
+          <span>clavis-marketplace · main</span>
+          <span class="spacer"></span>
+          <span class="phase" style="color:var(--clavis)"><span class="dot pulse" style="background:var(--clavis)"></span>Requesting</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="row"><span class="dot pulse" style="background:var(--clavis)"></span><span class="val">Requesting</span><span class="meta">confirmed</span></div>
+      <div class="row"><span class="dot" style="background:var(--green)"></span><span class="val">Responding</span><span class="meta">speculative</span></div>
+      <div class="row"><span class="dot" style="background:var(--yellow)"></span><span class="val">Compacting</span><span class="meta">speculative</span></div>
+      <div class="row"><span class="dot" style="background:var(--red)"></span><span class="val">Waiting</span><span class="meta">speculative</span></div>
+      <div class="row"><span class="dot" style="background:var(--raised)"></span><span class="val" style="color:var(--text-dim)">Ready / idle</span><span class="meta">hidden</span></div>
+    </div>
+    <p class="section-note" style="margin-top:16px">Unknown values fall back to a neutral dot and the raw word
+      (title-cased), so a new phase we've never seen still reads correctly instead of vanishing.</p>
+  </section>
+
+  <section>
+    <h2><span class="idx">02</span> Rail whisper</h2>
+    <p class="section-note">The turn rail already carries a breathing indicator. This lets <code class="mono">status</code>
+      speak <em>in place</em>: a faint phase word beside the active turn's rail dot, changing as the phase moves.
+      Zero new chrome — it rides the timeline you already read.</p>
+
+    <div class="preview">
+      <div class="caption">shown in · <span class="loc">turn rail (stats + rail column)</span></div>
+      <div class="stage">
+        <div class="turnrow">
+          <div class="stats">4.2s<br>1,284</div>
+          <div class="railcol"><span class="line"></span><span class="rdot"></span></div>
+          <div class="content">
+            <div class="req">Summarize the failing test and propose a fix.</div>
+            <div class="agent"><span class="dot pulse" style="background:var(--clavis);margin-right:7px"></span><span class="whisper">requesting…</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="idx">03</span> Background task tracker</h2>
+    <p class="section-note">For <code class="mono">task_started</code> / <code class="mono">task_notification</code> —
+      the signal Clavis has no other way to show. A small count pill that expands to the live task list: a breathing
+      dot while running, flipping to a green check with its summary when the notification lands, then fading out.</p>
+
+    <div class="preview">
+      <div class="caption">shown in · <span class="loc">status-bar-right → popover</span></div>
+      <div class="stage">
+        <div class="tasktray">
+          <span class="taskpill"><span class="dot pulse" style="background:var(--clavis)"></span><span class="n">2</span>&nbsp;Tasks</span>
+          <div class="taskpop">
+            <div class="head">Background tasks</div>
+            <div class="task">
+              <span class="dot pulse" style="background:var(--clavis)"></span>
+              <span class="desc">Print alpha via bash</span>
+              <span class="kind">local_bash</span>
+            </div>
+            <div class="task">
+              <span class="check">✓</span>
+              <span class="desc">Print beta via bash</span>
+              <span class="state" style="color:var(--green)">done</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="idx">04</span> Unified activity line</h2>
+    <p class="section-note">If you'd rather see both at once: a thin strip above the prompt input that fuses the
+      phase and the running-task count into one live line. Denser, one glance for "what is it doing".</p>
+
+    <div class="preview">
+      <div class="caption">shown in · <span class="loc">above the prompt input</span></div>
+      <div class="stage" style="padding:22px">
+        <div class="promptmock">
+          <div class="activity-line">
+            <span class="dot pulse" style="background:var(--clavis)"></span>
+            <span class="live">Requesting</span>
+            <span class="sep">·</span>
+            <span>1 task running</span>
+          </div>
+          <div class="promptbox"><span class="caret">›</span> ask clavis anything…</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="idx">05</span> My recommendation</h2>
+    <div class="rec">
+      <h3>Pair 01 + 03, design for the unknown</h3>
+      <p>The two signals are different in kind, so give each its natural home rather than cramming both into
+        one widget:</p>
+      <ul>
+        <li><b>Phase pill (01)</b> for <code class="mono">status</code> — a session-level "what am I doing"
+          belongs in the status bar. Map known phases to colours; render any unknown value with a neutral dot
+          and its raw word, so we're future-proof against phases we can't see today.</li>
+        <li><b>Task tracker (03)</b> for <code class="mono">task_*</code> — these are discrete, countable units
+          of work with a start and an end, which a count-pill-plus-list models exactly.</li>
+        <li>Under the hood all three subtypes get <b>recognized</b> (mapped to real
+          <code class="mono">Agent*</code> contract events via the bridge), so they stop logging as "unknown"
+          regardless of how much UI we surface.</li>
+      </ul>
+      <p style="margin-bottom:0">Rail whisper (02) and the unified line (04) are lower-effort fallbacks if you'd
+        prefer to touch fewer surfaces — say the word and I'll adjust.</p>
+    </div>
+  </section>
+
+  <footer>
+    Scope: this mockup covers only the <b>status / task subtype</b> question. The other six adjustments
+    (limit-plane click, badge -10%, mono font -10%, selector roundtrip, events filter, panel-drag guard) are
+    already implemented and pass CompileTest (37/37 items, 22/22 test suites).
+  </footer>
+</div>
+</body>
+</html>
