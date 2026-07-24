@@ -57,6 +57,52 @@ let ``parse with assistant tool_use returns ToolUse event`` () =
     events.Should().Contain(ToolUse { Name = "Read"; ToolUseId = "t1"; Input = "CLAUDE.md"; FullInput = (Json.Object [ "file_path", Json.String "CLAUDE.md" ]).ToString() })
 
 [<Fact>]
+let ``parse Skill tool_use puts skill and args in the header and keeps no detail`` () =
+
+    // Arrange
+    let json =
+        assistantMessage [|
+            toolUseItem "s1" "Skill" (Json.Object [ "skill", Json.String "todos"; "args", Json.String "list inbox todos" ])
+        |] |> toLine
+
+    // Act
+    let events = NdjsonParser.parse json |> List.choose Result.toOption
+
+    // Assert
+    events.Should().Contain(ToolUse { Name = "Skill"; ToolUseId = "s1"; Input = "todos · list inbox todos"; FullInput = "" })
+
+[<Fact>]
+let ``parse Skill tool_use with no args shows only the skill name`` () =
+
+    // Arrange
+    let json =
+        assistantMessage [| toolUseItem "s2" "Skill" (Json.Object [ "skill", Json.String "handoff"; "args", Json.String "" ]) |]
+        |> toLine
+
+    // Act
+    let events = NdjsonParser.parse json |> List.choose Result.toOption
+
+    // Assert
+    events.Should().Contain(ToolUse { Name = "Skill"; ToolUseId = "s2"; Input = "handoff"; FullInput = "" })
+
+[<Fact>]
+let ``parse PowerShell tool_use shortens a script invocation to its basename`` () =
+
+    // Arrange
+    let command = "& \"C:\\Users\\x\\.claude\\skills\\todos\\scripts\\Sync-Todoist.ps1\" -Action Sync"
+    let json =
+        assistantMessage [| toolUseItem "p1" "PowerShell" (Json.Object [ "command", Json.String command ]) |]
+        |> toLine
+
+    // Act
+    let events = NdjsonParser.parse json |> List.choose Result.toOption
+
+    // Assert
+    match events |> List.tryPick (function ToolUse t -> Some t | _ -> None) with
+    | Some t -> t.Input.Should().Be("Sync-Todoist.ps1 -Action Sync")
+    | None -> failwith "Expected a ToolUse event"
+
+[<Fact>]
 let ``parse with assistant thinking returns Thinking event`` () =
 
     // Arrange

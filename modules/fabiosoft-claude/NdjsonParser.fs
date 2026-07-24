@@ -1,6 +1,8 @@
 namespace FabioSoft.Claude
 
 open System
+open System.IO
+open System.Text.RegularExpressions
 open FabioSoft.Json
 open FsToolkit.ErrorHandling
 
@@ -39,10 +41,30 @@ module NdjsonParser =
             | None -> return None
         }
 
+    // Condense a shell command for the collapsed tool header: collapse whitespace to a single line, rewrite
+    // a `& "…\Script.ext" rest` invocation to just `Script.ext rest` (the full path is in the expandable
+    // detail), and cap the length. The untruncated command is preserved in FullInput.
+    let private shortenCommand (command: string) =
+
+        let singleLine = Regex.Replace(command, @"\s+", " ").Trim()
+        let simplified =
+            let invocation = Regex.Match(singleLine, "^&\\s+[\"']([^\"']+)[\"']\\s*(.*)$")
+            if invocation.Success then
+                let baseName = Path.GetFileName(invocation.Groups[1].Value)
+                (baseName + " " + invocation.Groups[2].Value).Trim()
+            else
+                singleLine
+
+        FabioSoft.Common.String.shorten 90 simplified
+
     let private summarizeToolInput (name: string) (input: Json) =
 
         result {
             match name with
+            | "Skill" ->
+                let! skill = getValueOrDefault<string> "skill" "" input
+                let! args = getValueOrDefault<string> "args" "" input
+                return if args = "" then skill else $"{skill} · {args}"
             | "Read" | "Glob" | "Grep" ->
                 let! filePath = tryGetValue<string> "file_path" input
                 match filePath with
@@ -58,7 +80,7 @@ module NdjsonParser =
                 return! getValueOrDefault<string> "file_path" "" input
             | "Bash" | "PowerShell" ->
                 let! command = tryGetValue<string> "command" input
-                return command |> Option.defaultValue ""
+                return command |> Option.defaultValue "" |> shortenCommand
             | _ ->
                 return ""
         }
@@ -235,9 +257,12 @@ module NdjsonParser =
                     match inputProperty with
                     | Some inputElement -> summarizeToolInput name inputElement
                     | None -> Ok ""
-                // The full, untruncated input (raw JSON) for the expand-to-detail view.
+                // The full, untruncated input (raw JSON) for the expand-to-detail view. A Skill call carries
+                // nothing beyond the skill + args already in the header, so it gets no detail (no expand).
                 let fullInput =
-                    inputProperty |> Option.map (fun json -> json.ToString()) |> Option.defaultValue ""
+                    match name with
+                    | "Skill" -> ""
+                    | _ -> inputProperty |> Option.map (fun json -> json.ToString()) |> Option.defaultValue ""
                 return [ToolUse { Name = name; ToolUseId = toolUseId; Input = input; FullInput = fullInput }]
             | Some "text" ->
                 let! text = getValueOrDefault<string> "text" "" item

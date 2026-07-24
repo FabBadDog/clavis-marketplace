@@ -41,8 +41,8 @@ public sealed class ToolItemViewModel : ObservableObject
     {
         get
         {
-            var input = _state.FullArguments ?? "";
-            var output = _state.FullOutput ?? "";
+            var input = JsonPretty.Format(_state.FullArguments);
+            var output = JsonPretty.Format(_state.FullOutput);
             if (input.Length > 0 && output.Length > 0)
             {
                 return $"{input}\n\n{output}";

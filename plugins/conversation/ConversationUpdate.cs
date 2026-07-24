@@ -548,6 +548,11 @@ public static partial class ConversationUpdate
                 return item;
             }
 
+            // A skill call's result is a trivial "Launching skill: X" acknowledgement; keep no detail so the
+            // row stays header-only (no expand), matching its suppressed input.
+            var isSkill = ti.Tool.Name == "Skill";
+            var effectiveFullOutput = isSkill ? "" : fullOutput;
+
             if (isDenied)
             {
                 return new ToolItem(ti.Tool with
@@ -557,7 +562,7 @@ public static partial class ConversationUpdate
                     StatusText = "DENIED",
                     IsDenied = true,
                     Output = summary,
-                    FullOutput = fullOutput
+                    FullOutput = effectiveFullOutput
                 });
             }
 
@@ -569,7 +574,7 @@ public static partial class ConversationUpdate
                 IsActive = false,
                 Duration = effectiveDuration,
                 Output = summary,
-                FullOutput = fullOutput
+                FullOutput = effectiveFullOutput
             });
         }
     }

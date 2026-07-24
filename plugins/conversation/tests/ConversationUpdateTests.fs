@@ -1082,6 +1082,21 @@ module DetailedOutput =
         %tool.FullOutput.Should().Be("hi\nfull output")
 
     [<Fact>]
+    let ``a skill tool keeps no detail so its row does not expand`` () =
+
+        // Act - the parser suppresses a skill's full input; the update must also drop the trivial
+        // "Launching skill" result, so the row has no detail and offers no expand.
+        let struct (s1, _) = handle activeState (AgentToolUse(Guid.Empty, "Skill", "sk1", "todos · list inbox todos", ""))
+        let struct (s2, _) = handle s1 (AgentToolResult(Guid.Empty, "sk1", "Launching skill: todos", "Launching skill: todos", TimeSpan.Zero))
+
+        // Assert
+        let tool =
+            items s2
+            |> Seq.pick (function :? ToolItem as t when t.Tool.ToolUseId = "sk1" -> Some t.Tool | _ -> None)
+        %tool.FullArguments.Should().Be("") |> ignore
+        %tool.FullOutput.Should().Be("")
+
+    [<Fact>]
     let ``thinking tokens are recorded on the session`` () =
 
         // Act
