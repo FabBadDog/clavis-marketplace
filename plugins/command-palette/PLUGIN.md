@@ -1,7 +1,7 @@
 ---
 name: command-palette
 pluginId: CommandPalette
-version: 1.1.0
+version: 1.1.1
 apiVersion: 1.0.0
 description: Keyboard-first command palette and primary input surface.
 dependencies:
@@ -9,7 +9,7 @@ dependencies:
   - { name: session-contracts, version: 2 }
   - { name: services-contracts, version: 1 }
   - { name: keymap-contracts, version: 1 }
-  - { name: workspace-contracts, version: 1 }
+  - { name: layout-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }
   - { name: yamldotnet, version: 1 }
 language: csharp
@@ -22,7 +22,7 @@ globalUsings:
   - FabioSoft.Contracts.Session
   - FabioSoft.Contracts.Services
   - FabioSoft.Contracts.Keymap
-  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Layout
 resources:
   - Views/CommandItemTemplate.xaml
   - Views/CommandDetailTemplate.xaml

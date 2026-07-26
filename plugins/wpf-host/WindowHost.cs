@@ -610,12 +610,12 @@ internal sealed partial class WindowHost
     public IEnumerable<(Guid InstanceId, string Kind)> SlideInInstances =>
         _slideIns.Select(entry => (entry.Key, entry.Value.Kind));
 
-    /// Slide-in detail for the workspace snapshot: instance, kind, tab title, and whether it is shown.
+    /// Slide-in detail for the layout snapshot: instance, kind, tab title, and whether it is shown.
     public IEnumerable<(Guid InstanceId, string Kind, string Title, bool IsOpen)> SlideInDetails =>
         _slideIns.Select(entry => (entry.Key, entry.Value.Kind, entry.Value.Title, IsSlideInOpen(entry.Key)));
 
     /// Slide-in layout for persistence: instance, kind, title, and the edge it is anchored to, so a saved
-    /// workspace can re-create the slide-in on the same edge of the same window.
+    /// layout can re-create the slide-in on the same edge of the same window.
     public IEnumerable<(Guid InstanceId, string Kind, string Title, string Edge)> SlideInLayouts =>
         _slideIns.Select(entry => (entry.Key, entry.Value.Kind, entry.Value.Title, entry.Value.Edge));
 

@@ -1,12 +1,12 @@
 ---
 name: keymap-panel
 pluginId: KeymapPanel
-version: 1.0.1
+version: 1.0.2
 apiVersion: 1.0.0
 description: Keybinding inspector dockable panel.
 dependencies:
   - { name: keymap-contracts, version: 1 }
-  - { name: workspace-contracts, version: 1 }
+  - { name: layout-contracts, version: 1 }
   - { name: clavis-controls, version: 1 }
 language: csharp
 assemblyName: KeymapPanel
@@ -15,7 +15,7 @@ useWpf: true
 globalUsings:
   - FabioSoft.Nucleus.Contracts
   - FabioSoft.Contracts.Keymap
-  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Layout
 ---
 
 # KeymapPanel

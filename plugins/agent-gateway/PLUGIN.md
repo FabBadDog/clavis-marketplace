@@ -1,18 +1,18 @@
 ---
 name: agent-gateway
 pluginId: AgentGateway
-version: 1.1.140
+version: 2.0.0
 apiVersion: 1.0.0
 description: In-process MCP server over a named pipe for the agent.
 dependencies:
-  - { name: workspace-contracts, version: 1 }
+  - { name: layout-contracts, version: 1 }
   - { name: host-contracts, version: 1 }
   - { name: session-contracts, version: 2 }
 language: csharp
 assemblyName: AgentGateway
 rootNamespace: FabioSoft.Nucleus.Plugins.AgentGateway
 globalUsings:
-  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Layout
   - FabioSoft.Contracts.Host
   - FabioSoft.Contracts.Session
 packages:
@@ -63,8 +63,8 @@ Empty - the transport is a per-launch, user-ACL'd named pipe, so there is no add
 - On tool calls (control): `UserSubmittedPrompt`, `OpenPanel`, `TogglePanel`, `CloseActivePanel`,
   `FocusInputRequested`, `SelectionRequested` (the `ask_user` tool's popup, answered by the Selection
   plugin), plus any whitelisted type sent via the `send_message` tool (see `SendableMessages`).
-- Requests (request/response): `ListPlugins` (-> `PluginList`) and `WorkspaceSnapshotRequested`
-  (-> `WorkspaceSnapshot`).
+- Requests (request/response): `ListPlugins` (-> `PluginList`) and `LayoutSnapshotRequested`
+  (-> `LayoutSnapshot`).
 - `ClavisMcpAvailable` (`FabioSoft.Contracts.Session`) once on activation: the mcp-config JSON and
   the system-prompt guide ClaudeBridge attaches inline to each session.
 - `LogEntry` via `bus.LogInfo`/`LogError`.
@@ -72,14 +72,14 @@ Empty - the transport is a per-launch, user-ACL'd named pipe, so there is no add
 ## Messages subscribed
 
 - Observes the whole `IBus.Activity` stream into a bounded ring for the `recent_activity` tool.
-- Transient response subscriptions to `PluginList` and `WorkspaceSnapshot` (created by `IBus.Request`).
+- Transient response subscriptions to `PluginList` and `LayoutSnapshot` (created by `IBus.Request`).
 - `SelectionCompleted` - resolves the `ask_user` tool's pending question via the `SelectionBroker`
   (manual correlation rather than `IBus.Request`, because a human answer easily outlives the bus's
   default request timeout).
 
 ## Tools exposed (MCP)
 
-`clavis_architecture`, `list_plugins`, `describe_plugin`, `workspace_snapshot`, `read_log`,
+`clavis_architecture`, `list_plugins`, `describe_plugin`, `layout_snapshot`, `read_log`,
 `recent_activity`, `submit_prompt`, `open_panel`, `toggle_panel`, `close_active_panel`, `focus_input`,
 `ask_user`, `send_message`. `describe_plugin` reads each plugin's deployed `CLAUDE.md`; `read_log` tails
 the newest `~/.clavis/logs/clavis-*.log`; `ask_user` shows the Selection plugin's popup and waits (up to

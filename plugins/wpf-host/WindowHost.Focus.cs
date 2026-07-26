@@ -238,7 +238,7 @@ internal sealed partial class WindowHost
     }
 
     // Brighten the border and the title dot while active; dim both when not. This marks the focused window
-    // across a multi-window workspace without any added chrome.
+    // across multiple windows without any added chrome.
     private void ApplyWindowActive(bool active)
     {
         if (_borderBrush is not null)

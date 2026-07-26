@@ -10,7 +10,7 @@ namespace FabioSoft.Nucleus.Plugins.WpfHost;
 /// Owns every application window and routes window/panel/region bus messages to the right one. The
 /// primary window carries the conversation chrome; secondary windows are pure panel hosts. Region
 /// contributions keep flowing to the primary window so Conversation / EventsPanel / CommandPalette work
-/// unchanged. The whole workspace (windows, docking layout, per-panel state) is persisted and restored.
+/// unchanged. The whole layout (windows, docking tree, per-panel state) is persisted and restored.
 internal sealed class WindowManager : IDisposable
 {
     private const string ConversationKind = "conversation";
@@ -47,7 +47,7 @@ internal sealed class WindowManager : IDisposable
     // here; with a live instance it is revealed in place instead (singleton per kind).
     private readonly Dictionary<string, PanelPlacement> _kindPlacement = new(StringComparer.Ordinal);
 
-    // The persisted workspace lives under this plugin's id in the Configuration plugin (config/WpfHost.yaml).
+    // The persisted layout lives under this plugin's id in the Configuration plugin (the WpfHost section of state.yaml).
     private const string PluginId = "WpfHost";
 
     private readonly DispatcherTimer _saveTimer;
@@ -71,7 +71,7 @@ internal sealed class WindowManager : IDisposable
     private bool _restoredFromConfig;
     private bool _bootstrapComplete;
 
-    // The windows stay invisible until the essential plugins are ready AND the saved-workspace answer has
+    // The windows stay invisible until the essential plugins are ready AND the saved-layout answer has
     // been applied, then appear once - already at their restored bounds, so the boot never shows a window
     // that then jumps to its saved position. The failsafe reveals anyway when the state answer cannot
     // arrive (a failed Configuration plugin); BootstrapComplete is the final guarantee, ordered before the
@@ -100,13 +100,13 @@ internal sealed class WindowManager : IDisposable
         _config = config;
         _focusTraversal = new FocusTraversal(OrderedWindows);
         _saveTimer = new DispatcherTimer { Interval = SaveDebounce };
-        _saveTimer.Tick += (_, _) => SaveWorkspace();
+        _saveTimer.Tick += (_, _) => SaveLayout();
 
         SubscribeToBus();
         SeedDefaultSlidePlacement();
 
         // The primary window is created now but revealed later (see Reveal): it stays invisible until the
-        // essential plugins are up and the saved workspace has been applied, then falls in from the top of
+        // essential plugins are up and the saved layout has been applied, then falls in from the top of
         // the screen - fully formed - as the host's splash drops out the bottom.
         var primary = CreatePrimaryWindow();
 
@@ -122,7 +122,7 @@ internal sealed class WindowManager : IDisposable
         _bus.Send(new RequestKeymap());
         _bus.Send(new RequestCommands());
 
-        // The saved workspace is this plugin's runtime state (the WpfHost section of state.yaml via the
+        // The saved layout is this plugin's runtime state (the WpfHost section of state.yaml via the
         // Configuration plugin) - disposable layout, not configuration. Request it; StateResult restores
         // bounds, the docking tree, secondary windows and panels onto the already-shown primary - the
         // window appears first and the saved layout follows a moment later.
@@ -208,7 +208,7 @@ internal sealed class WindowManager : IDisposable
             return Task.CompletedTask;
         }));
 
-        // The saved workspace arrives as this plugin's runtime state; restore it onto the (still hidden)
+        // The saved layout arrives as this plugin's runtime state; restore it onto the (still hidden)
         // primary, then reveal once the essential set is also up.
         _subscriptions.Add(_bus.Subscribe<StateResult>(result =>
         {
@@ -314,8 +314,8 @@ internal sealed class WindowManager : IDisposable
         }));
 
         // Introspection: report what is currently on screen. Read on the UI thread (it touches live WPF
-        // state), then answer with a single WorkspaceSnapshot - the response half of a bus Request.
-        _subscriptions.Add(_bus.Subscribe<WorkspaceSnapshotRequested>(_ =>
+        // state), then answer with a single LayoutSnapshot - the response half of a bus Request.
+        _subscriptions.Add(_bus.Subscribe<LayoutSnapshotRequested>(_ =>
         {
             Application.Current.Dispatcher.InvokeAsync(() => _bus.Send(BuildSnapshot()));
             return Task.CompletedTask;
@@ -331,7 +331,7 @@ internal sealed class WindowManager : IDisposable
         }));
     }
 
-    private WorkspaceSnapshot BuildSnapshot()
+    private LayoutSnapshot BuildSnapshot()
     {
         var windows = _windows.Values
             .Select(host => new WindowSnapshot(host.WindowId, "CLAVIS", host.IsPrimary, host.WindowId == _focusedWindowId))
@@ -364,7 +364,7 @@ internal sealed class WindowManager : IDisposable
             }
         }
 
-        return new WorkspaceSnapshot([.. windows], [.. panels], _focusedWindowId, focusedPanelId);
+        return new LayoutSnapshot([.. windows], [.. panels], _focusedWindowId, focusedPanelId);
     }
 
     /// Register each configured panel kind as an edge slide-in in the primary window. Seeded before the
@@ -403,7 +403,7 @@ internal sealed class WindowManager : IDisposable
         }
     }
 
-    // The reveal preconditions: the essential plugins are active and the saved workspace has been applied
+    // The reveal preconditions: the essential plugins are active and the saved layout has been applied
     // (or determined absent). Configuration is essential, so on a healthy boot both arrive back to back.
     private void RevealWhenReady()
     {
@@ -583,14 +583,14 @@ internal sealed class WindowManager : IDisposable
 
         host.Window.Closing += (_, _) =>
         {
-            SaveWorkspace();
+            SaveLayout();
             _bus.Send(new ApplicationShutdown());
         };
 
         return host;
     }
 
-    // Restore the saved workspace once, when its state arrives. Other plugins receive StateResult on the
+    // Restore the saved layout once, when its state arrives. Other plugins receive StateResult on the
     // same subject, so it is filtered to this plugin's id; StateNotFound (first run, or a deleted state.yaml)
     // leaves the default primary in place. The one-shot guard keeps a later result from rebuilding live
     // windows.
@@ -605,7 +605,7 @@ internal sealed class WindowManager : IDisposable
         {
             case StateFound found when found.PluginId == PluginId:
                 _restoredFromConfig = true;
-                var saved = WorkspaceStore.Deserialize(found.RawState);
+                var saved = LayoutFile.Deserialize(found.RawState);
                 if (saved is not null)
                 {
                     RestoreSavedLayout(saved);
@@ -619,7 +619,7 @@ internal sealed class WindowManager : IDisposable
         }
     }
 
-    private void RestoreSavedLayout(WorkspaceLayout saved)
+    private void RestoreSavedLayout(PersistedLayout saved)
     {
         var primary = GetPrimary();
         var primaryEntry = saved.Windows.FirstOrDefault(window => window.IsPrimary);
@@ -1299,23 +1299,23 @@ internal sealed class WindowManager : IDisposable
         _saveTimer.Start();
     }
 
-    private void SaveWorkspace()
+    private void SaveLayout()
     {
         _saveTimer.Stop();
         try
         {
-            _bus.Send(new SaveState(PluginId, WorkspaceStore.Serialize(CaptureWorkspace())));
+            _bus.Send(new SaveState(PluginId, LayoutFile.Serialize(CaptureLayout())));
         }
         catch (Exception exception)
         {
-            _bus.LogError("WpfHost", $"Saving workspace layout failed: {exception.Message}");
+            _bus.LogError("WpfHost", $"Saving the window layout failed: {exception.Message}");
         }
     }
 
-    private WorkspaceLayout CaptureWorkspace()
+    private PersistedLayout CaptureLayout()
     {
         var windows = _windows.Values.Select(CaptureWindow).ToList();
-        return new WorkspaceLayout(WorkspaceStore.CurrentVersion, windows);
+        return new PersistedLayout(LayoutFile.CurrentVersion, windows);
     }
 
     private PersistedWindow CaptureWindow(WindowHost host) =>

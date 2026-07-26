@@ -1,11 +1,11 @@
 ---
 name: markdown-panel
 pluginId: MarkdownPanel
-version: 1.1.0
+version: 1.1.1
 apiVersion: 1.0.0
 description: User-authored markdown panels with live placeholders, plus a manager to create and edit them.
 dependencies:
-  - { name: workspace-contracts, version: 1 }
+  - { name: layout-contracts, version: 1 }
   - { name: services-contracts, version: 1 }
   - { name: placeholders-contracts, version: 1 }
   - { name: clavis-placeholders, version: 1 }
@@ -18,7 +18,7 @@ rootNamespace: FabioSoft.Nucleus.Plugins.MarkdownPanel
 useWpf: true
 globalUsings:
   - FabioSoft.Nucleus.Contracts
-  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Layout
   - FabioSoft.Contracts.Services
   - FabioSoft.Contracts.Placeholders
 ---

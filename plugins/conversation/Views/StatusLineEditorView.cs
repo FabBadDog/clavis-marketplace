@@ -9,7 +9,7 @@ using System.Windows.Media;
 using FabioSoft.Contracts.Placeholders;
 using FabioSoft.Contracts.Services;
 using FabioSoft.Contracts.Session;
-using FabioSoft.Contracts.Workspace;
+using FabioSoft.Contracts.Layout;
 using FabioSoft.Clavis.Controls;
 using FabioSoft.Clavis.Placeholders;
 using FabioSoft.Clavis.Rendering;

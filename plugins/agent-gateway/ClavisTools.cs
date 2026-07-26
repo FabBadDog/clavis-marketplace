@@ -51,12 +51,12 @@ internal sealed class ClavisTools(GatewayContext context)
             : $"No CLAUDE.md found for plugin '{id}' (looked in {path}).";
     }
 
-    [McpServerTool(Name = "workspace_snapshot")]
+    [McpServerTool(Name = "layout_snapshot")]
     [Description("Report what is on screen right now: the open windows and live panels, with which window and panel are focused and visible.")]
-    public async Task<string> WorkspaceSnapshot()
+    public async Task<string> LayoutSnapshot()
     {
-        var snapshot = await Request<WorkspaceSnapshotRequested, FabioSoft.Contracts.Workspace.WorkspaceSnapshot>(
-            new WorkspaceSnapshotRequested());
+        var snapshot = await Request<LayoutSnapshotRequested, FabioSoft.Contracts.Layout.LayoutSnapshot>(
+            new LayoutSnapshotRequested());
         return Serialize(new
         {
             focusedWindowId = snapshot.FocusedWindowId,

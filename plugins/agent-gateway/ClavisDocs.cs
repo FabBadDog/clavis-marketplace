@@ -15,7 +15,7 @@ internal static class ClavisDocs
         about Clavis itself, what is on screen, what plugins are loaded, or to drive the UI:
         - clavis_architecture - how Clavis is built (read this first if you need orientation).
         - list_plugins / describe_plugin - what is loaded and what each plugin does.
-        - workspace_snapshot - which windows and panels are open, focused, and visible right now.
+        - layout_snapshot - which windows and panels are open, focused, and visible right now.
         - read_log / recent_activity - the host log file and the live message-bus activity.
         - open_panel / toggle_panel / close_active_panel / focus_input / submit_prompt - drive the UI.
         - ask_user - ask the user a question with selectable options via the native selection popup.
@@ -53,7 +53,7 @@ internal static class ClavisDocs
 
         ## Windows and panels
         WpfHost owns a primary window (the conversation chrome) and any number of secondary panel-host
-        windows, each tiling dockable panels in a split tree, plus edge "slide-in" panels. workspace_snapshot
+        windows, each tiling dockable panels in a split tree, plus edge "slide-in" panels. layout_snapshot
         reports the live windows and panels with their focus/visibility. Drive the UI with open_panel,
         toggle_panel (summon or banish a kind), close_active_panel, and focus_input.
 

@@ -4,7 +4,7 @@ open System
 open Faqt
 open Faqt.Operators
 open FabioSoft.Clavis.TestKit
-open FabioSoft.Contracts.Workspace
+open FabioSoft.Contracts.Layout
 open FabioSoft.Nucleus.Contracts
 open FabioSoft.Nucleus.Plugins.PanelRegistry
 open Xunit

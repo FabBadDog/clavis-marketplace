@@ -1,11 +1,11 @@
 ---
 name: code-editor-panel
 pluginId: CodeEditorPanel
-version: 2.0.0
+version: 2.0.1
 apiVersion: 1.0.0
 description: Code editor panel with file browser and editor context.
 dependencies:
-  - { name: workspace-contracts, version: 1 }
+  - { name: layout-contracts, version: 1 }
   - { name: editor-contracts, version: 1 }
   - { name: fabiosoft-editor, version: 1 }
   - { name: clavis-controls, version: 1 }
@@ -14,7 +14,7 @@ assemblyName: CodeEditorPanel
 rootNamespace: FabioSoft.Nucleus.Plugins.CodeEditorPanel
 useWpf: true
 globalUsings:
-  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Layout
 ---
 
 # CodeEditorPanel

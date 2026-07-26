@@ -57,22 +57,22 @@ public sealed record PersistedWindow
         (WindowId, IsPrimary, Bounds, Layout) = (windowId, isPrimary, bounds, layout);
 }
 
-/// The whole workspace: every open window and its layout, persisted across restarts.
-public sealed record WorkspaceLayout
+/// The whole layout: every open window and its docking tree, persisted across restarts.
+public sealed record PersistedLayout
 {
     public int Version { get; set; }
     public List<PersistedWindow> Windows { get; set; } = [];
 
-    public WorkspaceLayout() { }
+    public PersistedLayout() { }
 
-    public WorkspaceLayout(int version, IEnumerable<PersistedWindow> windows) =>
+    public PersistedLayout(int version, IEnumerable<PersistedWindow> windows) =>
         (Version, Windows) = (version, windows.ToList());
 }
 
-/// Serialises the workspace layout to and from YAML. The text is persisted as this plugin's configuration
-/// (config/WpfHost.yaml via the Configuration plugin); WindowManager owns the bus round-trip, so this type
+/// Serialises the window layout to and from YAML. The text is persisted as this plugin's runtime state
+/// (the WpfHost section of state.yaml via the Configuration plugin); WindowManager owns the bus round-trip, so this type
 /// is pure (de)serialization.
-public static class WorkspaceStore
+public static class LayoutFile
 {
     public const int CurrentVersion = 1;
 
@@ -85,16 +85,16 @@ public static class WorkspaceStore
         .IgnoreUnmatchedProperties()
         .Build();
 
-    public static string Serialize(WorkspaceLayout layout) => Serializer.Serialize(layout);
+    public static string Serialize(PersistedLayout layout) => Serializer.Serialize(layout);
 
-    public static WorkspaceLayout? Deserialize(string yaml)
+    public static PersistedLayout? Deserialize(string yaml)
     {
         if (string.IsNullOrWhiteSpace(yaml))
         {
             return null;
         }
 
-        var layout = Deserializer.Deserialize<WorkspaceLayout>(yaml);
+        var layout = Deserializer.Deserialize<PersistedLayout>(yaml);
 
         // A layout from an incompatible schema version is discarded (treated as "no saved layout") rather
         // than half-materialised: deserialization silently tolerates missing/unknown fields, so a future

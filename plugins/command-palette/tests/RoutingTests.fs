@@ -7,7 +7,7 @@ open System.Threading.Tasks
 open FabioSoft.Nucleus.Bus
 open FabioSoft.Nucleus.Contracts
 open FabioSoft.Contracts.Session
-open FabioSoft.Contracts.Workspace
+open FabioSoft.Contracts.Layout
 open FabioSoft.Nucleus.Plugins.CommandPalette
 open Faqt
 open Faqt.Operators

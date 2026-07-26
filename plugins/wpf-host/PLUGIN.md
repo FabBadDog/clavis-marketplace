@@ -1,13 +1,13 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 3.0.3
+version: 3.1.0
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
 dependencies:
   - { name: host-contracts, version: 1 }
-  - { name: workspace-contracts, version: 1 }
+  - { name: layout-contracts, version: 1 }
   - { name: keymap-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }
 language: csharp
@@ -16,7 +16,7 @@ rootNamespace: FabioSoft.Nucleus.Plugins.WpfHost
 useWpf: true
 globalUsings:
   - FabioSoft.Contracts.Host
-  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Layout
   - FabioSoft.Contracts.Keymap
   - FabioSoft.Contracts.Services
 resources:
@@ -36,7 +36,7 @@ chrome - title bar, prompt input, status bar) plus any number of secondary panel
 its own named regions (`main-content`, `title-bar-right`, `status-bar`, `status-bar-right`) and a
 `DockingSurface` that tiles dockable panels. It materialises UI contributions other plugins announce,
 opens/closes/toggles panels, manages edge slide-ins and a global summon hotkey, and persists the whole
-workspace across launches. The host itself owns no conversation logic - it only provides the window and
+layout across launches. The host itself owns no conversation logic - it only provides the window and
 region surface.
 
 ## Location
@@ -60,8 +60,8 @@ region surface.
   `SummonClavis` (from `SummonSignal`, see Notes).
 - Panels: `OpenPanel`, `RestorePanel`, `PanelClosed`, `SlideInRegistered`, `SlideInClosed`.
 - Windows: `WindowOpened`, `WindowClosed`, `WindowFocusChanged`.
-- Lifecycle/snapshot: `ApplicationShutdown`, and `WorkspaceSnapshot` (the response to
-  `WorkspaceSnapshotRequested`).
+- Lifecycle/snapshot: `ApplicationShutdown`, and `LayoutSnapshot` (the response to
+  `LayoutSnapshotRequested`).
 
 ## Messages subscribed
 
@@ -70,14 +70,14 @@ region surface.
   `CloseActivePanel`.
 - Keymap/commands: `KeymapChanged`, `CommandsAvailable`, `ToggleShortcutHelp`.
 - Windows/app: `CloseWindow`, `CloseActiveWindow`, `FocusInputRequested`, `SummonClavis`,
-  `ToggleClavis`, `BootstrapComplete`, `WorkspaceSnapshotRequested`.
+  `ToggleClavis`, `BootstrapComplete`, `LayoutSnapshotRequested`.
 
 ## Notes
 
 - **UI-thread bound.** Activation and all window/region work marshal onto `Application.Current.Dispatcher`.
 - **Persistence.** Docking trees + per-panel state, each window's on-screen bounds, AND its edge slide-ins
   (panel, edge, saved state) are all saved together as this plugin's runtime *state* - the `WpfHost` section
-  of `state.yaml` via the Configuration plugin (`SaveState`/`GetState`); `WorkspaceStore` owns the YAML
+  of `state.yaml` via the Configuration plugin (`SaveState`/`GetState`); `LayoutFile` owns the YAML
   (de)serialization, and every window carries its own `Bounds`, so there is no separate per-window state
   file. This is disposable state, not configuration: deleting `state.yaml` only resets the layout to the
   default. The layout loads asynchronously: the primary window shows immediately with a seeded conversation,
@@ -85,9 +85,9 @@ region surface.
   via `RestorePanel` (deferred until `BootstrapComplete` so the registry can resolve their kinds) - docked
   panels swap into their slot, and slide-ins are re-anchored parked (hidden) on their saved edge, so a panel
   that was a slide-in or lived in an extra window comes back the same rather than as a default tab.
-- **Snapshot.** It answers `WorkspaceSnapshotRequested` by building a `WorkspaceSnapshot` (windows,
+- **Snapshot.** It answers `LayoutSnapshotRequested` by building a `LayoutSnapshot` (windows,
   panels, focused window/panel) on the dispatcher - this is the response half of a bus request, used by
-  AgentGateway's `workspace_snapshot` tool.
+  AgentGateway's `layout_snapshot` tool.
 - A `GlobalHotkey` on the primary window feeds `RunCommand`; its default chord runs `ToggleClavis`.
 - **Summon/hide toggle.** `SummonClavis` always brings every window to the foreground (windows that were
   hidden or minimized fall in from the top via `Motion.fallInWindow`, the primary is activated last).

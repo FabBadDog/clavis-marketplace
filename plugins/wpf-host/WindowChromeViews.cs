@@ -40,7 +40,7 @@ internal static class WindowChromeViews
     }
 
     // Returns the title bar plus its status dot, which the window breathes while active and dims when not,
-    // so the focused window reads at a glance across a multi-window workspace. The drag grip and the static
+    // so the focused window reads at a glance across multiple windows. The drag grip and the static
     // "CLAVIS" label were removed (the whole bar is draggable, and the word carried no information); the
     // left holds a small active-window dot beside the contextual title region, the right an info region.
     public static (Border TitleBar, Ellipse StatusDot) CreateTitleBar(

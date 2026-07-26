@@ -96,7 +96,7 @@ The **catalog is the filesystem**: every immediate child of `plugins/` or `modul
   folder alongside the other mockups.
 - **Declare real dependencies** in `PLUGIN.md` so build order is correct; keep them minimal.
 - **Panels** announce a `PanelKindRegistration` and restore via `RestorePanel`; persist per-instance state
-  through the workspace contracts rather than inventing storage.
+  through the layout contracts rather than inventing storage.
 
 ## No-gos
 
@@ -125,7 +125,7 @@ extension point is usually the right one:
    These live with Claude Code, not here. Clavis plugins are about the **app** (UI, bus, services), not
    about steering the agent.
 2. **Is it exposing a Clavis action to the agent as a tool?** (let the agent open a panel, snapshot the
-   workspace, send a prompt) -> add an **MCP tool to the `agent-gateway` plugin**, don't create a new one.
+   layout, send a prompt) -> add an **MCP tool to the `agent-gateway` plugin**, don't create a new one.
 3. **Is it just displaying or editing text / markdown?** -> use the existing **`markdown-panel`** (or an
    existing panel kind), or register content through it. No new plugin.
 4. **Is it a new keybinding or command?** -> add it through the **keymap + command palette** (a command +

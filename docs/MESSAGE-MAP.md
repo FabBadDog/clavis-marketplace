@@ -40,7 +40,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **ToggleClavis** - pub: _none found_ - sub: WpfHost
 - **ToggleCommandPalette** - pub: AgentGateway - sub: CommandPalette
 - **ToggleShortcutHelp** - pub: AgentGateway - sub: WpfHost
-- **UiRegionContribution** - pub: Conversation - sub: WpfHost
+- **UiRegionContribution** - pub: Conversation, TaskTracker - sub: WpfHost
 - **UiRegionRemoved** - pub: _none found_ - sub: WpfHost
 - **UserAborted** - pub: AgentGateway, WpfHost - sub: Conversation
 - **UserCancelledQueued** - pub: WpfHost - sub: Conversation
@@ -60,6 +60,31 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **RunCommand** - pub: WpfHost - sub: CommandPalette
 - **RunPanelCommand** - pub: WpfHost - sub: Conversation, EventsPanel
 - **SetKeyBinding** - pub: CommandPalette, KeymapPanel - sub: KeyMap
+
+### FabioSoft.Contracts.Layout
+
+- **ActivePanelChanged** - pub: WpfHost - sub: Conversation
+- **CloseActivePanel** - pub: AgentGateway - sub: WpfHost
+- **CloseActiveWindow** - pub: _none found_ - sub: WpfHost
+- **ClosePanel** - pub: AgentGateway, MarkdownPanel - sub: WpfHost
+- **CloseWindow** - pub: _none found_ - sub: WpfHost
+- **LayoutSnapshotRequested** - pub: AgentGateway - sub: WpfHost
+- **OpenConversation** - pub: AgentGateway - sub: WpfHost
+- **OpenPanel** - pub: AgentGateway, MarkdownPanel, Selection, WpfHost - sub: PanelRegistry
+- **PanelClosed** - pub: WpfHost - sub: MarkdownPanel, PanelRegistry
+- **PanelInstanceReady** - pub: _none found_ - sub: WpfHost
+- **PanelKindRegistration** - pub: CodeEditorPanel, Conversation, EventsPanel, GitLogPanel, KeymapPanel, MarkdownPanel, UsageLimits - sub: CommandPalette, Conversation, PanelRegistry, Selection
+- **PanelKindsRequested** - pub: CommandPalette, Conversation, PanelRegistry, Selection - sub: CodeEditorPanel, Conversation, EventsPanel, GitLogPanel, KeymapPanel, MarkdownPanel, UsageLimits
+- **PanelStateChanged** - pub: PanelRegistry - sub: WpfHost
+- **RestorePanel** - pub: AgentGateway, WpfHost - sub: PanelRegistry
+- **SetPanelTitle** - pub: MarkdownPanel - sub: WpfHost
+- **ShowSlideIn** - pub: AgentGateway - sub: WpfHost
+- **SlideInClosed** - pub: WpfHost - sub: CommandPalette
+- **SlideInRegistered** - pub: WpfHost - sub: CommandPalette
+- **TogglePanel** - pub: AgentGateway, Conversation - sub: WpfHost
+- **WindowClosed** - pub: WpfHost - sub: _none found_
+- **WindowFocusChanged** - pub: WpfHost - sub: _none found_
+- **WindowOpened** - pub: WpfHost - sub: _none found_
 
 ### FabioSoft.Contracts.Marketplace
 
@@ -108,7 +133,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **AgentModeChanged** - pub: ClaudeBridge - sub: _none found_
 - **AgentModelChanged** - pub: ClaudeBridge - sub: _none found_
 - **AgentParsingError** - pub: _none found_ - sub: Conversation
-- **AgentStreamEvent** - pub: _none found_ - sub: CommandPalette, Conversation, Selection
+- **AgentStreamEvent** - pub: _none found_ - sub: CommandPalette, Conversation, Selection, TaskTracker
 - **AgentUsageReport** - pub: _none found_ - sub: Conversation, UsageLimits
 - **ClavisMcpAvailable** - pub: AgentGateway - sub: ClaudeBridge
 - **DisposeSession** - pub: Conversation - sub: ClaudeBridge
@@ -126,31 +151,6 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **Summarize** - pub: MarketplacePlugin - sub: ClaudeBridge
 - **SummaryResult** - pub: ClaudeBridge - sub: _none found_
 
-### FabioSoft.Contracts.Workspace
-
-- **ActivePanelChanged** - pub: WpfHost - sub: Conversation
-- **CloseActivePanel** - pub: AgentGateway - sub: WpfHost
-- **CloseActiveWindow** - pub: _none found_ - sub: WpfHost
-- **ClosePanel** - pub: AgentGateway, MarkdownPanel - sub: WpfHost
-- **CloseWindow** - pub: _none found_ - sub: WpfHost
-- **OpenConversation** - pub: AgentGateway - sub: WpfHost
-- **OpenPanel** - pub: AgentGateway, MarkdownPanel, Selection, WpfHost - sub: PanelRegistry
-- **PanelClosed** - pub: WpfHost - sub: MarkdownPanel, PanelRegistry
-- **PanelInstanceReady** - pub: _none found_ - sub: WpfHost
-- **PanelKindRegistration** - pub: CodeEditorPanel, Conversation, EventsPanel, GitLogPanel, KeymapPanel, MarkdownPanel, UsageLimits - sub: CommandPalette, Conversation, PanelRegistry, Selection
-- **PanelKindsRequested** - pub: CommandPalette, Conversation, PanelRegistry, Selection - sub: CodeEditorPanel, Conversation, EventsPanel, GitLogPanel, KeymapPanel, MarkdownPanel, UsageLimits
-- **PanelStateChanged** - pub: PanelRegistry - sub: WpfHost
-- **RestorePanel** - pub: AgentGateway, WpfHost - sub: PanelRegistry
-- **SetPanelTitle** - pub: MarkdownPanel - sub: WpfHost
-- **ShowSlideIn** - pub: AgentGateway - sub: WpfHost
-- **SlideInClosed** - pub: WpfHost - sub: CommandPalette
-- **SlideInRegistered** - pub: WpfHost - sub: CommandPalette
-- **TogglePanel** - pub: AgentGateway, Conversation - sub: WpfHost
-- **WindowClosed** - pub: WpfHost - sub: _none found_
-- **WindowFocusChanged** - pub: WpfHost - sub: _none found_
-- **WindowOpened** - pub: WpfHost - sub: _none found_
-- **WorkspaceSnapshotRequested** - pub: AgentGateway - sub: WpfHost
-
 ### FabioSoft.Nucleus.Contracts
 
 - **ApplicationShutdown** - pub: WpfHost - sub: _none found_
@@ -160,7 +160,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **EssentialPluginsReady** - pub: Nucleus.Kernel - sub: WpfHost
 - **ListPlugins** - pub: AgentGateway - sub: _none found_
 - **LoadPlugin** - pub: MarketplacePlugin - sub: _none found_
-- **LogEntry** - pub: AgentGateway, ClaudeBridge, CodeEditorPanel, CommandPalette, Configuration, Conversation, Environment, EventsPanel, FileSystem, GitLogPanel, Http, KeyMap, KeymapPanel, MarkdownPanel, MarketplacePlugin, Nucleus.Kernel, PanelRegistry, PluginManager, ResourceBroker, Selection, Settings, Shell, UsageLimits, WpfHost - sub: Shell, other
+- **LogEntry** - pub: AgentGateway, ClaudeBridge, CodeEditorPanel, CommandPalette, Configuration, Conversation, Environment, EventsPanel, FileSystem, GitLogPanel, Http, KeyMap, KeymapPanel, MarkdownPanel, MarketplacePlugin, Nucleus.Kernel, PanelRegistry, PluginManager, ResourceBroker, Selection, Settings, Shell, TaskTracker, UsageLimits, WpfHost - sub: Shell, other
 - **PluginActivated** - pub: Nucleus.Kernel - sub: PluginManager, Settings, WpfHost
 - **PluginAwaitingConfig** - pub: Nucleus.Kernel - sub: _none found_
 - **PluginDeactivated** - pub: Nucleus.Kernel - sub: PluginManager
@@ -173,14 +173,14 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 
 ## Request / response pairs
 
+- **LayoutSnapshotRequested** -> **LayoutSnapshot** (caller: AgentGateway)
 - **ListPlugins** -> **PluginList** (caller: AgentGateway)
 - **Summarize** -> **SummaryResult** (caller: MarketplacePlugin)
-- **WorkspaceSnapshotRequested** -> **WorkspaceSnapshot** (caller: AgentGateway)
 
 ## Per-component summary
 
 ### AgentGateway
-- publishes: ClavisMcpAvailable, CloseActivePanel, ClosePanel, FocusInputRequested, ListPlugins, LogEntry, OpenConversation, OpenPanel, RestorePanel, SelectionRequested, ShowSlideIn, SummonClavis, ToggleCommandPalette, TogglePanel, ToggleShortcutHelp, UserAborted, UserSubmittedPrompt, WorkspaceSnapshotRequested
+- publishes: ClavisMcpAvailable, CloseActivePanel, ClosePanel, FocusInputRequested, LayoutSnapshotRequested, ListPlugins, LogEntry, OpenConversation, OpenPanel, RestorePanel, SelectionRequested, ShowSlideIn, SummonClavis, ToggleCommandPalette, TogglePanel, ToggleShortcutHelp, UserAborted, UserSubmittedPrompt
 - subscribes: SelectionCompleted
 
 ### ClaudeBridge
@@ -267,13 +267,17 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - publishes: LogEntry
 - subscribes: LogEntry
 
+### TaskTracker
+- publishes: LogEntry, UiRegionContribution
+- subscribes: AgentStreamEvent
+
 ### UsageLimits
 - publishes: LogEntry, PanelKindRegistration
 - subscribes: AgentUsageReport, PanelKindsRequested
 
 ### WpfHost
 - publishes: ActivePanelChanged, ApplicationShutdown, GetState, LogEntry, OpenPanel, PanelClosed, RequestCommands, RequestKeymap, RestorePanel, RunCommand, RunPanelCommand, SaveState, SlideInClosed, SlideInRegistered, SummonClavis, UserAborted, UserCancelledQueued, UserConfirmedPermission, UserNavigatedPermission, UserSubmittedPrompt, WindowClosed, WindowFocusChanged, WindowOpened
-- subscribes: BootstrapComplete, CloseActivePanel, CloseActiveWindow, ClosePanel, CloseWindow, CommandsAvailable, EssentialPluginsReady, FocusInputRequested, KeymapChanged, OpenConversation, PanelInstanceReady, PanelStateChanged, PermissionPending, PluginActivated, PluginDiscovered, PromptInputAvailability, PromptModeChanged, SetPanelTitle, ShowSlideIn, StateResult, StatusBarAvailability, SummonClavis, ToggleClavis, TogglePanel, ToggleShortcutHelp, UiRegionContribution, UiRegionRemoved, WorkspaceSnapshotRequested
+- subscribes: BootstrapComplete, CloseActivePanel, CloseActiveWindow, ClosePanel, CloseWindow, CommandsAvailable, EssentialPluginsReady, FocusInputRequested, KeymapChanged, LayoutSnapshotRequested, OpenConversation, PanelInstanceReady, PanelStateChanged, PermissionPending, PluginActivated, PluginDiscovered, PromptInputAvailability, PromptModeChanged, SetPanelTitle, ShowSlideIn, StateResult, StatusBarAvailability, SummonClavis, ToggleClavis, TogglePanel, ToggleShortcutHelp, UiRegionContribution, UiRegionRemoved
 
 ### other
 - publishes: _none_

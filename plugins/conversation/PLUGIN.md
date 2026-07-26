@@ -1,7 +1,7 @@
 ---
 name: conversation
 pluginId: Conversation
-version: 7.3.0
+version: 7.3.1
 essential: true
 apiVersion: 1.0.0
 description: The elm/flux conversation state, update, and view models.
@@ -11,7 +11,7 @@ dependencies:
   - { name: keymap-contracts, version: 1 }
   - { name: placeholders-contracts, version: 1 }
   - { name: services-contracts, version: 1 }
-  - { name: workspace-contracts, version: 1 }
+  - { name: layout-contracts, version: 1 }
   - { name: clavis-placeholders, version: 1 }
   - { name: clavis-rendering, version: 2 }
   - { name: clavis-controls, version: 1 }
@@ -27,7 +27,7 @@ globalUsings:
   - FabioSoft.Contracts.Keymap
   - FabioSoft.Contracts.Placeholders
   - FabioSoft.Contracts.Services
-  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Layout
 ---
 
 # Conversation

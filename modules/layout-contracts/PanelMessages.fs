@@ -1,4 +1,4 @@
-namespace FabioSoft.Contracts.Workspace
+namespace FabioSoft.Contracts.Layout
 
 open System
 open System.ComponentModel
@@ -147,83 +147,3 @@ type SlideInClosed(instanceId: Guid) =
 [<Sealed>]
 type ShowSlideIn(instanceId: Guid) =
     member _.InstanceId = instanceId
-
-[<Sealed>]
-type CloseWindow(windowId: Guid) =
-    member _.WindowId = windowId
-
-/// Close the currently focused window. A parameterless companion to CloseWindow so the keymap can bind
-/// it without knowing the active window id (the host resolves "active" itself).
-[<Sealed>]
-[<Description("Close the active window")>]
-type CloseActiveWindow() =
-    do ()
-
-[<Sealed>]
-type WindowOpened(windowId: Guid, title: string) =
-    member _.WindowId = windowId
-    member _.Title = title
-
-[<Sealed>]
-type WindowClosed(windowId: Guid) =
-    member _.WindowId = windowId
-
-[<Sealed>]
-type WindowFocusChanged(windowId: Guid) =
-    member _.WindowId = windowId
-
-/// The active docked panel in the primary window changed to this kind ("" when none). The chrome owner
-/// re-templates the window's title bar and status bar to that panel's configured chrome, so the active
-/// panel owns the window chrome. Only docked panels raise this - slide-ins never change the title/status bar.
-[<Sealed>]
-type ActivePanelChanged(kind: string) =
-    member _.Kind = kind
-
-/// Asks the window host to report what is currently on screen. The host answers with a single
-/// WorkspaceSnapshot, so a caller uses IBus.Request<WorkspaceSnapshotRequested, WorkspaceSnapshot>.
-/// Built for introspection (the AgentGateway exposes it as a tool) rather than steady-state events.
-[<Sealed>]
-type WorkspaceSnapshotRequested() =
-    do ()
-
-/// One open application window in a WorkspaceSnapshot.
-[<Sealed>]
-type WindowSnapshot(windowId: Guid, title: string, isPrimary: bool, isFocused: bool) =
-    member _.WindowId = windowId
-    member _.Title = title
-    member _.IsPrimary = isPrimary
-    member _.IsFocused = isFocused
-
-/// One live panel in a WorkspaceSnapshot. Placement is "tab" (docked) or "slide" (edge slide-in).
-/// IsVisible means the panel is actually showing: the selected tab of its group, or an open slide-in.
-[<Sealed>]
-type PanelSnapshot
-    (instanceId: Guid,
-     kind: string,
-     title: string,
-     windowId: Guid,
-     isFocused: bool,
-     isVisible: bool,
-     placement: string) =
-
-    member _.InstanceId = instanceId
-    member _.Kind = kind
-    member _.Title = title
-    member _.WindowId = windowId
-    member _.IsFocused = isFocused
-    member _.IsVisible = isVisible
-    member _.Placement = placement
-
-/// The window host's answer to WorkspaceSnapshotRequested: every open window and live panel, plus which
-/// window and panel currently hold focus (Guid.Empty when nothing does).
-[<Sealed>]
-type WorkspaceSnapshot
-    (windows: WindowSnapshot[],
-     panels: PanelSnapshot[],
-     focusedWindowId: Guid,
-     focusedPanelInstanceId: Guid) =
-
-    member _.Windows = windows
-    member _.Panels = panels
-    member _.FocusedWindowId = focusedWindowId
-    member _.FocusedPanelInstanceId = focusedPanelInstanceId

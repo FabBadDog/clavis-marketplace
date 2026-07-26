@@ -1,18 +1,18 @@
 ---
 name: git-log-panel
 pluginId: GitLogPanel
-version: 1.0.1
+version: 1.0.2
 apiVersion: 1.0.0
 description: Live git log dockable panel, refreshed on a timer.
 dependencies:
-  - { name: workspace-contracts, version: 1 }
+  - { name: layout-contracts, version: 1 }
   - { name: clavis-controls, version: 1 }
 language: csharp
 assemblyName: GitLogPanel
 rootNamespace: FabioSoft.Nucleus.Plugins.GitLogPanel
 useWpf: true
 globalUsings:
-  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Layout
 ---
 
 # GitLogPanel

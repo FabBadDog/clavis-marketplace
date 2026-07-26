@@ -1,7 +1,7 @@
 module FabioSoft.Nucleus.PanelRegistry.Tests.PanelCatalogTests
 
 open System
-open FabioSoft.Contracts.Workspace
+open FabioSoft.Contracts.Layout
 open FabioSoft.Nucleus.Plugins.PanelRegistry
 open Faqt
 open Faqt.Operators

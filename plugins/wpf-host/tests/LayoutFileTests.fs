@@ -1,4 +1,4 @@
-module FabioSoft.Nucleus.WpfHost.Tests.WorkspaceStoreTests
+module FabioSoft.Nucleus.WpfHost.Tests.LayoutFileTests
 
 open System
 open FabioSoft.Clavis.Rendering
@@ -11,7 +11,7 @@ let private slot id kind state =
     { PanelId = id; PanelKind = kind; Title = "t"; SavedState = state }
 
 [<Fact>]
-let ``round-trips a workspace with a split layout and per-panel state`` () =
+let ``round-trips a layout with a split tree and per-panel state`` () =
 
     // Arrange
     let groupOne = Guid.NewGuid()
@@ -22,10 +22,10 @@ let ``round-trips a workspace with a split layout and per-panel state`` () =
                DockingModel.leaf groupTwo [| slot (Guid.NewGuid()) "markdown" "# Hello" |] 0 |]
     let bounds = PersistedWindowState(10.0, 20.0, 800.0, 600.0, false)
     let window = PersistedWindow(Guid.NewGuid(), true, bounds, layout)
-    let workspace = WorkspaceLayout(WorkspaceStore.CurrentVersion, [| window |])
+    let saved = PersistedLayout(LayoutFile.CurrentVersion, [| window |])
 
     // Act
-    let restored = WorkspaceStore.Deserialize(WorkspaceStore.Serialize(workspace))
+    let restored = LayoutFile.Deserialize(LayoutFile.Serialize(saved))
 
     // Assert
     %(isNull (box restored)).Should().BeFalse()
@@ -49,10 +49,10 @@ let ``round-trips a window's edge slide-ins`` () =
     let slide = PersistedSlideIn(Guid.NewGuid(), "git-log", "git log", "left", "saved-state")
     let window =
         PersistedWindow(Guid.NewGuid(), true, bounds, layout, SlideIns = ResizeArray [ slide ])
-    let workspace = WorkspaceLayout(WorkspaceStore.CurrentVersion, [| window |])
+    let saved = PersistedLayout(LayoutFile.CurrentVersion, [| window |])
 
     // Act
-    let restored = WorkspaceStore.Deserialize(WorkspaceStore.Serialize(workspace))
+    let restored = LayoutFile.Deserialize(LayoutFile.Serialize(saved))
 
     // Assert
     %(isNull (box restored)).Should().BeFalse()
@@ -69,10 +69,10 @@ let ``a window with no slide-ins round-trips to an empty list`` () =
     let bounds = PersistedWindowState(0.0, 0.0, 800.0, 600.0, false)
     let layout = DockingModel.leaf (Guid.NewGuid()) [| slot (Guid.NewGuid()) "conversation" "" |] 0
     let window = PersistedWindow(Guid.NewGuid(), true, bounds, layout)
-    let workspace = WorkspaceLayout(WorkspaceStore.CurrentVersion, [| window |])
+    let saved = PersistedLayout(LayoutFile.CurrentVersion, [| window |])
 
     // Act
-    let restored = WorkspaceStore.Deserialize(WorkspaceStore.Serialize(workspace))
+    let restored = LayoutFile.Deserialize(LayoutFile.Serialize(saved))
 
     // Assert
     %restored.Windows[0].SlideIns.Count.Should().Be(0)
@@ -84,10 +84,10 @@ let ``discards a layout whose version does not match the current version`` () =
     let bounds = PersistedWindowState(0.0, 0.0, 800.0, 600.0, false)
     let layout = DockingModel.leaf (Guid.NewGuid()) [| slot (Guid.NewGuid()) "conversation" "" |] 0
     let window = PersistedWindow(Guid.NewGuid(), true, bounds, layout)
-    let json = WorkspaceStore.Serialize(WorkspaceLayout(WorkspaceStore.CurrentVersion + 1, [| window |]))
+    let json = LayoutFile.Serialize(PersistedLayout(LayoutFile.CurrentVersion + 1, [| window |]))
 
     // Act
-    let restored = WorkspaceStore.Deserialize(json)
+    let restored = LayoutFile.Deserialize(json)
 
     // Assert
     %(isNull (box restored)).Should().BeTrue()

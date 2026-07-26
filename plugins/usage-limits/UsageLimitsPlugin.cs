@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Threading;
 
 using FabioSoft.Contracts.Session;
-using FabioSoft.Contracts.Workspace;
+using FabioSoft.Contracts.Layout;
 using FabioSoft.Nucleus.Contracts;
 
 namespace FabioSoft.Nucleus.Plugins.UsageLimits;

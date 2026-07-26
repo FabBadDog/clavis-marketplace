@@ -5,7 +5,7 @@ open System.Threading.Tasks
 open Faqt
 open Faqt.Operators
 open FabioSoft.Nucleus.Bus
-open FabioSoft.Contracts.Workspace
+open FabioSoft.Contracts.Layout
 open FabioSoft.Nucleus.Plugins.AgentGateway
 open Xunit
 

@@ -1,14 +1,14 @@
 ---
 name: events-panel
 pluginId: EventsPanel
-version: 1.0.2
+version: 1.0.3
 apiVersion: 1.0.0
 description: Raw bus-activity firehose with keyboard-first filters.
 dependencies:
   - { name: session-contracts, version: 2 }
   - { name: host-contracts, version: 1 }
   - { name: keymap-contracts, version: 1 }
-  - { name: workspace-contracts, version: 1 }
+  - { name: layout-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }
 language: csharp
 assemblyName: EventsPanel
@@ -18,7 +18,7 @@ globalUsings:
   - FabioSoft.Contracts.Session
   - FabioSoft.Contracts.Host
   - FabioSoft.Contracts.Keymap
-  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Layout
 ---
 
 # EventsPanel
@@ -69,4 +69,5 @@ the accumulated history across closing and re-opening the panel.
   view model, so history survives within a window's lifetime.
 - The filter state (severity floor + search text) IS persisted: the view restores it from the panel's
   per-instance saved-state blob on create and writes it back through `PanelInstanceContext.OnStateChanged`
-  whenever it changes, so filters survive a restart (the host folds the blob into `workspace-layout.json`).
+  whenever it changes, so filters survive a restart (the host folds the blob into the persisted layout in
+  the `WpfHost` section of `state.yaml`).

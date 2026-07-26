@@ -1,17 +1,17 @@
 ---
 name: panel-registry
 pluginId: PanelRegistry
-version: 1.1.0
+version: 1.1.1
 essential: true
 apiVersion: 1.0.0
 description: Catalogs panel kinds and routes open/restore into panel instances.
 dependencies:
-  - { name: workspace-contracts, version: 1 }
+  - { name: layout-contracts, version: 1 }
 language: csharp
 assemblyName: PanelRegistry
 rootNamespace: FabioSoft.Nucleus.Plugins.PanelRegistry
 globalUsings:
-  - FabioSoft.Contracts.Workspace
+  - FabioSoft.Contracts.Layout
 ---
 
 # PanelRegistry

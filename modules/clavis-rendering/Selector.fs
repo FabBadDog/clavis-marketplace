@@ -296,7 +296,7 @@ type SelectorWindow(options: SelectorOptions) as this =
             this.Left <- (SystemParameters.PrimaryScreenWidth - this.Width) / 2.0
             this.Top <- SystemParameters.PrimaryScreenHeight / 6.0
 
-    // Fade in with a small downward settle (the overlay arriving over the workspace).
+    // Fade in with a small downward settle (the overlay arriving over the window).
     let animateIn () =
 
         root.Opacity <- 0.0
