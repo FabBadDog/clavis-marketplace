@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CLAVIS · Workspace bar</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+
+  :root {
+    /* Clavis default palette (from Theme/Styles.xaml) — a committed dark sci-fi world. */
+    --bg: #0A0A0F;
+    --panel: #14141C;
+    --panel-deep: #0E0E14;
+    --rail: #1B1B22;
+    --raised: #36363F;
+    --line: #282834;
+    --line-soft: #1e1e27;
+    --frame: #5A5A66;
+
+    --text: #C8C8D0;
+    --text-bright: #E8E8EC;
+    --text-dim: #9A9AA4;
+
+    --clavis: #9FD5F0;   /* primary accent — light blue */
+    --violet: #C79BF0;
+    --human: #ADA6F2;
+    --green: #7BD49B;
+    --yellow: #E4C47E;
+    --red: #E47E7E;
+
+    --agent-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --ui-font: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+    --mono-font: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+    /* the one transition that governs the app */
+    --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+    --dur: 250ms;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1100px 600px at 78% -10%, #16161f 0%, rgba(22,22,31,0) 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--agent-font);
+    font-weight: 400;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 960px; margin: 0 auto; padding: 64px 28px 96px; }
+
+  .eyebrow {
+    font-family: var(--ui-font);
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--clavis);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(90deg, var(--line) 0%, transparent 100%);
+  }
+
+  h1 {
+    font-family: var(--ui-font);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.05;
+    margin: 18px 0 10px;
+    color: var(--text-bright);
+    text-wrap: balance;
+  }
+  h1 .accent { color: var(--clavis); }
+
+  .lede { font-size: 17px; max-width: 62ch; color: var(--text); margin: 0; }
+  .lede b { color: var(--text-bright); font-weight: 600; }
+
+  h2 {
+    font-family: var(--ui-font);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin: 0 0 4px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  h2 .idx { color: var(--clavis); font-variant-numeric: tabular-nums; font-size: 13px; opacity: 0.85; }
+  .section-note { color: var(--text-dim); font-size: 14.5px; margin: 0 0 20px; max-width: 64ch; }
+  .section-note b { color: var(--text); font-weight: 500; }
+
+  section { margin-top: 56px; }
+
+  code, .mono { font-family: var(--mono-font); }
+
+  /* ---- Preview frame: a slice of the real app ---- */
+  .preview { margin-top: 20px; border: 1px solid var(--line); background: var(--panel-deep); }
+  .preview .caption {
+    font-family: var(--ui-font);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--line-soft);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .preview .caption .loc { color: var(--clavis); }
+  .stage {
+    padding: 26px 22px;
+    background:
+      radial-gradient(700px 300px at 85% 0%, #17171f 0%, rgba(0,0,0,0) 70%),
+      var(--bg);
+  }
+  .stage.flush { padding: 0; }
+
+  /* a screen edge, so the bar is read as sitting at the top of the display */
+  .screen {
+    background: #05050a;
+    border-bottom: 1px solid var(--line-soft);
+    padding-bottom: 34px;
+    position: relative;
+  }
+  .screen::after {
+    content: "desktop below";
+    position: absolute;
+    left: 14px; bottom: 8px;
+    font-family: var(--ui-font);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 8.5px;
+    color: var(--text-dim);
+    opacity: 0.35;
+  }
+
+  /* ================================================================
+     The bar — fixed height, fixed-width tabs, three logical columns
+     ================================================================ */
+  .bar {
+    height: 48px;
+    display: flex;
+    align-items: stretch;
+    background: var(--panel-deep);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .ws {
+    position: relative;
+    width: 180px;              /* every tab the same width */
+    flex: 0 0 180px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 0 12px 0 14px;
+    cursor: pointer;
+    color: var(--text-dim);
+    overflow: hidden;
+    white-space: nowrap;
+    transition:
+      flex-basis var(--dur) var(--ease),
+      width      var(--dur) var(--ease),
+      opacity    var(--dur) var(--ease),
+      padding    var(--dur) var(--ease),
+      background var(--dur) var(--ease),
+      color      var(--dur) var(--ease);
+  }
+
+  /* column 1 — the slot number, the dominant mark */
+  .ws .num {
+    font-family: var(--ui-font);
+    font-size: 21px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--clavis);
+    opacity: 0.55;
+    font-variant-numeric: tabular-nums;
+    flex: 0 0 auto;
+    min-width: 15px;
+    text-align: center;
+    transition: opacity var(--dur) var(--ease);
+  }
+  .ws.on .num { opacity: 1; }
+
+  /* column 2 — the activity dot */
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;      /* a dot is a circle, never a box */
+    flex: 0 0 auto;
+    display: inline-block;
+  }
+  .dot.idle    { background: var(--text-dim); opacity: 0.32; }
+  .dot.working { background: var(--clavis); animation: breathe 600ms ease-in-out infinite alternate; }
+  .dot.waiting { background: var(--yellow); }
+
+  @keyframes breathe {
+    from { opacity: 0.45; }
+    to   { opacity: 1; }
+  }
+
+  /* column 3 — the title: the `title` role (Rajdhani, sentence case), at chrome scale */
+  .ws .name {
+    font-family: var(--ui-font);
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+    white-space: normal;
+    /* two rows maximum, then an ellipsis; the full title is the tooltip */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .ws.on { color: var(--text-bright); background: var(--rail); }
+
+  /* the per-workspace identity accent — a 2px left tick.
+     Its length is constant: identity does not change with selection, so only the opacity lifts. */
+  .bar.accent .ws::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 10px; bottom: 10px;
+    width: 2px;
+    background: var(--ws-accent);
+    opacity: 0.55;
+    transition: opacity var(--dur) var(--ease);
+  }
+  .bar.accent .ws.on::before { opacity: 1; }
+
+  /* a slot that is not currently open — collapsed to nothing, ready to animate in */
+  .ws.gone {
+    flex-basis: 0;
+    width: 0;
+    opacity: 0;
+    padding-left: 0;
+    padding-right: 0;
+    pointer-events: none;
+  }
+
+  /* the bar's right end: new workspace, overview hint, and quit */
+  .bar .tail {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px 0 15px;
+    font-family: var(--ui-font);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .bar .tail .hint { opacity: 0.35; margin-right: 8px; }
+  .tailbtn {
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-dim);
+    opacity: 0.45;
+    cursor: pointer;
+    transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+  .tailbtn:hover { opacity: 1; }
+  .tailbtn.quit:hover { color: var(--red); }
+  .tailbtn .plus { font-size: 16px; line-height: 1; }
+  .tailbtn svg { display: block; }
+
+  /* ---- anatomy callout ---- */
+  .anatomy { display: grid; grid-template-columns: 180px 1fr; gap: 26px; align-items: center; }
+  .anatomy .legend { font-family: var(--mono-font); font-size: 10.5px; color: var(--text-dim); line-height: 1.9; }
+  .anatomy .legend b { color: var(--text); font-weight: 500; }
+  .anatomy .legend .c { color: var(--clavis); }
+  .barbox { border: 1px solid var(--line-soft); background: var(--panel-deep); }
+  .barbox .bar { border-bottom: 0; }
+
+  /* ---- State comparison strip ---- */
+  .states { display: flex; flex-direction: column; }
+  .staterow {
+    display: grid;
+    grid-template-columns: 176px 1fr;
+    align-items: center;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .staterow:last-child { border-bottom: 0; }
+  .staterow .lab {
+    font-family: var(--ui-font);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--text-dim);
+    padding: 0 14px;
+  }
+  .staterow .lab em { display: block; font-style: normal; letter-spacing: 0; text-transform: none; font-family: var(--mono-font); font-size: 9.5px; opacity: 0.55; margin-top: 3px; }
+
+  /* ---- interactive controls ---- */
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 14px;
+    border-top: 1px solid var(--line-soft);
+    background: var(--panel-deep);
+  }
+  .key {
+    font-family: var(--ui-font);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+  .key:hover { color: var(--text-bright); border-color: var(--frame); }
+  .key.danger:hover { color: var(--red); border-color: var(--red); }
+  .hintline {
+    font-family: var(--mono-font); font-size: 10px; color: var(--text-dim);
+    padding: 0 14px 14px; opacity: 0.6;
+  }
+
+  /* ---- Overview slide-in ---- */
+  .ovr { background: rgba(0,0,0,0.85); border-bottom: 1px solid var(--line); }
+  .ovrhead, .ovrrow {
+    display: grid;
+    grid-template-columns: 22px 158px 1fr 128px 104px 62px;
+    gap: 12px;
+  }
+  .ovrhead {
+    padding: 8px 15px 6px;
+    font-family: var(--ui-font);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 8.5px;
+    font-weight: 500;
+    color: var(--text-dim);
+    opacity: 0.55;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .ovrrow {
+    padding: 7px 15px;
+    align-items: center;
+    border-bottom: 1px solid rgba(40,40,52,0.28);
+    font-family: var(--mono-font);
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .ovrrow:last-child { border-bottom: 0; }
+  .ovrrow.on { background: var(--rail); color: var(--text); }
+  .ovrrow .slot {
+    font-family: var(--ui-font); font-size: 15px; font-weight: 600;
+    color: var(--clavis); opacity: 0.55; font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .ovrrow.on .slot { opacity: 1; }
+  .ovrrow .wsname {
+    font-family: var(--ui-font);
+    font-size: 12.5px; font-weight: 500; letter-spacing: 0.01em;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text-dim);
+  }
+  .ovrrow.on .wsname { color: var(--text-bright); }
+  .ovrrow .wsname .tick { width: 2px; height: 13px; background: var(--ws-accent); flex: 0 0 auto; }
+  .ovrrow .cwd { color: var(--human); }
+  .ovrrow .act, .ovrrow .ctx { display: flex; align-items: center; gap: 7px; }
+  .ovrrow .track { height: 3px; width: 34px; background: var(--rail); position: relative; display: inline-block; }
+  .ovrrow .track > i { position: absolute; left: 0; top: 0; height: 100%; background: var(--clavis); }
+  .badge {
+    font-family: var(--ui-font);
+    font-size: 8.5px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+    background: var(--raised); color: var(--text); padding: 1px 5px;
+  }
+
+  .verdict {
+    margin-top: 18px;
+    border-left: 2px solid var(--clavis);
+    padding: 2px 0 2px 14px;
+    font-size: 14.5px;
+    color: var(--text);
+    max-width: 64ch;
+  }
+  .verdict b { color: var(--text-bright); font-weight: 600; }
+  .verdict.warn { border-left-color: var(--yellow); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dot.working { animation: none; opacity: 0.9; }
+    .ws, .ws .num, .bar.accent .ws::before, .tailbtn, .key { transition: none; }
+  }
+
+  footer {
+    margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
+    font-family: var(--mono-font); font-size: 12px; color: var(--text-dim);
+  }
+  footer b { color: var(--text); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Design mockup · revision 3 · not yet built</div>
+  <h1>The workspace bar, <span class="accent">one strip across the top</span></h1>
+  <p class="lede">A chromeless window pinned to the top of the screen, above everything, never taking focus.
+    Every tab is the same width and holds three logical columns: the <b>slot number</b> in accent blue, the
+    <b>activity dot</b>, and a <b>two-line title</b>. Slots are permanent addresses — pressing an unused
+    F-key <b>creates</b> that workspace, closing one <b>frees its number without renumbering anything else</b>.</p>
+
+  <section>
+    <h2><span class="idx">01</span> Anatomy of a tab</h2>
+    <p class="section-note">Three columns, no visible dividers. The <b>number</b> is the dominant mark — 21px
+      Rajdhani in <code class="mono">clavis</code> blue, dim at 55% until the tab is active. The <b>title</b>
+      drops the uppercase <code class="mono">label</code> treatment and uses the <code class="mono">title</code>
+      role instead (Rajdhani, sentence case) at chrome scale, so it reads as a name rather than a category —
+      losing the caps and the 0.14em tracking makes it noticeably quieter even before the size drop.</p>
+
+    <div class="preview">
+      <div class="caption">shown in · <span class="loc">a single workspace tab, 180 × 48</span></div>
+      <div class="stage">
+        <div class="anatomy">
+          <div class="barbox">
+            <div class="bar accent" style="height:48px">
+              <div class="ws on" style="--ws-accent: var(--violet)" title="Marketplace Plugins">
+                <span class="num">2</span><span class="dot working"></span>
+                <span class="name">Marketplace Plugins</span>
+              </div>
+            </div>
+          </div>
+          <div class="legend">
+            <span class="c">1</span> &nbsp;<b>slot number</b> — Rajdhani 21 / 600, clavis blue<br>
+            <span class="c">2</span> &nbsp;<b>activity dot</b> — 7px circle, three states<br>
+            <span class="c">3</span> &nbsp;<b>title</b> — Rajdhani 12.5 / 500, sentence case, 2 rows max<br>
+            &nbsp; &nbsp; &nbsp;<b>tick</b> — 2px identity accent, constant length, brighter when active
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="idx">02</span> The bar at rest — four tabs, equal width</h2>
+    <p class="section-note">Four workspaces is the starting state. Every tab is exactly 180px regardless of
+      its title, so the bar is a stable ruler you can point at by position rather than a set of chips that
+      shuffle as names change. Titles longer than two rows ellipsise; <b>hover any tab for the full title</b>.</p>
+
+    <div class="preview">
+      <div class="caption">shown in · <span class="loc">workspace bar (top of screen, above the primary window)</span></div>
+      <div class="stage flush">
+        <div class="screen">
+          <div class="bar accent">
+            <div class="ws"    style="--ws-accent: var(--human)"  title="Clavis"><span class="num">1</span><span class="dot idle"></span><span class="name">Clavis</span></div>
+            <div class="ws on" style="--ws-accent: var(--violet)" title="Marketplace Plugins"><span class="num">2</span><span class="dot working"></span><span class="name">Marketplace Plugins</span></div>
+            <div class="ws"    style="--ws-accent: var(--clavis)" title="ShArc Release Pipeline"><span class="num">3</span><span class="dot waiting"></span><span class="name">ShArc Release Pipeline</span></div>
+            <div class="ws"    style="--ws-accent: var(--human)"  title="Layer2 Relief Azure DevOps Migration"><span class="num">4</span><span class="dot idle"></span><span class="name">Layer2 Relief Azure DevOps Migration</span></div>
+            <div class="tail">
+              <span class="hint">F12 overview</span>
+              <div class="tailbtn" title="New workspace"><span class="plus">+</span></div>
+              <div class="tailbtn quit" title="Quit Clavis">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                  <path d="M12 3 v9" /><path d="M18.4 6.6 a9 9 0 1 1 -12.8 0" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="idx">03</span> The three activity states</h2>
+    <p class="section-note">Idle is a steady grey dot. Working is <b>blue and pulsing</b> at 600ms — motion
+      means work in progress. Waiting for input is a <b>steady yellow</b> dot: yellow is the sanctioned warning
+      signal, so it says "this one needs you" without borrowing the motion that already means something else.
+      Colour carries urgency, motion carries progress — two independent channels, so a blocked workspace and a
+      busy one never look like two speeds of the same thing.</p>
+
+    <div class="preview">
+      <div class="caption">shown in · <span class="loc">each tab's activity dot</span></div>
+      <div class="stage flush">
+        <div class="states">
+          <div class="staterow">
+            <div class="lab">no activity<em>idle · grey, steady</em></div>
+            <div class="bar accent" style="border-bottom:0">
+              <div class="ws" style="--ws-accent: var(--human)" title="Clavis"><span class="num">1</span><span class="dot idle"></span><span class="name">Clavis</span></div>
+            </div>
+          </div>
+          <div class="staterow">
+            <div class="lab">working<em>working · blue, 600ms pulse</em></div>
+            <div class="bar accent" style="border-bottom:0">
+              <div class="ws" style="--ws-accent: var(--violet)" title="Marketplace Plugins"><span class="num">2</span><span class="dot working"></span><span class="name">Marketplace Plugins</span></div>
+            </div>
+          </div>
+          <div class="staterow">
+            <div class="lab">waiting for input<em>waiting · yellow, steady</em></div>
+            <div class="bar accent" style="border-bottom:0">
+              <div class="ws" style="--ws-accent: var(--clavis)" title="ShArc Release Pipeline"><span class="num">3</span><span class="dot waiting"></span><span class="name">ShArc Release Pipeline</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview">
+      <div class="caption">the read test · <span class="loc">waiting sitting directly beside working — do they separate?</span></div>
+      <div class="stage flush">
+        <div class="bar accent">
+          <div class="ws"    style="--ws-accent: var(--human)"  title="Clavis"><span class="num">1</span><span class="dot working"></span><span class="name">Clavis</span></div>
+          <div class="ws"    style="--ws-accent: var(--violet)" title="Marketplace Plugins"><span class="num">2</span><span class="dot waiting"></span><span class="name">Marketplace Plugins</span></div>
+          <div class="ws on" style="--ws-accent: var(--clavis)" title="ShArc Release Pipeline"><span class="num">3</span><span class="dot working"></span><span class="name">ShArc Release Pipeline</span></div>
+          <div class="ws"    style="--ws-accent: var(--human)"  title="Scripts"><span class="num">4</span><span class="dot idle"></span><span class="name">Scripts</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="idx">04</span> Slots are permanent addresses — live</h2>
+    <p class="section-note">Press an unused F-key and that workspace is <b>created</b> in that slot, sliding in
+      where its number belongs. Close one and its tab slides out, <b>leaving a gap in the numbering</b> —
+      slot 3 stays slot 3 forever, so the key you learned never moves under you. Both transitions run at the
+      app's one duration: <b>250ms, CubicEaseOut</b>. Try it.</p>
+
+    <div class="preview">
+      <div class="caption">interactive · <span class="loc">workspace bar — creation and closure, animated</span></div>
+      <div class="stage flush">
+        <div class="screen">
+          <div class="bar accent" id="livebar">
+            <div class="ws"      data-slot="1" style="--ws-accent: var(--human)"  title="Clavis"><span class="num">1</span><span class="dot idle"></span><span class="name">Clavis</span></div>
+            <div class="ws on"   data-slot="2" style="--ws-accent: var(--violet)" title="Marketplace Plugins"><span class="num">2</span><span class="dot working"></span><span class="name">Marketplace Plugins</span></div>
+            <div class="ws"      data-slot="3" style="--ws-accent: var(--clavis)" title="ShArc Release Pipeline"><span class="num">3</span><span class="dot waiting"></span><span class="name">ShArc Release Pipeline</span></div>
+            <div class="ws"      data-slot="4" style="--ws-accent: var(--human)"  title="Scripts"><span class="num">4</span><span class="dot idle"></span><span class="name">Scripts</span></div>
+            <div class="ws gone" data-slot="5" style="--ws-accent: var(--violet)" title="Relief"><span class="num">5</span><span class="dot idle"></span><span class="name">Relief</span></div>
+            <div class="ws gone" data-slot="6" style="--ws-accent: var(--clavis)" title="Layer2 Integration Suite"><span class="num">6</span><span class="dot idle"></span><span class="name">Layer2 Integration Suite</span></div>
+            <div class="ws gone" data-slot="7" style="--ws-accent: var(--human)"  title="Herdr"><span class="num">7</span><span class="dot idle"></span><span class="name">Herdr</span></div>
+            <div class="tail">
+              <span class="hint">F12 overview</span>
+              <div class="tailbtn" title="New workspace"><span class="plus">+</span></div>
+              <div class="tailbtn quit" title="Quit Clavis">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                  <path d="M12 3 v9" /><path d="M18.4 6.6 a9 9 0 1 1 -12.8 0" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="controls">
+          <button class="key" data-press="5">press F5</button>
+          <button class="key" data-press="6">press F6</button>
+          <button class="key" data-press="7">press F7</button>
+          <button class="key danger" data-close="2">exit workspace 2</button>
+          <button class="key danger" data-close="3">exit workspace 3</button>
+          <button class="key" data-reset>reset</button>
+        </div>
+        <div class="hintline">Buttons stand in for the real gestures — F5..F7 activate-or-create, and
+          <code>exit</code> closes the workspace you are in. Watch slot 4 keep its number when 2 or 3 closes.</div>
+      </div>
+    </div>
+
+    <p class="verdict"><b>This changes the data model.</b> The slot is a stable address, not an ordinal, so
+      closing a workspace must not reflow the others — the plan's original "close reflows ordinals" is wrong
+      and becomes "close frees the slot". A new workspace takes the <b>lowest free slot</b>, so the gap left by
+      closing 2 is what the next <code class="mono">+</code> fills.</p>
+  </section>
+
+  <section>
+    <h2><span class="idx">05</span> Closing a workspace vs quitting Clavis</h2>
+    <p class="section-note"><code class="mono">exit</code> now means "close this workspace" — it disposes that
+      session and removes the tab, and the rest of the app carries on. That leaves the application with no way
+      out, so the bar's right end gains a <b>quit</b> glyph beside <code class="mono">+</code>, backed by a
+      <code class="mono">quit</code> palette command. Quit is the one genuinely destructive gesture in the bar,
+      so it is the only element that turns <code class="mono">red</code> on hover and the only one that
+      confirms first.</p>
+
+    <div class="preview">
+      <div class="caption">shown in · <span class="loc">bar tail — new workspace, overview hint, quit</span></div>
+      <div class="stage">
+        <div class="barbox" style="max-width:300px;margin-left:auto">
+          <div class="bar" style="height:48px;background:var(--panel-deep)">
+            <div class="tail">
+              <span class="hint">F12 overview</span>
+              <div class="tailbtn" title="New workspace"><span class="plus">+</span></div>
+              <div class="tailbtn quit" title="Quit Clavis">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                  <path d="M12 3 v9" /><path d="M18.4 6.6 a9 9 0 1 1 -12.8 0" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="verdict warn"><b>One question this opens.</b> What happens when you close the <em>last</em>
+      workspace? Either the bar sits empty with just <code class="mono">+</code> and quit — the app persists
+      with nothing open, which is coherent now that quit is separate — or closing the last one is refused.
+      Empty is my recommendation: it is the honest consequence of separating the two gestures, and the bar
+      still gives you a way back in.</p>
+  </section>
+
+  <section>
+    <h2><span class="idx">06</span> The identity accent — kept</h2>
+    <p class="section-note">Decided: the tick stays, and its <b>length never changes</b>. A workspace's
+      identity is not a function of whether you happen to be looking at it, so the mark must not grow or
+      shrink on selection — only its opacity lifts from 55% to full. The second preview keeps the
+      accent-free version on record for comparison.</p>
+
+    <div class="preview">
+      <div class="caption">chosen · <span class="loc">2px accent tick, per-workspace hue, constant length</span></div>
+      <div class="stage flush">
+        <div class="bar accent">
+          <div class="ws"    style="--ws-accent: var(--human)"  title="Clavis"><span class="num">1</span><span class="dot idle"></span><span class="name">Clavis</span></div>
+          <div class="ws on" style="--ws-accent: var(--violet)" title="Marketplace Plugins"><span class="num">2</span><span class="dot working"></span><span class="name">Marketplace Plugins</span></div>
+          <div class="ws"    style="--ws-accent: var(--clavis)" title="ShArc Release Pipeline"><span class="num">3</span><span class="dot waiting"></span><span class="name">ShArc Release Pipeline</span></div>
+          <div class="ws"    style="--ws-accent: var(--human)"  title="Scripts"><span class="num">4</span><span class="dot idle"></span><span class="name">Scripts</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview">
+      <div class="caption">rejected · <span class="loc">number and dot only, no identity accent</span></div>
+      <div class="stage flush">
+        <div class="bar">
+          <div class="ws"    title="Clavis"><span class="num">1</span><span class="dot idle"></span><span class="name">Clavis</span></div>
+          <div class="ws on" title="Marketplace Plugins"><span class="num">2</span><span class="dot working"></span><span class="name">Marketplace Plugins</span></div>
+          <div class="ws"    title="ShArc Release Pipeline"><span class="num">3</span><span class="dot waiting"></span><span class="name">ShArc Release Pipeline</span></div>
+          <div class="ws"    title="Scripts"><span class="num">4</span><span class="dot idle"></span><span class="name">Scripts</span></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="verdict"><b>Kept, and confined.</b> A workspace should feel like <em>a place</em>, not just a
+      number. The cost is a third colour language on a 48px strip, so the accent is fenced in tightly: it is
+      only ever this 2px tick, it never touches the number or the dot, and its geometry is fixed. That leaves
+      the three languages cleanly separated — <b>blue number = position</b>, <b>dot = state</b>,
+      <b>tick = identity</b> — with only the dot carrying motion.</p>
+  </section>
+
+  <section>
+    <h2><span class="idx">07</span> F12 — the overview</h2>
+    <p class="section-note">Architecturally just a panel kind (<code class="mono">workspace-overview</code>)
+      placed as a top-edge slide-in, so it inherits open/close/Esc/restore/tear-off for free. It answers what
+      the bar cannot: <b>where</b> each workspace points, <b>which model</b> it runs, <b>how long</b> it has
+      been in its current state, and <b>how full</b> its context is. Note the gap at slot 3 — workspace 3 was
+      closed and its number stays reserved.</p>
+
+    <div class="preview">
+      <div class="caption">shown in · <span class="loc">top-edge slide-in, directly beneath the bar</span></div>
+      <div class="stage flush">
+        <div class="screen">
+          <div class="bar accent">
+            <div class="ws"    style="--ws-accent: var(--human)"  title="Clavis"><span class="num">1</span><span class="dot idle"></span><span class="name">Clavis</span></div>
+            <div class="ws on" style="--ws-accent: var(--violet)" title="Marketplace Plugins"><span class="num">2</span><span class="dot working"></span><span class="name">Marketplace Plugins</span></div>
+            <div class="ws"    style="--ws-accent: var(--human)"  title="Scripts"><span class="num">4</span><span class="dot waiting"></span><span class="name">Scripts</span></div>
+            <div class="ws"    style="--ws-accent: var(--clavis)" title="Relief"><span class="num">5</span><span class="dot idle"></span><span class="name">Relief</span></div>
+            <div class="tail">
+              <span class="hint">F12 overview</span>
+              <div class="tailbtn" title="New workspace"><span class="plus">+</span></div>
+              <div class="tailbtn quit" title="Quit Clavis">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                  <path d="M12 3 v9" /><path d="M18.4 6.6 a9 9 0 1 1 -12.8 0" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="ovr">
+            <div class="ovrhead">
+              <div></div><div>workspace</div><div>directory</div><div>agent</div><div>activity</div><div>context</div>
+            </div>
+            <div class="ovrrow" style="--ws-accent: var(--human)">
+              <div class="slot">1</div>
+              <div class="wsname"><span class="tick"></span>Clavis</div>
+              <div class="cwd">~/Repos/FS/clavis</div>
+              <div>opus 5 · <span class="badge">plan</span></div>
+              <div class="act"><span class="dot idle"></span>idle 12m</div>
+              <div class="ctx"><span class="track"><i style="width:22%"></i></span>22%</div>
+            </div>
+            <div class="ovrrow on" style="--ws-accent: var(--violet)">
+              <div class="slot">2</div>
+              <div class="wsname"><span class="tick"></span>Marketplace Plugins</div>
+              <div class="cwd">~/.clavis/marketplaces</div>
+              <div>opus 5 · <span class="badge">auto</span></div>
+              <div class="act"><span class="dot working"></span>Bash 4.2s</div>
+              <div class="ctx"><span class="track"><i style="width:61%"></i></span>61%</div>
+            </div>
+            <div class="ovrrow" style="--ws-accent: var(--human)">
+              <div class="slot">4</div>
+              <div class="wsname"><span class="tick"></span>Scripts</div>
+              <div class="cwd">~/Documents/…/Scripts</div>
+              <div>sonnet 5 · <span class="badge">accept</span></div>
+              <div class="act"><span class="dot waiting"></span>permission 31s</div>
+              <div class="ctx"><span class="track"><i style="width:38%"></i></span>38%</div>
+            </div>
+            <div class="ovrrow" style="--ws-accent: var(--clavis)">
+              <div class="slot">5</div>
+              <div class="wsname"><span class="tick"></span>Relief</div>
+              <div class="cwd">~/Repos/Layer2/relief</div>
+              <div>haiku 4.5 · <span class="badge">auto</span></div>
+              <div class="act"><span class="dot idle"></span>not started</div>
+              <div class="ctx"><span class="track"><i style="width:0%"></i></span>—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="verdict">Note the <b>not started</b> row: sessions start lazily on first activation, so a restored
+      workspace that has never been visited holds no <code class="mono">claude.exe</code> and has no context.
+      The overview is the only place that distinction is visible — in the bar it simply reads as idle, which is
+      correct.</p>
+  </section>
+
+  <footer>
+    Mockup for the <b>Workspaces</b> feature (plan: WP-1) — <b>approved</b>. Three-column tabs of equal width,
+    a 21px blue slot number, sentence-case two-row titles with hover tooltips, animated tab creation/closure at
+    250ms, stable slot numbering, an identity accent of constant length, and a quit affordance separate from
+    <code>exit</code>. Remaining open question: what closing the <em>last</em> workspace does (section 05).
+  </footer>
+</div>
+
+<script>
+  // Stand-ins for the real gestures, so the entrance/exit timing is reviewable in the browser.
+  const bar = document.getElementById('livebar');
+  const tabs = () => [...bar.querySelectorAll('.ws')];
+  const bySlot = slot => bar.querySelector(`.ws[data-slot="${slot}"]`);
+  const initiallyOpen = ['1', '2', '3', '4'];
+
+  function activate(tab) {
+    tabs().forEach(t => t.classList.remove('on'));
+    tab.classList.add('on');
+  }
+
+  document.querySelectorAll('[data-press]').forEach(button =>
+    button.addEventListener('click', () => {
+      const tab = bySlot(button.dataset.press);
+      tab.classList.remove('gone');   // activate-or-create: an unused slot animates in
+      activate(tab);
+    }));
+
+  document.querySelectorAll('[data-close]').forEach(button =>
+    button.addEventListener('click', () => {
+      const tab = bySlot(button.dataset.close);
+      const wasActive = tab.classList.contains('on');
+      tab.classList.add('gone');
+      if (wasActive) {
+        const next = tabs().find(t => !t.classList.contains('gone'));
+        if (next) activate(next);
+      }
+    }));
+
+  document.querySelector('[data-reset]').addEventListener('click', () =>
+    tabs().forEach(tab => {
+      tab.classList.toggle('gone', !initiallyOpen.includes(tab.dataset.slot));
+      tab.classList.toggle('on', tab.dataset.slot === '2');
+    }));
+</script>
+</body>
+</html>
