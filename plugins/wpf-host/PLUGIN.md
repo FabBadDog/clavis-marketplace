@@ -1,7 +1,7 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 3.1.0
+version: 3.2.0
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
@@ -41,8 +41,13 @@ region surface.
 
 ## Location
 
-`src/plugins/WpfHost/` - a **UI plugin** (`UseWPF`), compiled-on-launch. `WindowManager.cs`,
-`WindowHost.cs`, and `RegionManager.cs` carry the bulk of the logic.
+`src/plugins/WpfHost/` - a **UI plugin** (`UseWPF`), compiled-on-launch. `WindowHost.cs` and
+`RegionManager.cs` carry the per-window logic; `WindowManager` is one class split across partial files by
+concern - the core (fields, construction, the window ring, disposal) plus `.Subscriptions` (the whole bus
+routing table), `.Visibility` (reveal / summon / banish), `.Windows` (window lifecycle), `.LayoutRestore`
+(persist and restore), `.Panels` (placement, toggle, close, retitle), `.CrossWindowDrag`, `.Snapshot` and
+`.Placeholder`. The pure tree walks and geometry it relies on live in `LayoutTree.cs`, outside the class and
+unit-tested.
 
 ## Config (`WpfHostConfig`)
 

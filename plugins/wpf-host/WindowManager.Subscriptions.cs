@@ -1,0 +1,213 @@
+using System.Collections.Concurrent;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Threading;
+using FabioSoft.Clavis.Rendering;
+using FabioSoft.Nucleus.Contracts;
+
+namespace FabioSoft.Nucleus.Plugins.WpfHost;
+
+
+/// The one place every bus subscription is declared, so the routing table reads as a table.
+internal sealed partial class WindowManager
+{
+    private void SubscribeToBus()
+    {
+        _subscriptions.Add(_bus.Subscribe<UiRegionContribution>(contribution =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.Regions.AddContribution(contribution));
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<UiRegionRemoved>(removal =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.Regions.RemoveContribution(removal));
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<PanelInstanceReady>(ready =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => PlacePanel(ready));
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<PanelStateChanged>(message =>
+        {
+            _panelState[message.InstanceId] = message.State;
+            Application.Current.Dispatcher.InvokeAsync(ScheduleSave);
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<OpenConversation>(_ =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SeedConversation());
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<ShowSlideIn>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() =>
+                _windows.Values.FirstOrDefault(window => window.HasSlideIn(message.InstanceId))?.ShowSlideIn(message.InstanceId));
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<CloseWindow>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => CloseSecondaryWindow(message.WindowId));
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<FocusInputRequested>(_ =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.Focus());
+            return Task.CompletedTask;
+        }));
+
+        // The conversation owner reports when prompts can be accepted; until then the prompt input
+        // stays collapsed (the host knows no session vocabulary - just this availability broadcast).
+        _subscriptions.Add(_bus.Subscribe<PromptInputAvailability>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SetPromptInputVisible(message.Available));
+            return Task.CompletedTask;
+        }));
+
+        // The conversation owner relays the session's permission mode; the host dresses the prompt input in
+        // its ambient accent (coloured left rule, caret, tag). It stays a host/conversation concern - the
+        // host resolves the accent from the mode id and learns no session vocabulary.
+        _subscriptions.Add(_bus.Subscribe<PromptModeChanged>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SetSessionMode(message.Mode, message.DisplayName));
+            return Task.CompletedTask;
+        }));
+
+        // The active panel's owner reports whether its status bar has content; collapse the primary window's
+        // status row when it has none so the panel fills the space (the host knows no placeholder vocabulary).
+        _subscriptions.Add(_bus.Subscribe<StatusBarAvailability>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SetStatusBarVisible(message.Available));
+            return Task.CompletedTask;
+        }));
+
+        // The saved layout arrives as this plugin's runtime state; restore it onto the (still hidden)
+        // primary, then reveal once the essential set is also up.
+        _subscriptions.Add(_bus.Subscribe<StateResult>(result =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                OnStateResult(result);
+                RevealWhenReady();
+            });
+            return Task.CompletedTask;
+        }));
+
+        // The essential plugins are up (Configuration among them, so the state answer normally precedes
+        // this). If that answer cannot arrive - a failed Configuration plugin - the failsafe reveals with
+        // the default placement after a short grace rather than never.
+        _subscriptions.Add(_bus.Subscribe<EssentialPluginsReady>(_ =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                _essentialsReady = true;
+                RevealWhenReady();
+                StartRevealFailsafe();
+            });
+            return Task.CompletedTask;
+        }));
+
+        // Restore sends are deferred until every plugin is up, so the registry has the panel kinds it
+        // needs to resolve them. Reveal() first: bootstrap completion is the reveal's final guarantee,
+        // queued at normal priority so it precedes the host's idle-priority no-window viability check.
+        _subscriptions.Add(_bus.Subscribe<BootstrapComplete>(_ =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                Reveal();
+                _bootstrapComplete = true;
+                FlushRestoreSends();
+            });
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<KeymapChanged>(changed =>
+        {
+            _keymap.Update(changed.Bindings);
+            var systemBindings = changed.Bindings.Where(binding => binding.Scope == KeymapScope.System).ToList();
+            Application.Current.Dispatcher.InvokeAsync(() => _globalHotkey?.SetSystemBindings(systemBindings));
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<CommandsAvailable>(available =>
+        {
+            _keymap.UpdateCommands(available.Commands);
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<TogglePanel>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => TogglePanel(message.Kind));
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<CloseActivePanel>(_ =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(CloseActivePanel);
+            return Task.CompletedTask;
+        }));
+
+        // A named panel instance is closed by id (e.g. when a markdown definition is deleted, its owner
+        // closes every open panel bound to it). Completes the previously-unwired ClosePanel contract.
+        _subscriptions.Add(_bus.Subscribe<ClosePanel>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => ClosePanel(message.InstanceId));
+            return Task.CompletedTask;
+        }));
+
+        // Retitle a live panel's tab (e.g. when its markdown definition is renamed while docked).
+        _subscriptions.Add(_bus.Subscribe<SetPanelTitle>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => RetitlePanel(message.InstanceId, message.Title));
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<ToggleShortcutHelp>(_ =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => GetFocused()?.ToggleHelp());
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<CloseActiveWindow>(_ =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => CloseSecondaryWindow(_focusedWindowId));
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<SummonClavis>(_ =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(Summon);
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<ToggleClavis>(_ =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(ToggleVisibility);
+            return Task.CompletedTask;
+        }));
+
+        // Introspection: report what is currently on screen. Read on the UI thread (it touches live WPF
+        // state), then answer with a single LayoutSnapshot - the response half of a bus Request.
+        _subscriptions.Add(_bus.Subscribe<LayoutSnapshotRequested>(_ =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() => _bus.Send(BuildSnapshot()));
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<PermissionPending>(message =>
+        {
+            _permissionPending = message.Pending;
+            // Disable the prompt input while a decision is pending so it is unselectable and yields focus and
+            // keys to the permission selector; re-enable it (restoring focus) once the decision is made.
+            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SetPromptInputEnabled(!message.Pending));
+            return Task.CompletedTask;
+        }));
+    }
+}

@@ -19,6 +19,7 @@
     <Compile Include="WindowSnapTests.fs" />
     <Compile Include="FocusRingTests.fs" />
     <Compile Include="WpfHostPluginTests.fs" />
+    <Compile Include="LayoutTreeTests.fs" />
     <Compile Include="LayoutFileTests.fs" />
   </ItemGroup>
 </Project>
