@@ -44,3 +44,8 @@ public sealed record ChatPanelState(Guid WorkspaceId, Guid ChatId)
             ? parsed
             : Guid.Empty;
 }
+
+/// What a chat panel is bound to once the plugin has resolved its saved blob against the live state: the view
+/// model to render, and the identity to persist back. The identity can be more concrete than what was saved -
+/// a hand-opened panel arrives with no chat id and gains one here.
+public sealed record ChatPanelBinding(ViewModels.ConversationViewModel ViewModel, ChatPanelState Identity);

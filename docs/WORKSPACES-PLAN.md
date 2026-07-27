@@ -37,8 +37,9 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP2 session activity + session ids | done | `8a39514`, `06e1ad9`, `50a8156` |
 | Host: WP0 fallout + BuildSpec cache key | done | `967c0f2`, `2c21571`, `81479a2` (host repo) |
 | WP3 chat becomes a panel kind | done, **not runtime-verified** | `76c5078` |
-| WP4 | **next** | - |
-| WP5 - WP10, WP5b | not started | - |
+| WP4 chats aggregate | done, **not runtime-verified** | see WP4 below |
+| WP5 | **next** | - |
+| WP5b, WP6 - WP10 | not started | - |
 
 **Not runtime-verified since WP2.** Four contract majors have moved now (session, host x2, layout) and
 nothing has booted against them. WP3 in particular changes what the primary window contains, so it needs a
@@ -530,7 +531,44 @@ resolve.
 
 ---
 
-## WP4 - `ConversationState` -> chats aggregate - NEXT
+## WP4 - `ConversationState` -> chats aggregate - DONE
+
+Landed as designed. Catalog gate green: 38/38 items, 23/23 test suites (conversation 169 -> 180).
+`conversation 9.0.0`; no contract module moved, so nothing else needed a bump - the whole package is internal
+to one plugin, which is what made it a good one to land straight after WP3.
+
+Deviations and decisions worth carrying forward:
+
+1. **`ActiveSession` / `ActiveSessionId` / `WithActiveSession` were kept**, as derived accessors over
+   `VisibleChat.LiveSession`. The plan's shape dropped them, but they name exactly the same fact ("the live
+   session of the chat the user sees") and are read in ~20 places across the update, the view model and the
+   plugin. Renaming would have churned the 52 kB test file for no behaviour change. `Sessions` on the
+   aggregate is gone for real, replaced by `AllSessions` (every session of every chat) - that one *was* two
+   different things wearing one name.
+2. **The tick now refreshes every chat with a running turn**, not just the visible one. The plan said
+   `HasLiveTiming` becomes "any chat has a Running turn"; had `HandleTick` stayed visible-chat-only, a
+   background chat's elapsed time would freeze while the timer kept spinning for it and then jump on switch.
+   The per-turn arithmetic is extracted to `TickTurns`, and a chat with nothing running comes back
+   reference-identical so the projection skips it.
+3. **`HandleFullRestart` has two entry points.** The user-driven one restarts the visible chat; the one
+   inlined from `AgentSessionEnded` restarts *the chat that owns that session*, which is not necessarily the
+   visible one - a background chat's session can end too. Both funnel into one private `Restart(state, chat)`.
+4. **`ChatViewModels` owns the projection**, including two facts that are not per-chat yet: prompt
+   availability and the session's permission mode. They are application-wide today (one bridge, one capability
+   catalog) but rendered per chat panel, so the holder remembers them and applies them to every view model -
+   including one created later, which would otherwise miss them. When WP5 makes them per-session, this is the
+   one place that changes.
+5. **`ChatPanelBinding` resolves the panel's blob against live state** in the plugin, not in the view: the
+   panel is handed a view model plus the identity to persist. A saved `chatId` that still exists wins; anything
+   else lands on the visible chat and the resolved id is written back, so a hand-opened panel gains a concrete
+   chat id and returns to the same chat next launch.
+6. **`ConversationState.Empty` exists but is unused.** `Init` still seeds one chat, because nothing creates
+   chats yet - that is WP5's job, and `Empty` is the honest starting point it will switch to.
+
+Still true after WP4: there is exactly **one** chat at runtime, so this package is a structural change with no
+visible behaviour change. The first-launch checks listed under WP3 are still the ones to run.
+
+### Original scope
 
 Keep **one** aggregate, one pure update, one lock - N independent states would mean N locks, N tick timers,
 and no cheap cross-workspace answers. The real defect is that `Sessions` does two jobs: a history list with
@@ -576,7 +614,7 @@ for a single-chat state (regression guard).
 
 ---
 
-## WP5 - `workspace-contracts` 2.0.0 + the `Workspaces` plugin (headless)
+## WP5 - `workspace-contracts` 2.0.0 + the `Workspaces` plugin (headless) - NEXT
 
 New `modules/workspace-contracts` (2.0.0) and `plugins/workspaces` (`essential: true`; deps
 `configuration`, `workspace-contracts`, `session-contracts`, `layout-contracts`).

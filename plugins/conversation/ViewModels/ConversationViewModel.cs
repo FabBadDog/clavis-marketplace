@@ -4,27 +4,31 @@ namespace FabioSoft.Nucleus.Plugins.Conversation.ViewModels;
 
 public sealed class ConversationViewModel : ObservableObject
 {
-    private          ConversationState      _state;
+    private          Chat?                  _chat;
     private readonly Action<string, string> _publishPermission;
     private          bool                   _isPromptAvailable;
 
-    public ConversationViewModel(ConversationState state, Action<string, string> publishPermission)
+    public ConversationViewModel(Chat? chat, Action<string, string> publishPermission)
     {
-        _state = state;
+        _chat = chat;
         _publishPermission = publishPermission;
         SyncTurns();
     }
 
-    public void Update(ConversationState state)
+    /// The chat this view model projects. One view model per chat, so a background chat keeps its own
+    /// projection - its scroll position has to be right the moment you switch to it.
+    public Guid? ChatId => _chat?.ChatId;
+
+    public void Update(Chat? chat)
     {
-        _state = state;
+        _chat = chat;
         SyncTurns();
         RefreshAll();
     }
 
     private void SyncTurns()
     {
-        var session = _state.ActiveSession;
+        var session = _chat?.LiveSession;
         var activeTurns = session?.Turns ?? [];
         CollectionSync.Reconcile(
             Turns,
@@ -47,13 +51,13 @@ public sealed class ConversationViewModel : ObservableObject
 
     public ObservableCollection<TurnViewModel> Turns { get; } = [];
 
-    public string? Model => _state.ActiveSession?.Model;
+    public string? Model => _chat?.LiveSession?.Model;
 
     public string MetaLabel
     {
         get
         {
-            var session = _state.ActiveSession;
+            var session = _chat?.LiveSession;
             if (session is null)
             {
                 return "";
@@ -75,7 +79,7 @@ public sealed class ConversationViewModel : ObservableObject
     {
         get
         {
-            var session = _state.ActiveSession;
+            var session = _chat?.LiveSession;
             if (session is null)
             {
                 return "";
@@ -120,11 +124,11 @@ public sealed class ConversationViewModel : ObservableObject
     }
 
     /// True while a permission prompt is awaiting a decision, so the chat panel claims Left/Right/Enter for it.
-    public bool IsPermissionPending => ConversationUpdate.HasPendingPermission(_state);
+    public bool IsPermissionPending => ConversationUpdate.HasPendingPermission(_chat);
 
-    public bool IsProcessing => _state.ActiveSession?.IsProcessing ?? false;
+    public bool IsProcessing => _chat?.LiveSession?.IsProcessing ?? false;
 
-    public bool HasActiveTurn => _state.ActiveSession?.IsCurrentTurnActive ?? false;
+    public bool HasActiveTurn => _chat?.LiveSession?.IsCurrentTurnActive ?? false;
 
-    public int QueuedCount => _state.ActiveSession?.QueuedCount ?? 0;
+    public int QueuedCount => _chat?.LiveSession?.QueuedCount ?? 0;
 }

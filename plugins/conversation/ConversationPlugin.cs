@@ -49,14 +49,16 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
 
     public Task<IDisposable> ActivateAsync(IBus bus, ConversationConfig config)
     {
-        var state = ConversationState.Init();
         var lockObj = new object();
         var workingDirectory = string.IsNullOrWhiteSpace(config.WorkingDirectory)
             ? Directory.GetCurrentDirectory()
             : config.WorkingDirectory;
+        var state = ConversationState.Init(Guid.Empty, workingDirectory);
         var cts = new CancellationTokenSource();
 
-        ConversationViewModel? viewModel = null;
+        // One view model per chat, created by the chat panel's view factory. Until Workspaces owns chat
+        // creation there is exactly one chat, so this behaves as the single view model did.
+        ChatViewModels? chatViewModels = null;
         DispatcherTimer? tickTimer = null;
         var activityTracker = new SessionActivityTracker();
         IReadOnlyDictionary<string, string> lastPlaceholders = new Dictionary<string, string>();
@@ -86,7 +88,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
-                viewModel = new ConversationViewModel(state, PublishPermission);
+                chatViewModels = new ChatViewModels(PublishPermission);
 
                 var templates = ConversationViewFactory.LoadTemplates();
                 Application.Current.Resources.MergedDictionaries.Add(templates);
@@ -362,7 +364,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         // re-attaches instead of being re-seeded.
         void AnnounceChatPanel() => bus.Send(new PanelKindRegistration(
             PanelChromeResolver.ChatKind, "Chat", 320, 200, "", true,
-            context => Views.ChatPanelView.Create(bus, viewModel!, context))
+            context => Views.ChatPanelView.Create(bus, BindPanelToChat(context), context))
         {
             Cardinality = PanelCardinality.OnePerWorkspace
         });
@@ -385,13 +387,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         // the pure update and sent automatically once the session reports ready, so the user never has to wait
         // out the whole init turn before typing. The prompt lives in the chat panel now, so this is a view-model
         // fact rather than a broadcast to the host.
-        Application.Current?.Dispatcher.InvokeAsync(() =>
-        {
-            if (viewModel is not null)
-            {
-                viewModel.IsPromptAvailable = true;
-            }
-        });
+        Application.Current?.Dispatcher.InvokeAsync(() => chatViewModels?.SetPromptAvailable(true));
 
         // A plugin that fails during boot lands as an error row in the init turn instead of leaving an
         // eternal spinner. Generic display data - the conversation names no plugin.
@@ -435,9 +431,28 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         void PublishPermission(string requestId, string decision)
             => bus.Send(new PermissionDecided(state.ActiveSessionId ?? Guid.Empty, requestId, decision));
 
-        void UpdateViewModel(ConversationState newState)
+        // Which chat a panel instance shows: the one named in its saved blob if it still exists, otherwise the
+        // visible chat. The resolved binding is what the panel persists back, so a hand-opened panel gains a
+        // concrete chat id and comes back to the same chat next launch.
+        ChatPanelBinding BindPanelToChat(PanelInstanceContext context)
         {
-            if (viewModel is null)
+            var saved = ChatPanelState.Parse(context.SavedState);
+            lock (lockObj)
+            {
+                var chat = state.Chats.FirstOrDefault(candidate => candidate.ChatId == saved.ChatId)
+                    ?? state.VisibleChat;
+                var chatId = chat?.ChatId ?? saved.ChatId;
+                return new ChatPanelBinding(
+                    chatViewModels!.ForChat(chat, chatId),
+                    new ChatPanelState(chat?.WorkspaceId ?? saved.WorkspaceId, chatId));
+            }
+        }
+
+        // Project only the chats the pure update actually touched - it leaves the rest reference-identical,
+        // so a streaming turn in one chat does not re-render the others.
+        void UpdateViewModels(ConversationState previous, ConversationState newState)
+        {
+            if (chatViewModels is null)
             {
                 return;
             }
@@ -448,7 +463,8 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             {
                 try
                 {
-                    viewModel.Update(newState);
+                    chatViewModels.Project(previous, newState);
+                    chatViewModels.DropClosed(newState);
                 }
                 catch (Exception exception)
                 {
@@ -459,8 +475,9 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
 
         void HandleUpdate(ref ConversationState current, ConversationState newState, ConversationEffect[] effects)
         {
+            var previous = current;
             current = newState;
-            UpdateViewModel(newState);
+            UpdateViewModels(previous, newState);
             PublishActivityIfChanged(newState);
             PublishPlaceholders(newState);
             ProcessEffects(effects);
@@ -490,7 +507,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             }
             ViewModels.TurnViewModel.StatsTemplate = templates.StatsColumn;
             ApplyChrome();
-            Application.Current?.Dispatcher.InvokeAsync(() => viewModel?.Update(state));
+            Application.Current?.Dispatcher.InvokeAsync(() => chatViewModels?.RefreshAll(state));
         }
 
         // Resolve the chrome for the active docked panel and push it onto the title/status strips (on the
@@ -525,7 +542,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         // still say it needs you.
         void PublishActivityIfChanged(ConversationState newState)
         {
-            foreach (var session in newState.Sessions)
+            foreach (var session in newState.AllSessions)
             {
                 if (activityTracker.Next(session, DateTimeOffset.UtcNow) is { } changed)
                 {
@@ -561,7 +578,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
                         break;
                     case PublishPromptModeEffect e:
                         Application.Current?.Dispatcher.InvokeAsync(
-                            () => viewModel?.SetPromptMode(e.Mode, e.DisplayName));
+                            () => chatViewModels?.SetPromptMode(e.Mode, e.DisplayName));
                         break;
                 }
             }
@@ -581,9 +598,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
                 lock (lockObj)
                 {
                     var (newState, effects) = ConversationUpdate.HandleInitTimedOut(state, sessionId);
-                    state = newState;
-                    UpdateViewModel(newState);
-                    ProcessEffects(effects);
+                    HandleUpdate(ref state, newState, effects);
                 }
             }, cts.Token);
         }

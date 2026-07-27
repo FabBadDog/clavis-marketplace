@@ -6,9 +6,13 @@ public static partial class ConversationUpdate
     // and a trailing DENY. Left/Right move the highlight within [0, Options.Count - 1]; Enter confirms the
     // choice at the current index.
 
-    /// True while a permission prompt is awaiting a decision - the host uses this to route Left/Right/Enter
-    /// to the prompt without taking tab focus.
+    /// True while a permission prompt is awaiting a decision - the chat panel uses this to claim
+    /// Left/Right/Enter for the prompt without taking tab focus.
     public static bool HasPendingPermission(ConversationState state) => PendingPermission(state) is not null;
+
+    /// The same question asked of one chat, so a chat panel answers for the chat it shows rather than for
+    /// whichever one happens to be visible.
+    public static bool HasPendingPermission(Chat? chat) => PendingPermission(chat?.LiveSession) is not null;
 
     /// Move the highlighted choice of the pending permission prompt by delta (Left = -1, Right = +1),
     /// wrapping around the ends so the prompt is a roundtrip (Left on ALLOW lands on DENY and vice-versa).
@@ -73,10 +77,11 @@ public static partial class ConversationUpdate
     }
 
     private static PermissionItem? PendingPermission(ConversationState state) =>
-        state.ActiveSession is { } session
-            ? session.Turns
-                .SelectMany(turn => turn.Items)
-                .OfType<PermissionItem>()
-                .FirstOrDefault(item => !item.Permission.IsResolved)
-            : null;
+        PendingPermission(state.ActiveSession);
+
+    private static PermissionItem? PendingPermission(SessionState? session) =>
+        session?.Turns
+            .SelectMany(turn => turn.Items)
+            .OfType<PermissionItem>()
+            .FirstOrDefault(item => !item.Permission.IsResolved);
 }

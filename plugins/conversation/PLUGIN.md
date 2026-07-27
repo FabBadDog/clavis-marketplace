@@ -1,7 +1,7 @@
 ---
 name: conversation
 pluginId: Conversation
-version: 8.0.0
+version: 9.0.0
 essential: true
 apiVersion: 1.0.0
 description: The elm/flux conversation state, update, and view models.
@@ -35,7 +35,8 @@ globalUsings:
 ## Purpose
 
 The elm/flux conversation: it is the chat itself. A pure core (`ConversationState` + `ConversationUpdate`
-returning `(state, effects[])`) holds all turn/timing/permission logic with no side effects, and an impure
+returning `(state, effects[])`) holds all turn/timing/permission logic with no side effects - over a
+`Chats` list, each chat owning its own session history with a single live tail - and an impure
 shell (`ConversationPlugin`) subscribes to bus messages, calls the pure update, executes the resulting
 effects as bus sends, and projects state onto WPF ViewModels. It translates a user prompt into a session
 `SendPrompt`, drives session lifecycle, and renders the provider-neutral `AgentStreamEvent` family into the
@@ -72,7 +73,7 @@ WpfHost's `title-bar-left`, `title-bar-right`, and `status-bar` chrome regions.
 - User input: `UserSubmittedPrompt`, `UserAborted`, `UserCancelledQueued`.
 - Permission + lifecycle: `PermissionDecided`, `UserNavigatedPermission`, `UserConfirmedPermission`,
   `FullRestartRequested`.
-- Panels: `PanelKindsRequested`, `PanelKindRegistration` (to learn other kinds'' chrome), `ActivePanelChanged`,
+- Panels: `PanelKindsRequested`, `PanelKindRegistration` (to learn other kinds' chrome), `ActivePanelChanged`,
   `RequestPanelCommands`, `FocusInputRequested` (the prompt lives here, so this panel answers it).
 
 ## Notes
@@ -83,6 +84,19 @@ WpfHost's `title-bar-left`, `title-bar-right`, and `status-bar` chrome regions.
   internal and never hit the bus directly.
 - **UI-thread bound.** ViewModel creation, template loading, and a `DispatcherTimer` elapsed-time tick all
   run on `Application.Current.Dispatcher`; a failed cosmetic tick is logged, not fatal.
+- **One aggregate, many chats.** `ConversationState` holds a `Chats` list; each `Chat` owns its working
+  directory, its workspace, and its session *history* with a single live tail (a restart ends the old session
+  and appends its replacement, so the history stays readable). Those were two jobs one list used to do at
+  once. Deliberately **one** aggregate, one pure update and one lock rather than N independent states: N would
+  mean N locks, N tick timers and no cheap cross-chat answer to "is anything running?", which is exactly what
+  the activity stream needs. `SessionState` is untouched - it was already fully per-session, which is why this
+  was tractable.
+- **Projection is diffed by reference.** `ChatViewModels` holds one `ConversationViewModel` per chat, created
+  by the chat panel's view factory. The pure update rebuilds only the `Chat` records it touched, so a change is
+  projected onto exactly those - a background chat's panel stays alive and correctly scrolled without every
+  chat re-rendering on every 250 ms tick (the turn list is not virtualized). The tick itself refreshes every
+  chat with a running turn, not just the visible one, so a background chat's elapsed time is right the moment
+  you look at it.
 - Typed slash-style commands (exit, restart) are command-palette concerns, not handled here - a submitted
   prompt is always a prompt for the agent.
 - **The chat is a panel, and it owns its prompt.** `ChatPanelView` is the whole `chat` kind: the turn list

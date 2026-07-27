@@ -21,12 +21,13 @@ namespace FabioSoft.Nucleus.Plugins.Conversation.Views;
 [ExcludeFromCodeCoverage] // WPF composition and keyboard routing; the state blob is ChatPanelState
 public static class ChatPanelView
 {
-    public static FrameworkElement Create(IBus bus, ConversationViewModel viewModel, PanelInstanceContext context)
+    public static FrameworkElement Create(IBus bus, ChatPanelBinding binding, PanelInstanceContext context)
     {
-        // A restored panel re-attaches to the chat named in its blob; an unreadable blob (or a panel opened
-        // by hand) starts from Empty. Written straight back so a hand-opened panel persists its identity.
-        var state = ChatPanelState.Parse(context.SavedState);
-        context.OnStateChanged?.Invoke(state.Serialize());
+        // The plugin already resolved the saved blob against the live state (a restored panel re-attaches to
+        // the chat it named, anything else lands on the visible chat). Persist the resolved identity back, so
+        // a hand-opened panel gains a concrete chat id and returns to the same chat next launch.
+        var viewModel = binding.ViewModel;
+        context.OnStateChanged?.Invoke(binding.Identity.Serialize());
 
         var content = ConversationViewFactory.CreateMainContent(viewModel, bus);
         var prompt = new PromptInput(bus);

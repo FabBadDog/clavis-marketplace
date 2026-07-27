@@ -212,50 +212,138 @@ public sealed record SessionState
     }
 }
 
-public sealed record ConversationState
+/// One chat: its own agent session history with a single live tail, its own working directory, and the
+/// workspace it belongs to. This is the level that used to be missing - `ConversationState.Sessions` was
+/// doing two jobs at once, a session *history* (a restart ends the old session and appends a new one) and the
+/// would-be multi-chat axis. Separating them is what lets several chats coexist without N locks or N timers.
+///
+/// `SessionState` is deliberately untouched by this: it was already fully per-session.
+public sealed record Chat
 {
+    public Guid ChatId { get; init; } = Guid.NewGuid();
+    public Guid WorkspaceId { get; init; }
+    public string WorkingDirectory { get; init; } = "";
+
+    /// Every session this chat has had, oldest first, with the live one last. A restart ends the previous
+    /// session and appends its replacement, so the history stays readable rather than being discarded.
     public IReadOnlyList<SessionState> Sessions { get; init; } = [];
-    public Guid? ActiveSessionId { get; init; }
 
-    public SessionState? ActiveSession =>
-        ActiveSessionId is { } id
-            ? Sessions.FirstOrDefault(s => s.Id == id)
-            : null;
+    public Guid LiveSessionId { get; init; }
 
-    public ConversationState WithActiveSession(Func<SessionState, SessionState> updater)
+    public SessionState? LiveSession => Sessions.FirstOrDefault(session => session.Id == LiveSessionId);
+
+    public bool Holds(Guid sessionId) => Sessions.Any(session => session.Id == sessionId);
+
+    public Chat WithLiveSession(Func<SessionState, SessionState> updater) =>
+        LiveSession is { } live ? WithSessionById(live.Id, updater) : this;
+
+    public Chat WithSessionById(Guid sessionId, Func<SessionState, SessionState> updater)
     {
-        if (ActiveSession is not { } session)
-        {
-            return this;
-        }
-
-        var updated = updater(session);
-        return this with
-        {
-            Sessions = Sessions.Select(s => s.Id == session.Id ? updated : s).ToList()
-        };
-    }
-
-    public ConversationState WithSessionById(Guid sessionId, Func<SessionState, SessionState> updater)
-    {
-        if (Sessions.All(s => s.Id != sessionId))
+        if (!Holds(sessionId))
         {
             return this;
         }
 
         return this with
         {
-            Sessions = Sessions.Select(s => s.Id == sessionId ? updater(s) : s).ToList()
+            Sessions = [.. Sessions.Select(session => session.Id == sessionId ? updater(session) : session)]
         };
     }
 
-    public static ConversationState Init()
+    /// End the live session and make the given one live, keeping the ended session in the history. The pure
+    /// half of a full restart - dispatching and disposing stay in ConversationUpdate as effects.
+    public Chat Restarted(SessionState replacement)
+    {
+        var ended = WithLiveSession(session => session with { Status = SessionStatus.Ended });
+        return ended with
+        {
+            Sessions = [.. ended.Sessions, replacement],
+            LiveSessionId = replacement.Id
+        };
+    }
+
+    public static Chat Create(Guid workspaceId, string workingDirectory)
     {
         var session = SessionState.Create();
-        return new ConversationState
+        return new Chat
         {
+            WorkspaceId = workspaceId,
+            WorkingDirectory = workingDirectory,
             Sessions = [session],
-            ActiveSessionId = session.Id
+            LiveSessionId = session.Id
         };
+    }
+}
+
+/// Every chat in one aggregate, with one pure update and one lock. N independent states would mean N locks,
+/// N tick timers and no cheap cross-chat answers ("is anything running?"), which is exactly what the bar and
+/// the activity stream need.
+public sealed record ConversationState
+{
+    public IReadOnlyList<Chat> Chats { get; init; } = [];
+
+    /// The chat the user is currently looking at. Null with no chats at all.
+    public Guid? VisibleChatId { get; init; }
+
+    public Chat? VisibleChat =>
+        VisibleChatId is { } id ? Chats.FirstOrDefault(chat => chat.ChatId == id) : null;
+
+    /// The live session of the visible chat - what every user-driven handler acts on, and what the chrome
+    /// and placeholders project from.
+    public SessionState? ActiveSession => VisibleChat?.LiveSession;
+
+    public Guid? ActiveSessionId => ActiveSession?.Id;
+
+    /// Every session of every chat. The activity stream walks this, not just the visible chat: the whole
+    /// point is that a chat you are not looking at can still say it needs you.
+    public IEnumerable<SessionState> AllSessions => Chats.SelectMany(chat => chat.Sessions);
+
+    public bool Holds(Guid sessionId) => Chats.Any(chat => chat.Holds(sessionId));
+
+    public SessionState? SessionById(Guid sessionId) =>
+        Chats.SelectMany(chat => chat.Sessions).FirstOrDefault(session => session.Id == sessionId);
+
+    /// Update one chat, leaving every other chat reference-identical so the view projection can skip them.
+    public ConversationState WithChat(Guid chatId, Func<Chat, Chat> updater)
+    {
+        if (Chats.All(chat => chat.ChatId != chatId))
+        {
+            return this;
+        }
+
+        return this with
+        {
+            Chats = [.. Chats.Select(chat => chat.ChatId == chatId ? updater(chat) : chat)]
+        };
+    }
+
+    /// Look at a different chat. No chat record changes, so every projection is skipped - switching is only a
+    /// change of which chat the chrome and the user-driven handlers address.
+    public ConversationState WithVisibleChatId(Guid? chatId) => this with { VisibleChatId = chatId };
+
+    public ConversationState WithVisibleChat(Func<Chat, Chat> updater) =>
+        VisibleChat is { } chat ? WithChat(chat.ChatId, updater) : this;
+
+    public ConversationState WithActiveSession(Func<SessionState, SessionState> updater) =>
+        WithVisibleChat(chat => chat.WithLiveSession(updater));
+
+    /// Update a session wherever it lives, so a stream event routes to the right chat by its session id
+    /// alone. Chats that do not hold it stay reference-identical.
+    public ConversationState WithSessionById(Guid sessionId, Func<SessionState, SessionState> updater)
+    {
+        var owner = Chats.FirstOrDefault(chat => chat.Holds(sessionId));
+        return owner is null ? this : WithChat(owner.ChatId, chat => chat.WithSessionById(sessionId, updater));
+    }
+
+    /// No chats at all. Once workspaces own chat creation this is the honest starting point; until then
+    /// Init seeds the single chat the plugin has always created.
+    public static ConversationState Empty => new();
+
+    public static ConversationState Init() => Init(Guid.Empty, "");
+
+    public static ConversationState Init(Guid workspaceId, string workingDirectory)
+    {
+        var chat = Chat.Create(workspaceId, workingDirectory);
+        return new ConversationState { Chats = [chat], VisibleChatId = chat.ChatId };
     }
 }

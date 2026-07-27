@@ -27,6 +27,7 @@
     <Compile Include="JsonPrettyTests.fs" />
     <Compile Include="ChatPanelStateTests.fs" />
     <Compile Include="PromptHistoryTests.fs" />
+    <Compile Include="ChatAggregateTests.fs" />
     <Compile Include="ConversationUpdateTests.fs" />
     <Compile Include="PermissionNavigateTests.fs" />
     <Compile Include="ConversationPluginTests.fs" />

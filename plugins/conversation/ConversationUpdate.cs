@@ -714,12 +714,10 @@ public static partial class ConversationUpdate
         AgentStreamEvent streamEvent)
     {
         var sessionId = streamEvent.SessionId;
-        if (state.Sessions.All(s => s.Id != sessionId))
+        if (state.SessionById(sessionId) is not { } session)
         {
             return (state, NoEffects);
         }
-
-        var session = state.Sessions.First(s => s.Id == sessionId);
 
         var (updatedSession, effects) = streamEvent switch
         {
@@ -754,11 +752,12 @@ public static partial class ConversationUpdate
             _ => (session, NoEffects)
         };
 
-        // Handle DispatchFullRestartEffect by inlining the full restart
+        // Handle DispatchFullRestartEffect by inlining the full restart. It restarts the chat that owns this
+        // session, which is not necessarily the visible one - a background chat's session can end too.
         if (effects.Length == 1 && effects[0] is DispatchFullRestartEffect)
         {
             var updatedState = state.WithSessionById(sessionId, _ => updatedSession);
-            return HandleFullRestart(updatedState);
+            return HandleFullRestart(updatedState, sessionId);
         }
 
         return (state.WithSessionById(sessionId, _ => updatedSession), effects);
@@ -772,12 +771,11 @@ public static partial class ConversationUpdate
             return (state, NoEffects);
         }
 
-        if (state.Sessions.All(s => s.Id != sessionId))
+        if (state.SessionById(sessionId) is not { } session)
         {
             return (state, NoEffects);
         }
 
-        var session = state.Sessions.First(s => s.Id == sessionId);
         var errorItem = new ErrorItem(errorMessage);
 
         var targetTurnId = session.CurrentTurnId ?? session.InitTurnId ?? session.LastTurnId;
@@ -975,18 +973,32 @@ public static partial class ConversationUpdate
         return (updated, NoEffects);
     }
 
+    /// Refresh the live elapsed-time readouts of every chat with a running turn - not only the visible one:
+    /// a background chat's turn keeps running, and its duration has to be right the moment you look at it (and
+    /// for the activity readouts that watch every chat). A chat with nothing running is returned
+    /// reference-identical, so the projection skips it.
     public static (ConversationState State, ConversationEffect[] Effects) HandleTick(
         ConversationState state, DateTime now)
     {
-        if (state.ActiveSession is not { } session)
+        var ticked = state;
+        foreach (var chat in state.Chats)
         {
-            return (state, NoEffects);
+            if (chat.LiveSession is { } session && session.Turns.Any(turn => turn.Status is Running))
+            {
+                ticked = ticked.WithChat(chat.ChatId, target =>
+                    target.WithLiveSession(live => live with { Turns = TickTurns(live.Turns, now) }));
+            }
         }
 
-        // Only a running turn ticks. Once a turn finishes its duration is frozen at completion, and any
-        // item still flagged active inside a finished turn (e.g. a hook whose completion never matched)
-        // must not keep counting up - tying the tick to the turn's Running status guarantees that.
-        var turns = session.Turns.Select(turn =>
+        return (ticked, NoEffects);
+    }
+
+    // Only a running turn ticks. Once a turn finishes its duration is frozen at completion, and any item
+    // still flagged active inside a finished turn (e.g. a hook whose completion never matched) must not keep
+    // counting up - tying the tick to the turn's Running status guarantees that.
+    private static IReadOnlyList<Turn> TickTurns(IReadOnlyList<Turn> turns, DateTime now) =>
+    [
+        .. turns.Select(turn =>
         {
             if (turn.Status is not Running)
             {
@@ -1005,21 +1017,13 @@ public static partial class ConversationUpdate
             }).ToList();
 
             return turn with { Duration = now - turn.StartedAt, Items = items };
-        }).ToList();
-
-        return (state.WithActiveSession(_ => session with { Turns = turns }), NoEffects);
-    }
+        })
+    ];
 
     public static (ConversationState State, ConversationEffect[] Effects) HandleInitTimedOut(
         ConversationState state, Guid sessionId)
     {
-        if (state.Sessions.All(s => s.Id != sessionId))
-        {
-            return (state, NoEffects);
-        }
-
-        var session = state.Sessions.First(s => s.Id == sessionId);
-        if (!session.IsInitActive)
+        if (state.SessionById(sessionId) is not { } session || !session.IsInitActive)
         {
             return (state, NoEffects);
         }
@@ -1040,19 +1044,29 @@ public static partial class ConversationUpdate
         return (state.WithSessionById(sessionId, _ => promoted), effects);
     }
 
+    /// Restart the visible chat's session: end the old one (kept in that chat's history), start a fresh one,
+    /// and leave every other chat untouched.
     public static (ConversationState State, ConversationEffect[] Effects) HandleFullRestart(
-        ConversationState state)
+        ConversationState state) =>
+        Restart(state, state.VisibleChat);
+
+    /// Restart the chat that owns a given session, for a restart triggered by that session ending rather than
+    /// by the user - the chat in question is not necessarily the visible one.
+    public static (ConversationState State, ConversationEffect[] Effects) HandleFullRestart(
+        ConversationState state, Guid sessionId) =>
+        Restart(state, state.Chats.FirstOrDefault(chat => chat.Holds(sessionId)));
+
+    private static (ConversationState State, ConversationEffect[] Effects) Restart(
+        ConversationState state, Chat? target)
     {
-        var newSession = SessionState.Create();
-        var oldSessionId = state.ActiveSessionId;
-
-        var endedState = state.WithActiveSession(s => s with { Status = SessionStatus.Ended });
-
-        var newState = endedState with
+        if (target is null)
         {
-            Sessions = [.. endedState.Sessions, newSession],
-            ActiveSessionId = newSession.Id
-        };
+            return (state, NoEffects);
+        }
+
+        var newSession = SessionState.Create();
+        var oldSessionId = target.LiveSession?.Id;
+        var newState = state.WithChat(target.ChatId, chat => chat.Restarted(newSession));
 
         var effects = new List<ConversationEffect>
         {

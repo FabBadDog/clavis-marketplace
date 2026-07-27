@@ -116,7 +116,7 @@ module SessionEndedEvent =
         let struct (newState, effects) = handle state (AgentSessionEnded(Guid.Empty, 0, ""))
 
         // Assert
-        %newState.Sessions.Count.Should().Be(2)
+        %(newState.AllSessions |> Seq.length).Should().Be(2)
         let hasStartEffect = effects |> Array.exists (fun e -> e :? StartNewSessionEffect)
         %hasStartEffect.Should().BeTrue()
 
@@ -1140,8 +1140,8 @@ module FullRestartRequested =
         let struct (newState, _) = ConversationUpdate.HandleFullRestart(readyState)
 
         // Assert
-        %newState.Sessions.Count.Should().Be(2)
-        let oldSession = newState.Sessions |> Seq.find (fun s -> s.Id = oldSessionId)
+        %(newState.AllSessions |> Seq.length).Should().Be(2)
+        let oldSession = newState.AllSessions |> Seq.find (fun s -> s.Id = oldSessionId)
         %oldSession.Status.Should().Be(SessionStatus.Ended)
 
     [<Fact>]
