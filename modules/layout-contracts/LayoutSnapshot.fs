@@ -9,13 +9,19 @@ open System
 type LayoutSnapshotRequested() =
     do ()
 
-/// One open application window in a LayoutSnapshot.
+/// One open application window in a LayoutSnapshot. WorkspaceId is the workspace the window belongs to, or
+/// Guid.Empty for a window that belongs to no single one (the primary).
 [<Sealed>]
-type WindowSnapshot(windowId: Guid, title: string, isPrimary: bool, isFocused: bool) =
+type WindowSnapshot(windowId: Guid, title: string, isPrimary: bool, isFocused: bool, workspaceId: Guid) =
+
+    new(windowId, title, isPrimary, isFocused) =
+        WindowSnapshot(windowId, title, isPrimary, isFocused, Guid.Empty)
+
     member _.WindowId = windowId
     member _.Title = title
     member _.IsPrimary = isPrimary
     member _.IsFocused = isFocused
+    member _.WorkspaceId = workspaceId
 
 /// One live panel in a LayoutSnapshot. Placement is "tab" (docked) or "slide" (edge slide-in).
 /// IsVisible means the panel is actually showing: the selected tab of its group, or an open slide-in.
@@ -27,7 +33,11 @@ type PanelSnapshot
      windowId: Guid,
      isFocused: bool,
      isVisible: bool,
-     placement: string) =
+     placement: string,
+     workspaceId: Guid) =
+
+    new(instanceId, kind, title, windowId, isFocused, isVisible, placement) =
+        PanelSnapshot(instanceId, kind, title, windowId, isFocused, isVisible, placement, Guid.Empty)
 
     member _.InstanceId = instanceId
     member _.Kind = kind
@@ -36,6 +46,7 @@ type PanelSnapshot
     member _.IsFocused = isFocused
     member _.IsVisible = isVisible
     member _.Placement = placement
+    member _.WorkspaceId = workspaceId
 
 /// The window host's answer to LayoutSnapshotRequested: every open window and live panel, plus which
 /// window and panel currently hold focus (Guid.Empty when nothing does).

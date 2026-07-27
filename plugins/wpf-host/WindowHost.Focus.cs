@@ -223,9 +223,6 @@ internal sealed partial class WindowHost
     private static readonly Color InactiveBorderColor = Color.FromRgb(0x4A, 0x4A, 0x52);
     private static readonly Color ActiveBorderColor = Color.FromRgb(0x5E, 0x7E, 0x8E);
 
-    // The chat input's framing lines: FrameBrush grey at rest, clavis (#9FD5F0) while it holds focus.
-    private static readonly Color ActiveLineColor = Color.FromRgb(0x9F, 0xD5, 0xF0);
-
     // The active window brightens its 1px border and its title dot; an inactive window dims both, so the
     // focused window reads at a glance. A per-window mutable brush replaces the shared (frozen) FrameBrush
     // so its colour can animate.
@@ -259,36 +256,6 @@ internal sealed partial class WindowHost
         // progress), so a merely-focused window must never breathe.
         _statusDot.BeginAnimation(UIElement.OpacityProperty, null);
         _statusDot.Opacity = active ? 0.9 : 0.3;
-    }
-
-    // The chat input's focus cue: its top framing line turns clavis while the input holds keyboard focus and
-    // fades back to frame grey when it does not - instead of a focus ring. The status bar is now a separate
-    // window-chrome row, so it keeps its own static frame line and is no longer part of this cue. Mutable
-    // brush so the colour can animate.
-    private void WireInputFocusLines(TextBox input, Border inputRow)
-    {
-        var topLine = new SolidColorBrush(InactiveBorderColor);
-        inputRow.BorderBrush = topLine;
-
-        void Recolor(bool focused)
-        {
-            var target = focused ? ActiveLineColor : InactiveBorderColor;
-            var duration = new Duration(TimeSpan.FromMilliseconds(160));
-            topLine.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(target, duration));
-        }
-
-        input.GotKeyboardFocus += (_, _) => Recolor(true);
-        input.LostKeyboardFocus += (_, _) => Recolor(false);
-    }
-
-    // Let the input grow with its content but never past 60% of the chat output's height (the conversation
-    // panel area); beyond that it scrolls internally. Re-applied as the area resizes.
-    private static void CapInputHeightToChat(TextBox input, FrameworkElement chatArea)
-    {
-        void Apply() => input.MaxHeight = Math.Max(0.0, chatArea.ActualHeight * 0.6);
-
-        chatArea.SizeChanged += (_, _) => Apply();
-        chatArea.Loaded += (_, _) => Apply();
     }
 
     // A click on a bare button fires its action but must not move the focus ring. We let the click focus the

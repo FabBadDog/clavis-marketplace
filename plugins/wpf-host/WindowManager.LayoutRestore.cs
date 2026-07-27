@@ -42,6 +42,7 @@ internal sealed partial class WindowManager
 
     private void RestoreSavedLayout(PersistedLayout saved)
     {
+        _layoutApplied = true;
         var primary = GetPrimary();
         var primaryEntry = saved.Windows.FirstOrDefault(window => window.IsPrimary);
         if (primary is not null && primaryEntry is not null)
@@ -70,26 +71,21 @@ internal sealed partial class WindowManager
 
     private void RestoreLayout(WindowHost host, PersistedWindow entry)
     {
-        host.Surface.Restore(entry.Layout, (panelId, kind) => ResolveRestoreView(host, panelId, kind));
+        // A layout saved under a since-renamed kind is read through the retirement map first, so an old name
+        // does not restore as a slot nothing can resolve.
+        var layout = LayoutTree.RenameKinds(entry.Layout, _config.RetiredPanelKinds);
 
-        // The conversation must always exist in the primary window. A layout persisted without it (e.g. an
-        // earlier build let the Chat panel be closed) would otherwise restore to a blank window, so re-seed.
-        if (host.IsPrimary && !LayoutTree.EnumerateSlots(entry.Layout).Any(slot => slot.PanelKind == ConversationKind))
+        // Every slot - the chat among them - restores through the same path: a compile-log placeholder now,
+        // swapped for the real view when its owning plugin resolves the kind.
+        host.Surface.Restore(layout, CreatePlaceholderView);
+
+        foreach (var slot in LayoutTree.EnumerateSlots(layout))
         {
-            host.SeedConversation();
-        }
-
-        foreach (var slot in LayoutTree.EnumerateSlots(entry.Layout))
-        {
-            if (slot.PanelKind == ConversationKind)
-            {
-                continue;
-            }
-
             _panelState[slot.PanelId] = slot.SavedState ?? "";
             _pendingRestorePlacement[slot.PanelId] = host.WindowId;
             _kindPlacement[slot.PanelKind] = new PanelPlacement(host.WindowId, TabMode, "");
-            _pendingRestoreSends.Add(new RestoreRequest(slot.PanelId, slot.PanelKind, slot.SavedState ?? ""));
+            _pendingRestoreSends.Add(
+                new RestoreRequest(slot.PanelId, slot.PanelKind, slot.SavedState ?? "", Guid.Empty));
         }
 
         // Slide-ins are not part of the docking tree, so re-materialise them separately: parked (hidden) on
@@ -97,26 +93,34 @@ internal sealed partial class WindowManager
         // back in from there rather than docking a fresh tab.
         foreach (var slide in entry.SlideIns ?? [])
         {
-            if (slide.Kind == ConversationKind)
-            {
-                continue;
-            }
-
+            var kind = _config.RetiredPanelKinds.GetValueOrDefault(slide.Kind, slide.Kind);
             _panelState[slide.PanelId] = slide.SavedState ?? "";
-            _pendingRestoreSlideIn[slide.PanelId] = new SlideInRestore(host.WindowId, slide.Kind, slide.Title, slide.Edge);
-            _kindPlacement[slide.Kind] = new PanelPlacement(host.WindowId, SlideMode, slide.Edge);
-            _pendingRestoreSends.Add(new RestoreRequest(slide.PanelId, slide.Kind, slide.SavedState ?? ""));
+            _pendingRestoreSlideIn[slide.PanelId] = new SlideInRestore(host.WindowId, kind, slide.Title, slide.Edge);
+            _kindPlacement[kind] = new PanelPlacement(host.WindowId, SlideMode, slide.Edge);
+            _pendingRestoreSends.Add(
+                new RestoreRequest(slide.PanelId, kind, slide.SavedState ?? "", Guid.Empty));
         }
     }
 
-    private FrameworkElement ResolveRestoreView(WindowHost host, Guid panelId, string kind) =>
-        kind == ConversationKind ? host.ConversationPanelView : CreatePlaceholderView(panelId, kind);
-
+    // Restore requests are deferred until every plugin is up, so the registry has the kinds to resolve them.
+    // A launch with no saved layout at all (first run, or a deleted state.yaml) opens the configured default
+    // panels instead, so the window is never blank - that configuration is how the host seeds a chat without
+    // naming one in code. A saved layout is taken at its word, including an empty one: a chat the user closed
+    // stays closed, which is the point of the chat being an ordinary panel.
     private void FlushRestoreSends()
     {
+        if (!_layoutApplied && !_defaultsOpened)
+        {
+            _defaultsOpened = true;
+            foreach (var kind in _config.DefaultPanels)
+            {
+                _bus.Send(new OpenPanel(kind));
+            }
+        }
+
         foreach (var request in _pendingRestoreSends)
         {
-            _bus.Send(new RestorePanel(request.InstanceId, request.Kind, request.SavedState));
+            _bus.Send(new RestorePanel(request.InstanceId, request.Kind, request.SavedState, request.WorkspaceId));
         }
 
         _pendingRestoreSends.Clear();

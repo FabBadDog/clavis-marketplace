@@ -80,6 +80,38 @@ public static class LayoutTree
         };
     }
 
+    /// Rebuild the tree with retired panel kinds renamed to their replacements. A kind that was renamed after
+    /// a layout was saved would otherwise restore as a slot nothing can resolve - a tab stuck on its
+    /// placeholder forever - so the saved layout is read through this map. The map is passed in (it is host
+    /// configuration, not knowledge the host has) and a kind absent from it is left exactly as it was.
+    public static LayoutNode RenameKinds(LayoutNode node, IReadOnlyDictionary<string, string> renames)
+    {
+        if (renames.Count == 0)
+        {
+            return node;
+        }
+
+        return new LayoutNode
+        {
+            Kind = node.Kind,
+            GroupId = node.GroupId,
+            Orientation = node.Orientation ?? "",
+            Sizes = node.Sizes ?? [],
+            Children = [.. (node.Children ?? []).Select(child => RenameKinds(child, renames))],
+            Panels =
+            [
+                .. (node.Panels ?? []).Select(slot => new PanelSlot
+                {
+                    PanelId = slot.PanelId,
+                    PanelKind = renames.GetValueOrDefault(slot.PanelKind, slot.PanelKind),
+                    Title = slot.Title,
+                    SavedState = slot.SavedState
+                })
+            ],
+            ActiveIndex = node.ActiveIndex
+        };
+    }
+
     /// A window is "on screen" when its centre falls within the given desktop rectangle, so a layout saved
     /// on a monitor that is now unplugged can fall back to centre-screen instead of opening off-screen. The
     /// desktop bounds are passed in so this stays independent of the machine's actual monitors.

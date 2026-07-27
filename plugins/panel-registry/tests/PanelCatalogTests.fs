@@ -22,7 +22,7 @@ let ``resolves a registered kind into a ready instance`` () =
     let instanceId = Guid.NewGuid()
 
     // Act
-    let success, ready = catalog.TryResolve("git-log", instanceId, "", noCallback)
+    let success, ready = catalog.TryResolve("git-log", instanceId, "", Guid.Empty, noCallback)
 
     // Assert
     %success.Should().BeTrue()
@@ -44,7 +44,7 @@ let ``threads the instance id, saved state, and state callback into the panel co
     let callback = Func<Guid, Action<string>>(fun _ -> Action<string>(fun state -> stateSeen <- state))
 
     // Act
-    let success, ready = catalog.TryResolve("markdown", instanceId, "saved-blob", callback)
+    let success, ready = catalog.TryResolve("markdown", instanceId, "saved-blob", Guid.Empty, callback)
     ready.View.Invoke() |> ignore
 
     // Assert
@@ -62,7 +62,7 @@ let ``returns false and no instance for an unregistered kind`` () =
     let catalog = PanelCatalog()
 
     // Act
-    let success, ready = catalog.TryResolve("missing", Guid.NewGuid(), "", noCallback)
+    let success, ready = catalog.TryResolve("missing", Guid.NewGuid(), "", Guid.Empty, noCallback)
 
     // Assert
     %success.Should().BeFalse()
@@ -88,7 +88,7 @@ let ``buffers an open for an unregistered kind and replays it on registration`` 
     // Arrange
     let catalog = PanelCatalog()
     let instanceId = Guid.NewGuid()
-    catalog.Buffer("git-log", instanceId, "saved-blob")
+    catalog.Buffer("git-log", instanceId, "saved-blob", Guid.Empty)
 
     // Act
     let pending = catalog.Register(registration "git-log" "git log" (fun _ -> obj ()))
@@ -97,6 +97,50 @@ let ``buffers an open for an unregistered kind and replays it on registration`` 
     %pending.Count.Should().Be(1)
     %pending[0].InstanceId.Should().Be(instanceId)
     %pending[0].SavedState.Should().Be("saved-blob")
+
+[<Fact>]
+let ``carries the kind's declared cardinality and the requested workspace onto the ready instance`` () =
+
+    // Arrange
+    let catalog = PanelCatalog()
+    let chat = registration "chat" "Chat" (fun _ -> obj ())
+    chat.Cardinality <- PanelCardinality.OnePerApplication
+    catalog.Register chat |> ignore
+    let workspaceId = Guid.NewGuid()
+
+    // Act
+    let _, ready = catalog.TryResolve("chat", Guid.NewGuid(), "", workspaceId, noCallback)
+
+    // Assert
+    %ready.Cardinality.Should().Be(PanelCardinality.OnePerApplication)
+    %ready.WorkspaceId.Should().Be(workspaceId)
+
+[<Fact>]
+let ``a kind that declares no cardinality resolves to one per workspace`` () =
+
+    // Arrange
+    let catalog = PanelCatalog()
+    catalog.Register(registration "git-log" "git log" (fun _ -> obj ())) |> ignore
+
+    // Act
+    let _, ready = catalog.TryResolve("git-log", Guid.NewGuid(), "", Guid.Empty, noCallback)
+
+    // Assert
+    %ready.Cardinality.Should().Be(PanelCardinality.OnePerWorkspace)
+
+[<Fact>]
+let ``a buffered open keeps its workspace through the replay`` () =
+
+    // Arrange
+    let catalog = PanelCatalog()
+    let workspaceId = Guid.NewGuid()
+    catalog.Buffer("chat", Guid.NewGuid(), "", workspaceId)
+
+    // Act
+    let pending = catalog.Register(registration "chat" "Chat" (fun _ -> obj ()))
+
+    // Assert
+    %pending[0].WorkspaceId.Should().Be(workspaceId)
 
 [<Fact>]
 let ``registering a kind with nothing buffered returns no pending opens`` () =

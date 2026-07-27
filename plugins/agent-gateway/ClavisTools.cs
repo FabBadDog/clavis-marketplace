@@ -208,9 +208,9 @@ internal sealed class ClavisTools(GatewayContext context)
     }
 
     [McpServerTool(Name = "send_message")]
-    [Description("Send a whitelisted bus message for an action without a dedicated tool. Dangerous lifecycle/teardown messages are rejected. typeName is the message type (e.g. 'OpenConversation'); jsonPayload is a JSON object with its fields (e.g. {\"kind\":\"git-log\"}).")]
+    [Description("Send a whitelisted bus message for an action without a dedicated tool. Dangerous lifecycle/teardown messages are rejected. typeName is the message type (e.g. 'TogglePanel'); jsonPayload is a JSON object with its fields (e.g. {\"kind\":\"git-log\"}).")]
     public string SendMessage(
-        [Description("The message type name, e.g. 'OpenPanel', 'OpenConversation', 'UserAborted'.")] string typeName,
+        [Description("The message type name, e.g. 'OpenPanel', 'TogglePanel', 'UserAborted'.")] string typeName,
         [Description("JSON object of the message's fields; pass {} for parameterless messages.")] string jsonPayload = "{}")
     {
         var result = context.Sendable.Send(context.Bus, typeName, jsonPayload);

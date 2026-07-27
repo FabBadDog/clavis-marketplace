@@ -23,9 +23,10 @@ public sealed class PanelRegistryPlugin : IPlugin<PanelRegistryConfig>
         Action<string> StateCallback(Guid instanceId) =>
             state => bus.Send(new PanelStateChanged(instanceId, state));
 
-        void Open(string kind, Guid instanceId, string savedState)
+        void Open(string kind, Guid instanceId, string savedState, Guid workspaceId)
         {
-            if (catalog.TryResolve(kind, instanceId, savedState, StateCallback, out var ready) && ready is not null)
+            if (catalog.TryResolve(kind, instanceId, savedState, workspaceId, StateCallback, out var ready)
+                && ready is not null)
             {
                 openInstances[instanceId] = kind;
                 bus.Send(ready);
@@ -35,7 +36,7 @@ public sealed class PanelRegistryPlugin : IPlugin<PanelRegistryConfig>
                 // The owning plugin has not registered this kind yet (it activates in the background after
                 // the restore was requested). Hold the request and replay it when the kind registers, so a
                 // restored panel materialises as soon as its plugin is up rather than being dropped.
-                catalog.Buffer(kind, instanceId, savedState);
+                catalog.Buffer(kind, instanceId, savedState, workspaceId);
             }
         }
 
@@ -47,7 +48,7 @@ public sealed class PanelRegistryPlugin : IPlugin<PanelRegistryConfig>
             // Replay any open/restore requests that arrived before this kind registered.
             foreach (var open in pending)
             {
-                Open(registration.Kind, open.InstanceId, open.SavedState);
+                Open(registration.Kind, open.InstanceId, open.SavedState, open.WorkspaceId);
             }
 
             return Task.CompletedTask;
@@ -55,13 +56,13 @@ public sealed class PanelRegistryPlugin : IPlugin<PanelRegistryConfig>
 
         var openSubscription = bus.Subscribe<OpenPanel>(message =>
         {
-            Open(message.Kind, Guid.NewGuid(), "");
+            Open(message.Kind, Guid.NewGuid(), "", message.WorkspaceId);
             return Task.CompletedTask;
         });
 
         var restoreSubscription = bus.Subscribe<RestorePanel>(message =>
         {
-            Open(message.Kind, message.InstanceId, message.SavedState);
+            Open(message.Kind, message.InstanceId, message.SavedState, message.WorkspaceId);
             return Task.CompletedTask;
         });
 

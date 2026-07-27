@@ -4,14 +4,16 @@ namespace FabioSoft.Nucleus.Plugins.Conversation;
 public sealed record PanelChromeResolved(
     string TitleLeft, string TitleRight, string StatusLeft, string StatusCenter, string StatusRight);
 
-/// Resolves which chrome templates a window shows for its active docked panel. The chat ("conversation")
-/// shows its own configured title/status; every other panel shows its per-kind override, falling back to its
+/// Resolves which chrome templates a window shows for its active docked panel. The chat shows its own
+/// configured title/status; every other panel shows its per-kind override, falling back to its
 /// friendly name in the title and its registration's default status template. A panel that ships no default
 /// status and has none configured resolves to an empty status bar (all three zones blank), which the host
 /// collapses entirely so the panel fills the space. Pure, so it is unit-testable.
 public static class PanelChromeResolver
 {
-    public const string ChatKind = "conversation";
+    /// The chat's registered panel kind. It is a normal panel now, so this name is the panel-kind id used by
+    /// the registry, the keymap's panel scope, and TogglePanel - not just a chrome-resolution tag.
+    public const string ChatKind = "chat";
 
     public static PanelChromeResolved Resolve(
         string activeKind, StatusLineTemplates chat, string friendlyName, string defaultStatus)

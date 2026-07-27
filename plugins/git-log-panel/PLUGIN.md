@@ -5,7 +5,7 @@ version: 1.0.2
 apiVersion: 1.0.0
 description: Live git log dockable panel, refreshed on a timer.
 dependencies:
-  - { name: layout-contracts, version: 1 }
+  - { name: layout-contracts, version: 2 }
   - { name: clavis-controls, version: 1 }
 language: csharp
 assemblyName: GitLogPanel

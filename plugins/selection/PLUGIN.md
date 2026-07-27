@@ -5,9 +5,9 @@ version: 1.0.2
 apiVersion: 1.0.0
 description: Selection popups on the shared SelectorWindow: model, effort, mode, panel pickers and the agent-driven ask-the-user selection.
 dependencies:
-  - { name: host-contracts, version: 2 }
+  - { name: host-contracts, version: 3 }
   - { name: session-contracts, version: 3 }
-  - { name: layout-contracts, version: 1 }
+  - { name: layout-contracts, version: 2 }
   - { name: clavis-rendering, version: 2 }
 language: csharp
 assemblyName: Selection

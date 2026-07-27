@@ -38,12 +38,6 @@ internal sealed partial class WindowManager
             return Task.CompletedTask;
         }));
 
-        _subscriptions.Add(_bus.Subscribe<OpenConversation>(_ =>
-        {
-            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SeedConversation());
-            return Task.CompletedTask;
-        }));
-
         _subscriptions.Add(_bus.Subscribe<ShowSlideIn>(message =>
         {
             Application.Current.Dispatcher.InvokeAsync(() =>
@@ -54,29 +48,6 @@ internal sealed partial class WindowManager
         _subscriptions.Add(_bus.Subscribe<CloseWindow>(message =>
         {
             Application.Current.Dispatcher.InvokeAsync(() => CloseSecondaryWindow(message.WindowId));
-            return Task.CompletedTask;
-        }));
-
-        _subscriptions.Add(_bus.Subscribe<FocusInputRequested>(_ =>
-        {
-            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.Focus());
-            return Task.CompletedTask;
-        }));
-
-        // The conversation owner reports when prompts can be accepted; until then the prompt input
-        // stays collapsed (the host knows no session vocabulary - just this availability broadcast).
-        _subscriptions.Add(_bus.Subscribe<PromptInputAvailability>(message =>
-        {
-            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SetPromptInputVisible(message.Available));
-            return Task.CompletedTask;
-        }));
-
-        // The conversation owner relays the session's permission mode; the host dresses the prompt input in
-        // its ambient accent (coloured left rule, caret, tag). It stays a host/conversation concern - the
-        // host resolves the accent from the mode id and learns no session vocabulary.
-        _subscriptions.Add(_bus.Subscribe<PromptModeChanged>(message =>
-        {
-            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SetSessionMode(message.Mode, message.DisplayName));
             return Task.CompletedTask;
         }));
 
@@ -144,7 +115,7 @@ internal sealed partial class WindowManager
 
         _subscriptions.Add(_bus.Subscribe<TogglePanel>(message =>
         {
-            Application.Current.Dispatcher.InvokeAsync(() => TogglePanel(message.Kind));
+            Application.Current.Dispatcher.InvokeAsync(() => TogglePanel(message.Kind, message.WorkspaceId));
             return Task.CompletedTask;
         }));
 
@@ -198,15 +169,6 @@ internal sealed partial class WindowManager
         _subscriptions.Add(_bus.Subscribe<LayoutSnapshotRequested>(_ =>
         {
             Application.Current.Dispatcher.InvokeAsync(() => _bus.Send(BuildSnapshot()));
-            return Task.CompletedTask;
-        }));
-
-        _subscriptions.Add(_bus.Subscribe<PermissionPending>(message =>
-        {
-            _permissionPending = message.Pending;
-            // Disable the prompt input while a decision is pending so it is unselectable and yields focus and
-            // keys to the permission selector; re-enable it (restoring focus) once the decision is made.
-            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.SetPromptInputEnabled(!message.Pending));
             return Task.CompletedTask;
         }));
     }

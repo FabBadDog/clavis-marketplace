@@ -42,7 +42,6 @@ public sealed class SendableMessages
             ["CloseActivePanel"] = (bus, _) => bus.Send(new CloseActivePanel()),
             ["ClosePanel"] = (bus, json) => bus.Send(new ClosePanel(RequireGuid(json, "instanceId"))),
             ["ShowSlideIn"] = (bus, json) => bus.Send(new ShowSlideIn(RequireGuid(json, "instanceId"))),
-            ["OpenConversation"] = (bus, _) => bus.Send(new OpenConversation()),
             ["RestorePanel"] = (bus, json) => bus.Send(new RestorePanel(
                 RequireGuid(json, "instanceId"), RequireString(json, "kind"), RequireString(json, "savedState"))),
         };

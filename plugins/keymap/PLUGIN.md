@@ -1,7 +1,7 @@
 ---
 name: keymap
 pluginId: KeyMap
-version: 1.0.2
+version: 1.0.3
 apiVersion: 1.0.0
 description: Keybinding resolution service.
 dependencies:

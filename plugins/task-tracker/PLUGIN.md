@@ -6,7 +6,7 @@ apiVersion: 1.0.0
 description: Background-task tracker in the status bar - a live count and list of the agent's subagent/background tasks.
 dependencies:
   - { name: session-contracts, version: 3 }
-  - { name: host-contracts, version: 2 }
+  - { name: host-contracts, version: 3 }
 language: csharp
 assemblyName: TaskTracker
 rootNamespace: FabioSoft.Nucleus.Plugins.TaskTracker

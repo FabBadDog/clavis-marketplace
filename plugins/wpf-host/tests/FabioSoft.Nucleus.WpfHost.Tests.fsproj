@@ -21,5 +21,6 @@
     <Compile Include="WpfHostPluginTests.fs" />
     <Compile Include="LayoutTreeTests.fs" />
     <Compile Include="LayoutFileTests.fs" />
+    <Compile Include="LivePanelsTests.fs" />
   </ItemGroup>
 </Project>

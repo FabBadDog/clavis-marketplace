@@ -6,8 +6,8 @@ apiVersion: 1.0.0
 description: Token usage / pacing indicator.
 dependencies:
   - { name: session-contracts, version: 3 }
-  - { name: host-contracts, version: 2 }
-  - { name: layout-contracts, version: 1 }
+  - { name: host-contracts, version: 3 }
+  - { name: layout-contracts, version: 2 }
   - { name: clavis-rendering, version: 2 }
 language: csharp
 assemblyName: UsageLimits

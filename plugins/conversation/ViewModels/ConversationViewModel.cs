@@ -6,6 +6,7 @@ public sealed class ConversationViewModel : ObservableObject
 {
     private          ConversationState      _state;
     private readonly Action<string, string> _publishPermission;
+    private          bool                   _isPromptAvailable;
 
     public ConversationViewModel(ConversationState state, Action<string, string> publishPermission)
     {
@@ -86,6 +87,40 @@ public sealed class ConversationViewModel : ObservableObject
             return $"{Math.Clamp(percent, 0, 100)}%";
         }
     }
+
+    /// True once the agent session can accept prompts, so the chat panel reveals its prompt input. Set by the
+    /// plugin rather than derived from state: it latches on the first ready session and never falls back, so a
+    /// restart does not take the input away mid-conversation.
+    public bool IsPromptAvailable
+    {
+        get => _isPromptAvailable;
+        set
+        {
+            if (_isPromptAvailable == value)
+            {
+                return;
+            }
+
+            _isPromptAvailable = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// The active session's permission mode and its short label, which the prompt input renders as its
+    /// ambient accent. Set together by the plugin as the mode changes.
+    public string PromptMode { get; private set; } = "";
+
+    public string PromptModeDisplayName { get; private set; } = "";
+
+    public void SetPromptMode(string mode, string displayName)
+    {
+        PromptMode = mode;
+        PromptModeDisplayName = displayName;
+        OnPropertyChanged(nameof(PromptMode));
+    }
+
+    /// True while a permission prompt is awaiting a decision, so the chat panel claims Left/Right/Enter for it.
+    public bool IsPermissionPending => ConversationUpdate.HasPendingPermission(_state);
 
     public bool IsProcessing => _state.ActiveSession?.IsProcessing ?? false;
 

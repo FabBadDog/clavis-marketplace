@@ -23,12 +23,12 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(250);
 
     // The conversation's panel-scoped commands, surfaced to the keymap so they bind and show in the help
-    // overlay. Default bindings (Shift+Up/Down) ship from KeyMap. Panel-local, so the host routes them to
-    // the focused conversation even while the prompt input holds focus.
+    // overlay. Default bindings (Ctrl+Up/Down) ship from KeyMap. Panel-local, so the host routes them to
+    // the focused chat even while the prompt input holds focus.
     private static readonly IReadOnlyList<CommandDescriptor> PanelCommands =
     [
-        new CommandDescriptor("conversation.scroll.up", "conversation.scroll.up", "Panel", "conversation", "Scroll up", true),
-        new CommandDescriptor("conversation.scroll.down", "conversation.scroll.down", "Panel", "conversation", "Scroll down", true)
+        new CommandDescriptor("conversation.scroll.up", "conversation.scroll.up", "Panel", PanelChromeResolver.ChatKind, "Scroll up", true),
+        new CommandDescriptor("conversation.scroll.down", "conversation.scroll.down", "Panel", PanelChromeResolver.ChatKind, "Scroll down", true)
     ];
 
     public string Id => "Conversation";
@@ -58,7 +58,6 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
 
         ConversationViewModel? viewModel = null;
         DispatcherTimer? tickTimer = null;
-        var lastPermissionPending = false;
         var activityTracker = new SessionActivityTracker();
         IReadOnlyDictionary<string, string> lastPlaceholders = new Dictionary<string, string>();
         // The merged values from every provider's snapshot (keys are namespaced so providers never collide),
@@ -105,10 +104,6 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
                 statusBar.SetLimitPlaneClick(ToggleUsageLimits);
                 agentCluster.SetLimitPlaneClick(ToggleUsageLimits);
                 titleLeft.SetLimitPlaneClick(ToggleUsageLimits);
-
-                bus.Send(new UiRegionContribution(
-                    "main-content", "Conversation", 0,
-                    () => ConversationViewFactory.CreateMainContent(viewModel, bus)));
 
                 bus.Send(new UiRegionContribution(
                     "title-bar-left", "Conversation", 0,
@@ -361,22 +356,42 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             return Task.CompletedTask;
         });
 
+        // The chat is a panel kind like any other: the host places it, tears it off and closes it without
+        // knowing it is a conversation. One instance per workspace, which is today's single chat and, once
+        // workspaces exist, one chat each. The instance's blob names the chat it shows, so a restored panel
+        // re-attaches instead of being re-seeded.
+        void AnnounceChatPanel() => bus.Send(new PanelKindRegistration(
+            PanelChromeResolver.ChatKind, "Chat", 320, 200, "", true,
+            context => Views.ChatPanelView.Create(bus, viewModel!, context))
+        {
+            Cardinality = PanelCardinality.OnePerWorkspace
+        });
+
         // Register the status-line editor as a dockable panel kind (the conversation owns these templates).
         void AnnounceEditorPanel() => bus.Send(new PanelKindRegistration(
             "status-line-editor", "Status Line", 340, 240, "", true,
             _ => Views.StatusLineEditorView.Create(bus)));
         var panelKindsSub = bus.Subscribe<PanelKindsRequested>(_ =>
         {
+            AnnounceChatPanel();
             AnnounceEditorPanel();
             return Task.CompletedTask;
         });
+        AnnounceChatPanel();
         AnnounceEditorPanel();
 
-        // The prompt input is the window host's chrome. Make it available as soon as the conversation is
-        // up (the init turn already shows "Starting Claude"): a prompt typed while the agent session is
-        // still initialising is held as a queued turn by the pure update and sent automatically once the
-        // session reports ready, so the user never has to wait out the whole init turn before typing.
-        bus.Send(new PromptInputAvailability(true));
+        // Reveal the prompt as soon as the conversation is up (the init turn already shows "Starting
+        // Claude"): a prompt typed while the agent session is still initialising is held as a queued turn by
+        // the pure update and sent automatically once the session reports ready, so the user never has to wait
+        // out the whole init turn before typing. The prompt lives in the chat panel now, so this is a view-model
+        // fact rather than a broadcast to the host.
+        Application.Current?.Dispatcher.InvokeAsync(() =>
+        {
+            if (viewModel is not null)
+            {
+                viewModel.IsPromptAvailable = true;
+            }
+        });
 
         // A plugin that fails during boot lands as an error row in the init turn instead of leaving an
         // eternal spinner. Generic display data - the conversation names no plugin.
@@ -446,10 +461,9 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         {
             current = newState;
             UpdateViewModel(newState);
-            PublishPermissionPendingIfChanged(newState);
             PublishActivityIfChanged(newState);
             PublishPlaceholders(newState);
-            ProcessEffects(bus, effects, workingDirectory, config.Model);
+            ProcessEffects(effects);
         }
 
         // Project the active session onto the agent.*/turn.* placeholder values and broadcast a snapshot,
@@ -520,15 +534,36 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             }
         }
 
-        // The host routes Left/Right/Enter to the permission prompt only while one is pending. Announce
-        // edge transitions so it can cache a single bool rather than reach into conversation state.
-        void PublishPermissionPendingIfChanged(ConversationState newState)
+        // Execute the pure update's effects. All but the prompt-mode relay are bus sends; the mode is now a
+        // chat-panel fact (the prompt lives there), so it goes onto the view model instead.
+        void ProcessEffects(ConversationEffect[] effects)
         {
-            var pending = ConversationUpdate.HasPendingPermission(newState);
-            if (pending != lastPermissionPending)
+            foreach (var effect in effects)
             {
-                lastPermissionPending = pending;
-                bus.Send(new PermissionPending(pending));
+                switch (effect)
+                {
+                    case SendPromptEffect e:
+                        bus.Send(new SendPrompt(e.SessionId, e.Text));
+                        break;
+                    case SendPermissionResponseEffect e:
+                        bus.Send(new SendPermissionResponse(e.SessionId, e.RequestId, e.OptionId));
+                        break;
+                    case InterruptSessionEffect e:
+                        bus.Send(new InterruptSession(e.SessionId));
+                        break;
+                    case DisposeSessionEffect e:
+                        bus.Send(new DisposeSession(e.SessionId));
+                        break;
+                    case StartNewSessionEffect e:
+                        bus.Send(new StartNewSession(e.SessionId, workingDirectory, config.Model));
+                        break;
+                    case ScheduleInitTimeoutEffect:
+                        break;
+                    case PublishPromptModeEffect e:
+                        Application.Current?.Dispatcher.InvokeAsync(
+                            () => viewModel?.SetPromptMode(e.Mode, e.DisplayName));
+                        break;
+                }
             }
         }
 
@@ -548,7 +583,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
                     var (newState, effects) = ConversationUpdate.HandleInitTimedOut(state, sessionId);
                     state = newState;
                     UpdateViewModel(newState);
-                    ProcessEffects(bus, effects, workingDirectory, config.Model);
+                    ProcessEffects(effects);
                 }
             }, cts.Token);
         }
@@ -577,37 +612,6 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         }
 
         return true;
-    }
-
-    private static void ProcessEffects(
-        IBus bus, ConversationEffect[] effects, string workingDirectory, string? model)
-    {
-        foreach (var effect in effects)
-        {
-            switch (effect)
-            {
-                case SendPromptEffect e:
-                    bus.Send(new SendPrompt(e.SessionId, e.Text));
-                    break;
-                case SendPermissionResponseEffect e:
-                    bus.Send(new SendPermissionResponse(e.SessionId, e.RequestId, e.OptionId));
-                    break;
-                case InterruptSessionEffect e:
-                    bus.Send(new InterruptSession(e.SessionId));
-                    break;
-                case DisposeSessionEffect e:
-                    bus.Send(new DisposeSession(e.SessionId));
-                    break;
-                case StartNewSessionEffect e:
-                    bus.Send(new StartNewSession(e.SessionId, workingDirectory, model));
-                    break;
-                case ScheduleInitTimeoutEffect:
-                    break;
-                case PublishPromptModeEffect e:
-                    bus.Send(new PromptModeChanged(e.Mode, e.DisplayName));
-                    break;
-            }
-        }
     }
 
     private sealed class PluginDisposable(

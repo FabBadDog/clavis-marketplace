@@ -7,14 +7,14 @@ using FabioSoft.Nucleus.Contracts;
 
 namespace FabioSoft.Nucleus.Plugins.WpfHost;
 
-/// Owns every application window and routes window/panel/region bus messages to the right one. The
-/// primary window carries the conversation chrome; secondary windows are pure panel hosts. Region
-/// contributions keep flowing to the primary window so Conversation / EventsPanel / CommandPalette work
-/// unchanged. The whole layout (windows, docking tree, per-panel state) is persisted and restored.
+/// Owns every application window and routes window/panel/region bus messages to the right one. The primary
+/// window carries the window chrome (title bar, status bar); secondary windows are pure panel hosts. Every
+/// panel - the chat included - is placed on a docking surface as a registered kind, so the host names no
+/// panel kind of its own. Region contributions keep flowing to the primary window so Conversation /
+/// EventsPanel / CommandPalette work unchanged. The whole layout (windows, docking tree, per-panel state) is
+/// persisted and restored.
 internal sealed partial class WindowManager : IDisposable
 {
-    private const string ConversationKind = "conversation";
-
     // How a panel kind was last placed, so an Open re-creates it the same way.
     private const string TabMode = "tab";
     private const string SlideMode = "slide";
@@ -47,6 +47,15 @@ internal sealed partial class WindowManager : IDisposable
     // here; with a live instance it is revealed in place instead (singleton per kind).
     private readonly Dictionary<string, PanelPlacement> _kindPlacement = new(StringComparer.Ordinal);
 
+    // Each kind's declared cardinality, learned from the placement messages, so a Toggle (which carries only
+    // a kind) can apply the same rule an Open does without the host subscribing to registrations itself.
+    private readonly Dictionary<string, string> _kindCardinality = new(StringComparer.Ordinal);
+
+    // Which workspace each live panel instance belongs to, so a one-per-workspace kind can be found within
+    // its own workspace rather than application-wide. Everything is Guid.Empty until workspaces exist, which
+    // is exactly the previous application-wide behaviour.
+    private readonly Dictionary<Guid, Guid> _panelWorkspace = [];
+
     // The persisted layout lives under this plugin's id in the Configuration plugin (the WpfHost section of state.yaml).
     private const string PluginId = "WpfHost";
 
@@ -71,6 +80,11 @@ internal sealed partial class WindowManager : IDisposable
     private bool _restoredFromConfig;
     private bool _bootstrapComplete;
 
+    // Whether a saved layout was actually applied, and whether the configured default panels were opened in
+    // its place. Both one-shot: the defaults seed a first run only, and never override a saved layout.
+    private bool _layoutApplied;
+    private bool _defaultsOpened;
+
     // The windows stay invisible until the essential plugins are ready AND the saved-layout answer has
     // been applied, then appear once - already at their restored bounds, so the boot never shows a window
     // that then jumps to its saved position. The failsafe reveals anyway when the state answer cannot
@@ -81,12 +95,7 @@ internal sealed partial class WindowManager : IDisposable
     private bool _essentialsReady;
     private DispatcherTimer? _revealFailsafe;
 
-    // Cached from the Conversation plugin's PermissionPending notifications. Written on a bus thread, read
-    // on the UI thread in each window's key handler, so it is volatile. Lets a window route Left/Right/Enter
-    // to a pending permission prompt without the host knowing anything about permission internals.
-    private volatile bool _permissionPending;
-
-    private readonly record struct RestoreRequest(Guid InstanceId, string Kind, string SavedState);
+    private readonly record struct RestoreRequest(Guid InstanceId, string Kind, string SavedState, Guid WorkspaceId);
 
     private readonly record struct SlideInRestore(Guid WindowId, string Kind, string Title, string Edge);
 
@@ -138,11 +147,6 @@ internal sealed partial class WindowManager : IDisposable
 
         host.PanelCloseRequested += (_, panelId) =>
         {
-            if (host.IsSolePanelLocked)
-            {
-                return;
-            }
-
             host.Surface.RemovePanel(panelId);
             _bus.Send(new PanelClosed(panelId));
             ScheduleSave();

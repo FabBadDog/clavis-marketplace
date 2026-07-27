@@ -13,16 +13,15 @@ internal sealed partial class WindowManager
 {
     private WindowHost CreatePrimaryWindow()
     {
-        var host = new WindowHost(_bus, _config, _keymap, () => _permissionPending, _primaryWindowId, isPrimary: true);
+        var host = new WindowHost(_bus, _config, _keymap, _primaryWindowId, isPrimary: true);
         _focusedWindowId = host.WindowId;
         Application.Current.MainWindow = host.Window;
         Register(host);
 
-        // Default placement until (and unless) the saved layout arrives: centre-screen with the conversation
-        // seeded, so the window is never blank. A StateFound restore later applies the saved bounds and
-        // rebuilds the surface; SeedConversation is idempotent and Surface.Restore replaces it cleanly.
+        // Default placement until (and unless) the saved layout arrives. The surface starts empty: a
+        // StateFound restore fills it with the saved slots, and a launch with no saved layout opens the
+        // configured default panels once every plugin is up (see FlushRestoreSends).
         host.Window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        host.SeedConversation();
 
         host.Window.Closing += (_, _) =>
         {
@@ -49,7 +48,7 @@ internal sealed partial class WindowManager
 
     private WindowHost NewSecondaryHost(Guid windowId)
     {
-        var host = new WindowHost(_bus, _config, _keymap, () => _permissionPending, windowId, isPrimary: false);
+        var host = new WindowHost(_bus, _config, _keymap, windowId, isPrimary: false);
         host.Window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
         // Owner can only be set once the primary has been shown; during a pre-reveal restore it is still
         // hidden (WPF would throw), so the owner link is deferred to Reveal in that case.
@@ -94,7 +93,7 @@ internal sealed partial class WindowManager
     }
 
     // Retire a secondary window once its last panel is gone (no docked panels and no slide-ins). The primary
-    // window is never closed this way - its sole panel is locked, so it cannot become empty.
+    // window is never closed this way - it carries the window chrome and stays as the way back in, empty or not.
     private void CloseIfEmptySecondary(WindowHost host)
     {
         if (!host.IsPrimary && !host.Surface.PanelIds.Any() && host.SlideInIds.Count == 0)

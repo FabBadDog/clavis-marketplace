@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 namespace FabioSoft.Nucleus.Plugins.PanelRegistry;
 
 /// An open/restore request held for a kind that has not registered yet, replayed once it does.
-public sealed record PendingOpen(Guid InstanceId, string SavedState);
+public sealed record PendingOpen(Guid InstanceId, string SavedState, Guid WorkspaceId);
 
 /// The catalog of available panel kinds and the pure resolution from a kind to a ready-to-place panel.
 /// No bus or WPF dependency: resolution defers view construction into a Func the host invokes on its UI
@@ -30,7 +30,7 @@ public sealed class PanelCatalog
 
     /// Hold an open/restore for a kind that has not registered yet (the owning plugin activates in the
     /// background after a restore was requested); Register replays it once the kind arrives.
-    public void Buffer(string kind, Guid instanceId, string savedState)
+    public void Buffer(string kind, Guid instanceId, string savedState, Guid workspaceId)
     {
         lock (_pendingLock)
         {
@@ -40,16 +40,18 @@ public sealed class PanelCatalog
                 _pending[kind] = list;
             }
 
-            list.Add(new PendingOpen(instanceId, savedState));
+            list.Add(new PendingOpen(instanceId, savedState, workspaceId));
         }
     }
 
     /// Resolve a kind into a PanelInstanceReady. View construction is deferred (the returned View Func
-    /// builds the element when invoked) and bound to the supplied per-instance context.
+    /// builds the element when invoked) and bound to the supplied per-instance context. The kind's declared
+    /// cardinality is carried through so the host can enforce it without watching registrations itself.
     public bool TryResolve(
         string kind,
         Guid instanceId,
         string savedState,
+        Guid workspaceId,
         Func<Guid, Action<string>> stateCallback,
         out PanelInstanceReady? ready)
     {
@@ -58,7 +60,11 @@ public sealed class PanelCatalog
             var context = new PanelInstanceContext(instanceId, kind, savedState, stateCallback(instanceId));
             var view = new Func<object>(() => registration.ViewFactory.Invoke(context));
             ready = new PanelInstanceReady(
-                instanceId, kind, registration.Title, registration.MinWidth, registration.MinHeight, view);
+                instanceId, kind, registration.Title, registration.MinWidth, registration.MinHeight, view,
+                workspaceId)
+            {
+                Cardinality = registration.Cardinality
+            };
             return true;
         }
 

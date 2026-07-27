@@ -36,13 +36,26 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP1 `WindowManager` split + `LayoutTree` | done | `d9895a7` |
 | WP2 session activity + session ids | done | `8a39514`, `06e1ad9`, `50a8156` |
 | Host: WP0 fallout + BuildSpec cache key | done | `967c0f2`, `2c21571`, `81479a2` (host repo) |
-| WP3 chat becomes a panel kind | **next** | - |
-| WP4 - WP10, WP5b | not started | - |
+| WP3 chat becomes a panel kind | done, **not runtime-verified** | see WP3 below |
+| WP4 | **next** | - |
+| WP5 - WP10, WP5b | not started | - |
 
-**Not runtime-verified since WP2.** Two contract majors moved; nothing has booted against them. The next
-launch also recompiles every item once (new `.buildspec` sidecars). Launch with
+**Not runtime-verified since WP2.** Four contract majors have moved now (session, host x2, layout) and
+nothing has booted against them. WP3 in particular changes what the primary window contains, so it needs a
+launch. The next launch also recompiles every item once (new `.buildspec` sidecars). Launch with
 `dotnet run --project src/FabioSoft.Clavis.Shell` from the host repo, in the background, and confirm via the
 newest `~/.clavis/logs/clavis-*.log`.
+
+**First-launch checks specific to WP3** (all cheap, all worth doing before WP4 builds on it):
+1. The chat appears at all - over the existing `state.yaml`, whose primary window holds a slot of the retired
+   kind `conversation`. `WpfHostConfig.RetiredPanelKinds` should rewrite it to `chat` on restore; if that
+   misfires the symptom is a tab stuck on its compile placeholder forever and no chat.
+2. Prompt submit still works (the panel now owns Enter), and Up/Down still recall history.
+3. Trigger a permission: Left/Right move the choice and Enter confirms, with the caret still in the prompt.
+4. `Ctrl+Up`/`Ctrl+Down` still scroll the chat while the prompt holds focus (the binding moved to panel kind
+   `chat`).
+5. Close the chat tab, then `TogglePanel chat` (palette `open-chat`, or `Ctrl+P` -> Chat) brings it back.
+6. Tear the chat off into a second window - the prompt must travel with it.
 
 ### Local environment quirks (this development machine)
 
@@ -388,7 +401,60 @@ transition and not on unchanged updates; `SelectionRequested` for session A does
 
 ---
 
-## WP3 - Chat becomes a panel kind (land alone - largest behavioural change) - NEXT
+## WP3 - Chat becomes a panel kind (land alone - largest behavioural change) - DONE
+
+Landed as designed, with five deviations, all recorded here because each is a decision a later package will
+otherwise re-litigate. Catalog gate green: 38/38 items and 23/23 test suites compile and pass
+(wpf-host 54 -> 67, conversation 154 -> 169, panel-registry 6 -> 9).
+
+1. **The permission keys are the chat panel's, not keymap bindings.** The plan wanted Left/Right/Enter as
+   "ordinary panel-scoped bindings on kind `chat`". That cannot work: a panel-local binding bypasses the
+   text-input guard by design, so a bare-`Enter` binding for kind `chat` would fire *unconditionally* and
+   prompt submission would be dead. The keymap has no "only while this instance is blocked" scope - the plan
+   itself notes panel-instance scope is a different shape (see WP8). So `ChatPanelView` handles the three keys
+   at its own root, tunnelling ahead of the prompt box's Enter. This still deletes everything WP3 wanted gone
+   (`PermissionPending`, the `_permissionPending` cache, `TryHandlePermissionKeys`) and is strictly more local
+   than what it replaced. It also let the input stay *enabled* during a decision, so `SetPromptInputEnabled`
+   went too and the caret no longer jumps out of the prompt.
+2. **Contract majors, not minors.** The plan said `layout-contracts 1.1.0` / `host-contracts 2.1.0`, but WP3
+   *deletes* four message types (`OpenConversation`; `PermissionPending`, `PromptInputAvailability`,
+   `PromptModeChanged`), which is breaking. Shipped as **`layout-contracts 2.0.0`** and
+   **`host-contracts 3.0.0`**, with the declared major re-pointed by hand in 13 dependents (not with
+   `-Fix`, per the yamldotnet caveat). Validator: 72/72 correct, only the known yamldotnet edge outstanding.
+   The majors are the safety mechanism - a stale cached dependent fails loudly instead of binding old types.
+3. **`LivePanels.cs`, not `PanelPlacement.cs`.** `PanelPlacement` is already a record struct inside
+   `WindowManager` (a kind's last placement), so that filename would have read as two different things. The
+   rule is the pure `LivePanels.Find(candidates, cardinality, workspaceId, exclude)`; the host only enumerates
+   what is live. `LivePanel`/`LivePanels` are public for the same reason `LayoutTree` is - `InternalsVisibleTo`
+   is forbidden.
+4. **`PanelInstanceReady` carries the cardinality.** The plan put `Cardinality` only on
+   `PanelKindRegistration`, which the host does not subscribe to. Rather than make the host watch
+   registrations, the registry copies the declared value onto `PanelInstanceReady` (a settable member, like
+   `StatusTemplate`, so no positional argument was added). The host caches it per kind so a `TogglePanel` -
+   which carries only a kind - applies the same rule.
+5. **`WpfHostConfig` grew two seams instead of the host learning a kind name.** `DefaultPanels`
+   (`["chat"]`) opens the empty state on a launch with **no** saved layout, replacing `SeedConversation`; a
+   saved layout always wins, including an empty one, so a chat you closed stays closed. `RetiredPanelKinds`
+   (`conversation` -> `chat`) rewrites the renamed kind when reading a saved layout - without it every existing
+   `state.yaml` would restore a tab stuck on its compile placeholder forever. Both are marketplace policy
+   expressed as configuration, so the host still names no panel kind in its code.
+
+Also worth knowing for WP4/WP6:
+
+- **`FocusInputRequested` moved to Conversation** (the prompt lives there now), and the host's two
+  `primary.Focus()` calls in `Reveal`/`Summon` became `primary.FocusSurface()` - "focus the first thing in the
+  active panel", which is both correct and chat-agnostic.
+- **`main-content` is gone.** The chrome regions that remain are `title-bar-left`, `title-bar-right`,
+  `status-bar`, `status-bar-right`.
+- **`WorkspaceId` is threaded but always `Guid.Empty`** through `OpenPanel`/`TogglePanel`/`RestorePanel`/
+  `PanelInstanceReady`/`PanelSnapshot`/`WindowSnapshot` and the host's `_panelWorkspace` map. With everything
+  Empty, `OnePerWorkspace` is exactly the old application-wide dedupe, so WP6 fills in a seam rather than
+  building one.
+- **Moved files:** `wpf-host/InputHandler.cs` and `wpf-host/WindowHost.Mode.cs` are deleted; their content
+  lives in `conversation/Views/PromptInput.cs` + `PromptInput.Mode.cs`, with the recall rules extracted to the
+  tested pure `PromptHistory`. `WindowChromeViews` no longer builds an input box or input row.
+
+### Original scope
 
 The chat becomes a normal registered panel kind `"chat"`, owned by the Conversation plugin. Deleted outright:
 
@@ -448,16 +514,23 @@ type PanelSnapshot(..., workspaceId: Guid) = ...
 type WindowSnapshot(..., workspaceId: Guid) = ...
 ```
 
-Bumps: `layout-contracts 1.1.0`, `host-contracts 2.1.0`, `wpf-host 4.0.0`, `conversation 8.0.0`, `keymap` patch.
+Bumps as shipped: `layout-contracts 2.0.0`, `host-contracts 3.0.0` (both major - see deviation 2),
+`wpf-host 4.0.0`, `conversation 8.0.0`, `agent-gateway 3.0.0` (a message it could send was removed),
+`panel-registry 1.2.0`, `command-palette 1.1.3`, `keymap 1.0.3`.
 
-Tests: `ChatPanelStateTests` (`SavedState` round-trips `{workspaceId, chatId}`; a malformed blob yields a
-fresh chat rather than throwing); `PanelCardinalityTests` (`Many` never dedupes; `OnePerApplication` finds
-an instance in another window; `OnePerWorkspace` does not find one in another workspace; empty defaults to
-`OnePerWorkspace`); `KeymapBindingsTests` (chat permission bindings resolve only for kind `chat`).
+Tests as shipped: `ChatPanelStateTests` (round-trips `{workspaceId, chatId}`; seven unreadable-blob cases all
+yield a fresh chat rather than throwing; a half-written blob keeps the field it has). `PromptHistoryTests` -
+new coverage for logic that was previously untestable inside `InputHandler` (recall up/down, the stashed
+draft, the oldest-entry floor, submit leaving recall). `LivePanelsTests` (`Many` never reuses;
+`OnePerApplication` reuses across workspaces; `OnePerWorkspace` does not; the excluded instance never matches
+itself; an unset cardinality is `OnePerWorkspace` and scopes to the workspace). `LayoutTreeTests` gained three
+retired-kind rename cases. `PanelCatalogTests` gained cardinality/workspace pass-through, including through a
+buffered replay. No `KeymapBindingsTests` addition - per deviation 1 there are no chat permission bindings to
+resolve.
 
 ---
 
-## WP4 - `ConversationState` -> chats aggregate
+## WP4 - `ConversationState` -> chats aggregate - NEXT
 
 Keep **one** aggregate, one pure update, one lock - N independent states would mean N locks, N tick timers,
 and no cheap cross-workspace answers. The real defect is that `Sessions` does two jobs: a history list with

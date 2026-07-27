@@ -52,20 +52,6 @@ type UserNavigatedPermission(delta: int) =
 type UserConfirmedPermission() =
     do ()
 
-/// The Conversation plugin announces whether a permission prompt is awaiting a decision, so the host can
-/// route Left/Right/Enter to it - and only then - without knowing anything about permission internals.
-[<Sealed>]
-type PermissionPending(pending: bool) =
-    member _.Pending = pending
-
-/// The conversation owner announces whether prompts can be accepted (the agent session is up). The window
-/// host keeps the prompt input collapsed until the first availability, so the user is never offered an
-/// input that leads nowhere while the agent infrastructure is still coming up - and it stays a host/
-/// conversation concern: the host learns no session vocabulary.
-[<Sealed>]
-type PromptInputAvailability(available: bool) =
-    member _.Available = available
-
 /// The active panel's owner announces whether its status bar has any configured content. The window host
 /// collapses the status row when it has none, so the panel fills the whole space rather than showing an
 /// empty bar - and reveals it again when content returns. A host/active-panel concern: the host learns no
@@ -74,7 +60,8 @@ type PromptInputAvailability(available: bool) =
 type StatusBarAvailability(available: bool) =
     member _.Available = available
 
-/// A panel asks the host to return keyboard focus to the prompt input (keyboard-first navigation).
+/// A panel asks for keyboard focus to return to the prompt input (keyboard-first navigation). The prompt
+/// lives inside the chat panel, so its owner - not the window host - answers this.
 [<Sealed>]
 [<Description("Move keyboard focus to the prompt input")>]
 type FocusInputRequested() =
@@ -139,17 +126,6 @@ type SelectMode() =
 [<Description("Cycle to the next agent mode")>]
 type CycleSessionMode() =
     do ()
-
-/// The conversation owner relays the active session's permission mode to the host so it can dress the
-/// prompt input in the mode's ambient accent (coloured left edge, caret, and a small label). Mode is the
-/// provider-neutral mode id; DisplayName is its short label. The host resolves the accent from the mode id:
-/// the default/none mode resolves to no accent, so an unstyled prompt is itself the signal for that mode
-/// (whatever DisplayName carries). A host/conversation concern in the same spirit as PromptInputAvailability:
-/// the host learns no session vocabulary, only this relayed pair.
-[<Sealed>]
-type PromptModeChanged(mode: string, displayName: string) =
-    member _.Mode = mode
-    member _.DisplayName = displayName
 
 /// Open the panel selector popup: every user-openable panel kind, opening the chosen one.
 /// Handled by the Selection plugin.

@@ -14,7 +14,7 @@ namespace FabioSoft.Nucleus.Plugins.WpfHost;
 [ExcludeFromCodeCoverage] // WPF focus tracking + animation; no decision logic to unit test
 internal sealed class PanelTitleController
 {
-    private const string ChatKind = "conversation";
+    private const string ChatKind = "chat";
 
     private readonly Window _window;
     private readonly DockingSurface _surface;

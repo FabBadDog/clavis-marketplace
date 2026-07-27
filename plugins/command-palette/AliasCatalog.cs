@@ -24,7 +24,7 @@ public static class AliasCatalog
             // Window and chrome intents, so they are reachable by name as well as by gesture. The
             // per-panel toggle-<kind> aliases are synthesised live from the registered panel kinds.
             ["close-window"] = "CloseActiveWindow",
-            ["open-chat"] = "OpenConversation",
+            ["open-chat"] = "TogglePanel chat",
             ["palette"] = "ToggleCommandPalette",
             ["panels"] = "SelectPanel",
             ["shortcuts"] = "ToggleShortcutHelp"

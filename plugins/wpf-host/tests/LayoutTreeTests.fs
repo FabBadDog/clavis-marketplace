@@ -129,3 +129,50 @@ let ``a window on an unplugged monitor to the left is not on screen`` () =
 
     // Assert
     %onScreen.Should().BeFalse()
+
+[<Fact>]
+let ``renames a retired panel kind throughout a nested tree`` () =
+
+    // Arrange
+    let renamed = Guid.NewGuid()
+    let untouched = Guid.NewGuid()
+    let tree =
+        DockingModel.split (Guid.NewGuid()) DockingModel.Horizontal [| 0.5; 0.5 |]
+            [| leafOf 0 [| slot renamed "conversation" |]
+               leafOf 0 [| slot untouched "git-log" |] |]
+    let renames = Collections.Generic.Dictionary<string, string>(dict [ "conversation", "chat" ])
+
+    // Act
+    let result = LayoutTree.RenameKinds(tree, renames)
+    let kinds = LayoutTree.EnumerateSlots result |> Seq.map (fun s -> s.PanelKind) |> Seq.toList
+
+    // Assert
+    %kinds.Should().SequenceEqual([ "chat"; "git-log" ])
+
+[<Fact>]
+let ``renaming preserves every other slot field`` () =
+
+    // Arrange
+    let panelId = Guid.NewGuid()
+    let tree = leafOf 0 [| { PanelId = panelId; PanelKind = "conversation"; Title = "Chat"; SavedState = "blob" } |]
+
+    // Act
+    let result = LayoutTree.RenameKinds(tree, Collections.Generic.Dictionary<string, string>(dict [ "conversation", "chat" ]))
+    let only = LayoutTree.EnumerateSlots result |> Seq.exactlyOne
+
+    // Assert
+    %only.PanelId.Should().Be(panelId)
+    %only.Title.Should().Be("Chat")
+    %only.SavedState.Should().Be("blob")
+
+[<Fact>]
+let ``an empty rename map returns the tree untouched`` () =
+
+    // Arrange
+    let tree = leafOf 0 [| slot (Guid.NewGuid()) "conversation" |]
+
+    // Act
+    let result = LayoutTree.RenameKinds(tree, Collections.Generic.Dictionary<string, string>())
+
+    // Assert
+    %Object.ReferenceEquals(result, tree).Should().BeTrue()

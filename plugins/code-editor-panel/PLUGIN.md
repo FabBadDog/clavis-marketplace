@@ -5,7 +5,7 @@ version: 2.0.1
 apiVersion: 1.0.0
 description: Code editor panel with file browser and editor context.
 dependencies:
-  - { name: layout-contracts, version: 1 }
+  - { name: layout-contracts, version: 2 }
   - { name: editor-contracts, version: 1 }
   - { name: fabiosoft-editor, version: 1 }
   - { name: clavis-controls, version: 1 }

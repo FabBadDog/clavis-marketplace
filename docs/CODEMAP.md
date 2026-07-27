@@ -18,7 +18,7 @@ the Default ALC. They are pure message DTOs (no dependencies).
 |---|---|
 | `session-contracts` (`FabioSoft.Contracts.Session`) | Session commands + the provider-neutral `AgentStreamEvent` family + conversation/summary messages |
 | `host-contracts` (`...Contracts.Host`) | UI regions, user input, permission flow, summon/toggle |
-| `layout-contracts` (`...Contracts.Layout`) | Multi-window + dockable-panel layout protocol (panel kinds, open/restore/close, per-instance state, windows, snapshot) |
+| `layout-contracts` (`...Contracts.Layout`) | Multi-window + dockable-panel layout protocol (panel kinds + cardinality, open/restore/close, per-instance state, windows, snapshot) |
 | `keymap-contracts` (`...Contracts.Keymap`) | Keybindings + command catalog (`KeymapChanged`, `CommandsAvailable`, `RunCommand`, panel commands) |
 | `resource-contracts` (`...Contracts.Resource`) | `IResource` + load/write subsystem (`LoadResource`, `RegisterScheme`, ...) |
 | `services-contracts` (`...Contracts.Services`) | Per-plugin config (`GetConfig`/`SaveConfig`/`ConfigChanged`) + disposable runtime state |
@@ -45,7 +45,7 @@ WpfHost's named regions / docking surface.
 | Plugin (`pluginId`) | Purpose |
 |---|---|
 | `WpfHost` | Owns the application windows + docking surface; persists/restores the layout. |
-| `Conversation` | The elm/flux chat: state, pure update, view templates, permission/hook resolution. |
+| `Conversation` | The elm/flux chat: state, pure update, view templates, permission/hook resolution. Owns the `chat` panel kind, prompt input included. |
 | `ClaudeBridge` | Wraps `FabioSoft.Claude` sessions; maps stream events onto bus messages. |
 | `AgentGateway` | Exposes Clavis actions to the agent as MCP tools (snapshot, panels, prompt, ...). |
 | `Configuration` | The sectioned config + state YAML stores under `~/.clavis`. |

@@ -47,8 +47,8 @@ public static class KeymapBindings
         Panel("Right", "events.severity.right", "events"),
         Panel("Ctrl+Up", "events.scroll.up", "events"),
         Panel("Ctrl+Down", "events.scroll.down", "events"),
-        Panel("Ctrl+Up", "conversation.scroll.up", "conversation"),
-        Panel("Ctrl+Down", "conversation.scroll.down", "conversation")
+        Panel("Ctrl+Up", "conversation.scroll.up", "chat"),
+        Panel("Ctrl+Down", "conversation.scroll.down", "chat")
     ];
 
     /// Merge persisted bindings over the built-in defaults. Each default command keeps its default gesture

@@ -93,7 +93,9 @@ internal sealed partial class WindowManager
         }
 
         primary.Window.Activate();
-        primary.Focus();
+        // Land focus inside the surface rather than on a window-owned input: the prompt belongs to the chat
+        // panel now, so "focus the first thing in the active panel" is both correct and chat-agnostic.
+        primary.FocusSurface();
         _bus.LogInfo("WpfHost", "primary window shown");
 
         // Materialise the restored panels now, at the reveal, rather than waiting for BootstrapComplete:
@@ -141,7 +143,7 @@ internal sealed partial class WindowManager
         primary.Window.Activate();
         primary.Window.Topmost = true;
         primary.Window.Topmost = false;
-        primary.Focus();
+        primary.FocusSurface();
     }
 
     /// One gesture both summons and banishes the application: with a Clavis window focused, every window

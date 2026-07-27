@@ -16,6 +16,26 @@ type PanelInstanceContext
     member _.SavedState = savedState
     member _.OnStateChanged = onStateChanged
 
+/// How many instances of a panel kind may live at once, and within what boundary. Declared by the owning
+/// plugin instead of inferred by the host, which used to dedupe every kind application-wide - a rule that
+/// conflated "there is one of these per chat" with "there is one of these in the whole application".
+/// String literals so they cross load contexts and round-trip through YAML without enum-identity concerns
+/// (same pattern as KeymapScope).
+[<RequireQualifiedAccess>]
+module PanelCardinality =
+
+    /// The default: one instance per workspace, so today's feel repeats per workspace.
+    [<Literal>]
+    let OnePerWorkspace = "one-per-workspace"
+
+    /// One instance for the whole application, wherever it is docked (the plugin manager, the overview).
+    [<Literal>]
+    let OnePerApplication = "one-per-application"
+
+    /// No dedupe at all - every open mints a new instance (the markdown:{id} family).
+    [<Literal>]
+    let Many = "many"
+
 /// A panel plugin announces a kind of panel it can create. ViewFactory is a BCL delegate so it crosses
 /// AssemblyLoadContext boundaries (same pattern as UiRegionContribution.ViewFactory). Returns obj, not
 /// FrameworkElement, so this contract assembly stays WPF-free; the host casts. IsUserOpenable is false for
@@ -46,6 +66,11 @@ type PanelKindRegistration
     /// Settable so a C# registration can use an object initializer; the seven-argument constructor is unchanged.
     member val StatusTemplate = "" with get, set
 
+    /// How many instances of this kind may live at once (a PanelCardinality literal). Settable for the same
+    /// reason as StatusTemplate, so existing registrations keep their seven-argument constructor. Empty is
+    /// read as OnePerWorkspace, the default the host applied to every kind before cardinality was declared.
+    member val Cardinality = PanelCardinality.OnePerWorkspace with get, set
+
 /// The registry broadcasts this on its own activation; panel plugins subscribe and re-announce their
 /// kinds. Makes activation order irrelevant (a fire-and-forget registration sent before the registry
 /// subscribed would otherwise be lost).
@@ -53,18 +78,28 @@ type PanelKindRegistration
 type PanelKindsRequested() =
     do ()
 
+/// WorkspaceId scopes the request to one workspace; Guid.Empty means "the active workspace", which only
+/// the host can resolve - so the registry never learns which workspace is active.
 [<Sealed>]
 [<Description("Open a panel of the given kind in the active window")>]
-type OpenPanel(kind: string) =
+type OpenPanel(kind: string, workspaceId: Guid) =
+
+    new(kind) = OpenPanel(kind, Guid.Empty)
+
     member _.Kind = kind
+    member _.WorkspaceId = workspaceId
 
 /// Open the panel of the given kind if none is live, or close/dismiss it if one already is - so a single
 /// gesture both summons and banishes a panel. A live docked tab is closed; a live slide-in is hidden if
 /// shown and revealed if hidden; with no live instance it behaves like OpenPanel.
 [<Sealed>]
 [<Description("Toggle a panel of the given kind in the active window")>]
-type TogglePanel(kind: string) =
+type TogglePanel(kind: string, workspaceId: Guid) =
+
+    new(kind) = TogglePanel(kind, Guid.Empty)
+
     member _.Kind = kind
+    member _.WorkspaceId = workspaceId
 
 /// Close or dismiss the focused panel. A parameterless companion to ClosePanel so a panel-scoped gesture
 /// (e.g. Esc) can banish the focused panel without naming its instance - the host resolves "focused"
@@ -77,16 +112,29 @@ type CloseActivePanel() =
 /// Re-materialise a previously-open panel during layout restore. Like OpenPanel but seeds the existing
 /// instance id and saved state instead of minting a fresh instance.
 [<Sealed>]
-type RestorePanel(instanceId: Guid, kind: string, savedState: string) =
+type RestorePanel(instanceId: Guid, kind: string, savedState: string, workspaceId: Guid) =
+
+    new(instanceId, kind, savedState) = RestorePanel(instanceId, kind, savedState, Guid.Empty)
+
     member _.InstanceId = instanceId
     member _.Kind = kind
     member _.SavedState = savedState
+    member _.WorkspaceId = workspaceId
 
 /// The registry resolved a kind to a realised view and hands it to the host for placement. View is the
 /// cross-ALC BCL delegate producing the FrameworkElement.
 [<Sealed>]
 type PanelInstanceReady
-    (instanceId: Guid, kind: string, title: string, minWidth: float, minHeight: float, view: Func<obj>) =
+    (instanceId: Guid,
+     kind: string,
+     title: string,
+     minWidth: float,
+     minHeight: float,
+     view: Func<obj>,
+     workspaceId: Guid) =
+
+    new(instanceId, kind, title, minWidth, minHeight, view) =
+        PanelInstanceReady(instanceId, kind, title, minWidth, minHeight, view, Guid.Empty)
 
     member _.InstanceId = instanceId
     member _.Kind = kind
@@ -94,6 +142,12 @@ type PanelInstanceReady
     member _.MinWidth = minWidth
     member _.MinHeight = minHeight
     member _.View = view
+    member _.WorkspaceId = workspaceId
+
+    /// The kind's declared cardinality, carried through from its registration so the host can enforce a
+    /// declared rule without subscribing to registrations itself. Settable, so the registry fills it in
+    /// without the placement message growing another positional argument.
+    member val Cardinality = PanelCardinality.OnePerWorkspace with get, set
 
 /// Request to close a panel instance (e.g. from a command). The host removes it from its surface and
 /// announces PanelClosed.
@@ -120,13 +174,6 @@ type PanelStateChanged(instanceId: Guid, state: string) =
 type SetPanelTitle(instanceId: Guid, title: string) =
     member _.InstanceId = instanceId
     member _.Title = title
-
-/// Re-open the chat conversation in the primary window. The conversation is a singleton panel; if it is
-/// already open this focuses it, otherwise the host re-seeds it. Lets a closed chat be brought back.
-[<Sealed>]
-[<Description("Open the chat conversation")>]
-type OpenConversation() =
-    do ()
 
 /// A panel was anchored to a window edge as a slide-in (dragged into an edge's slide zone). The host
 /// broadcasts this so the command palette can offer a per-panel command that summons it back after it

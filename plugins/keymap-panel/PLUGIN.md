@@ -6,7 +6,7 @@ apiVersion: 1.0.0
 description: Keybinding inspector dockable panel.
 dependencies:
   - { name: keymap-contracts, version: 1 }
-  - { name: layout-contracts, version: 1 }
+  - { name: layout-contracts, version: 2 }
   - { name: clavis-controls, version: 1 }
 language: csharp
 assemblyName: KeymapPanel

@@ -8,29 +8,17 @@ using FabioSoft.Nucleus.Contracts;
 
 namespace FabioSoft.Nucleus.Plugins.WpfHost;
 
-/// One application window: its chrome (title bar, and for the primary window the prompt input, status
-/// bar, and side panel), a per-window RegionManager for region contributions, and a DockingSurface that
-/// tiles panels. The primary window seeds the surface with the conversation as its first panel so the
-/// existing main-content region keeps driving the chat unchanged.
+/// One application window: its chrome (title bar, and for the primary window the status bar), a per-window
+/// RegionManager for region contributions, and a DockingSurface that tiles panels. The window owns no chat
+/// vocabulary at all - the conversation is an ordinary panel kind placed on the surface like any other.
 internal sealed partial class WindowHost
 {
-    // Stable id for the conversation panel so layout restore can recognise and re-seed it.
-    public static readonly Guid ConversationPanelId = new("0B6A1E00-0000-4000-8000-000000000001");
-
     private readonly IBus _bus;
     private readonly WpfHostConfig _config;
     private readonly KeymapInput _keymap;
-    private readonly Func<bool> _isPermissionPending;
-    private readonly ContentPresenter _conversationContent = new();
     private readonly ShortcutHelpOverlay _helpOverlay = new();
     private readonly Dictionary<string, SlideInHost> _slideHosts = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, SlideInEntry> _slideIns = [];
-    private FrameworkElement? _conversationPanelView;
-    private InputHandler? _inputHandler;
-    private TextBox? _inputBox;
-    private Border? _inputRow;
-    private Border? _modeEdge;
-    private TextBlock? _modeLabel;
     private Border? _statusRow;
     private FocusVisualController? _focusVisual;
     private PanelTitleController? _panelTitle;
@@ -59,22 +47,19 @@ internal sealed partial class WindowHost
 
     private readonly record struct SlideInEntry(string Edge, FrameworkElement View, string Title, string Kind);
 
-    public WindowHost(
-        IBus bus, WpfHostConfig config, KeymapInput keymap, Func<bool> isPermissionPending,
-        Guid windowId, bool isPrimary)
+    public WindowHost(IBus bus, WpfHostConfig config, KeymapInput keymap, Guid windowId, bool isPrimary)
     {
         _bus = bus;
         _config = config;
         _keymap = keymap;
-        _isPermissionPending = isPermissionPending;
         WindowId = windowId;
         IsPrimary = isPrimary;
         Regions = new RegionManager();
         Surface = new DockingSurface();
 
-        // A window's sole panel renders chromeless (no panel tab), so the surface shows no handle for it; the
-        // primary window additionally forbids closing or dragging out that last panel (IsSolePanelLocked), so
-        // the main window always keeps a panel. A panel sharing the surface with others keeps its tab/handle.
+        // A window's sole panel renders chromeless (no panel tab), so the surface shows no handle for it. A
+        // panel sharing the surface with others keeps its tab/handle. No panel is pinned: every panel,
+        // including the chat, can be closed or dragged out.
         Surface.PanelCloseRequested += (_, panelId) => PanelCloseRequested?.Invoke(this, panelId);
 
         Window = ResourceLoader.Load<Window>("Views/MainWindow.xaml");
@@ -149,55 +134,10 @@ internal sealed partial class WindowHost
     public event EventHandler? SlideInDragCompleted;
     public event EventHandler<Guid>? SlideInCloseRequested;
 
-    public void Focus() => _inputHandler?.Focus();
-
     public void FocusSurface() =>
         Surface.Dispatcher.BeginInvoke(
             () => Surface.MoveFocus(new TraversalRequest(FocusNavigationDirection.First)),
             System.Windows.Threading.DispatcherPriority.Input);
-
-    /// The conversation panel's full view: the chat history (the main-content region presenter the
-    /// Conversation plugin fills) with the status bar and prompt input docked at its bottom. The docking
-    /// surface hosts this as the conversation panel, so input and status travel and close with the chat.
-    public FrameworkElement ConversationPanelView => _conversationPanelView!;
-
-    /// Shows or collapses the prompt input. It starts collapsed and slides in on the first
-    /// PromptInputAvailability from the conversation owner, taking focus so typing can begin at once.
-    public void SetPromptInputVisible(bool visible)
-    {
-        if (_inputRow is null)
-        {
-            return;
-        }
-
-        if (visible && _inputRow.Visibility != Visibility.Visible)
-        {
-            _inputRow.Visibility = Visibility.Visible;
-            Motion.enter(_inputRow);
-            _inputHandler?.Focus();
-        }
-        else if (!visible)
-        {
-            _inputRow.Visibility = Visibility.Collapsed;
-        }
-    }
-
-    /// Enables or disables the prompt input. While a permission decision is pending the input is disabled so
-    /// it is unselectable and cannot hold focus or swallow the Left/Right/Enter keys the permission prompt
-    /// needs; re-enabling returns focus to it (when visible) so typing can resume.
-    public void SetPromptInputEnabled(bool enabled)
-    {
-        if (_inputBox is null)
-        {
-            return;
-        }
-
-        _inputBox.IsEnabled = enabled;
-        if (enabled && _inputRow is { Visibility: Visibility.Visible })
-        {
-            _inputHandler?.Focus();
-        }
-    }
 
     /// Shows or collapses the status row. The active panel's owner reports whether its status bar has any
     /// configured content; an empty bar is collapsed so the panel fills the whole space rather than showing a
@@ -220,22 +160,6 @@ internal sealed partial class WindowHost
         }
     }
 
-    /// Add the conversation as a panel in the surface, or focus it if already present. Called when starting
-    /// fresh (no saved layout) and when re-opening a closed chat; during restore the saved layout places
-    /// the conversation slot instead.
-    public void SeedConversation()
-    {
-        if (Surface.PanelIds.Contains(ConversationPanelId))
-        {
-            Surface.FocusPanel(ConversationPanelId);
-            _inputHandler?.Focus();
-            return;
-        }
-
-        Surface.AddPanel(ConversationPanelId, "conversation", "Chat", ConversationPanelView, DockTarget.IntoActiveGroup);
-        _inputHandler?.Focus();
-    }
-
     private FrameworkElement BuildPrimaryLayout()
     {
         // titleText (the overlay TextBlock) is unused in the primary window: its title-bar-left shows the
@@ -245,15 +169,10 @@ internal sealed partial class WindowHost
         var statusBar = new ContentPresenter();
         var statusBarRight = new ContentPresenter();
 
-        Regions.DefineRegion("main-content", _conversationContent);
         Regions.DefineRegion("title-bar-left", titleBranch);
         Regions.DefineRegion("title-bar-right", titleBarRight);
         Regions.DefineRegion("status-bar", statusBar);
         Regions.DefineRegion("status-bar-right", statusBarRight);
-
-        var inputBox = WindowChromeViews.CreateInputBox();
-        _inputBox = inputBox;
-        _inputHandler = new InputHandler(_bus, inputBox);
 
         var (titleBar, statusDot) = WindowChromeViews.CreateTitleBar(titleBarLeft, titleBarRight, () => Window.Close());
         _statusDot = statusDot;
@@ -261,33 +180,8 @@ internal sealed partial class WindowHost
         // panel: the watcher announces the active kind and the Conversation re-templates the chrome strips it
         // contributes here. (Secondary windows have no status bar and use PanelTitleController for the title.)
         _activePanel = new ActivePanelWatcher(_bus, Window, Surface);
-        var (inputRow, modeEdge, modeLabel) = WindowChromeViews.CreateInputRow(inputBox);
-        _modeEdge = modeEdge;
-        _modeLabel = modeLabel;
         var statusRow = WindowChromeViews.CreateStatusBar(statusBar, statusBarRight);
         _statusRow = statusRow;
-
-        // The prompt input starts collapsed: it only appears (SetPromptInputVisible) once the
-        // conversation owner reports an agent session that can accept prompts, so the user is never
-        // offered an input that leads nowhere while the agent infrastructure is still coming up.
-        inputRow.Visibility = Visibility.Collapsed;
-        _inputRow = inputRow;
-
-        // The conversation is a self-contained panel: the chat history fills it and the prompt input floats
-        // (translucent) over its bottom edge, so the input can grow up over the chat without pushing it, and
-        // it travels and closes with the chat when other panels share the window. The status bar is NOT here:
-        // it is window chrome (a fixed bottom row below), so it stays put and shows for every active panel.
-        inputRow.VerticalAlignment = VerticalAlignment.Bottom;
-
-        var conversationPanel = new Grid();
-        conversationPanel.Children.Add(_conversationContent);
-        conversationPanel.Children.Add(inputRow);
-        _conversationPanelView = conversationPanel;
-
-        // The input's top framing line turns clavis while it is focused (its focus cue), and it grows with its
-        // content up to 60% of the chat height.
-        WireInputFocusLines(inputBox, inputRow);
-        CapInputHeightToChat(inputBox, conversationPanel);
 
         // The status bar is a fixed window-chrome row pinned to the window bottom; the active docked panel
         // drives its content (window owns the bar, the active panel owns what it shows), so it is window-owned
@@ -323,9 +217,10 @@ internal sealed partial class WindowHost
         layoutGrid.Children.Add(_helpOverlay);
 
         AttachSlideHosts(bodyGrid, layoutGrid);
-        _focusVisual = new FocusVisualController(Window, layoutGrid, Surface, inputBox);
 
-        layoutGrid.Loaded += (_, _) => _inputHandler.Focus();
+        // The window owns no input box now (the chat panel does), so the focus visual has none to exempt -
+        // the panel's own controls take focus like any other panel's.
+        _focusVisual = new FocusVisualController(Window, layoutGrid, Surface, null);
 
         return layoutGrid;
     }
@@ -382,11 +277,6 @@ internal sealed partial class WindowHost
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-
-        if (TryHandlePermissionKeys(key, e))
-        {
-            return;
-        }
 
         // Esc dismisses an open keyboard-help overlay before any binding sees the key, so the overlay closes
         // with Esc like every other transient surface (it is opened by a toggle and was otherwise un-closeable
@@ -453,37 +343,6 @@ internal sealed partial class WindowHost
         }
 
         e.Handled = true;
-    }
-
-    // While a permission prompt is awaiting a decision it owns the bare Left/Right (move the choice) and
-    // Enter (confirm) keys - even when the chat input holds focus - but it never takes tab focus. Routed
-    // here, ahead of keymap resolution and the text-input passthrough, so it beats the events panel's
-    // Left/Right cycle and the input box's Enter-to-submit. The host knows only a pending bool; the
-    // Conversation plugin owns the actual selection and resolution.
-    private bool TryHandlePermissionKeys(Key key, KeyEventArgs e)
-    {
-        if (!_isPermissionPending() || Keyboard.Modifiers != ModifierKeys.None)
-        {
-            return false;
-        }
-
-        switch (key)
-        {
-            case Key.Left:
-                _bus.Send(new UserNavigatedPermission(-1));
-                break;
-            case Key.Right:
-                _bus.Send(new UserNavigatedPermission(1));
-                break;
-            case Key.Enter:
-                _bus.Send(new UserConfirmedPermission());
-                break;
-            default:
-                return false;
-        }
-
-        e.Handled = true;
-        return true;
     }
 
     /// Register the window's top-level content as an OLE drop target. The docking surface attaches its own
@@ -720,17 +579,12 @@ internal sealed partial class WindowHost
         return any;
     }
 
-    /// True when this window's only panel is the locked one - the primary window's last remaining panel,
-    /// which fills the window and cannot be closed or dragged out so the main window is never empty.
-    public bool IsSolePanelLocked => IsPrimary && Surface.PanelIds.Count() <= 1;
-
-    /// Close the focused docked panel - the one in the active tab group - unless it is the primary window's
-    /// locked sole panel. Reports whether a panel was closed so the caller can finish the bookkeeping
-    /// (announce PanelClosed, persist).
+    /// Close the focused docked panel - the one in the active tab group. Reports whether a panel was closed so
+    /// the caller can finish the bookkeeping (announce PanelClosed, persist).
     public Guid CloseActiveDockedPanel()
     {
         var activeId = Surface.ActivePanelId;
-        if (activeId == Guid.Empty || IsSolePanelLocked)
+        if (activeId == Guid.Empty)
         {
             return Guid.Empty;
         }

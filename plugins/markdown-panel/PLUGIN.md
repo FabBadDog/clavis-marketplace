@@ -5,7 +5,7 @@ version: 1.1.1
 apiVersion: 1.0.0
 description: User-authored markdown panels with live placeholders, plus a manager to create and edit them.
 dependencies:
-  - { name: layout-contracts, version: 1 }
+  - { name: layout-contracts, version: 2 }
   - { name: services-contracts, version: 1 }
   - { name: placeholders-contracts, version: 1 }
   - { name: clavis-placeholders, version: 1 }
