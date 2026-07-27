@@ -114,6 +114,11 @@ internal sealed partial class WindowHost
 
     public bool IsPrimary { get; }
 
+    /// The workspace this window belongs to, so a secondary panel-host hides and shows with the workspace it
+    /// was torn off in. Guid.Empty for the primary, which carries the chrome for every workspace, and for a
+    /// secondary restored from a layout that predates workspaces (adopted on the first activation).
+    public Guid WorkspaceId { get; set; }
+
     public Window Window { get; }
 
     public RegionManager Regions { get; }

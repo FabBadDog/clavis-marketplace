@@ -32,11 +32,12 @@ internal sealed partial class WindowManager
         return host;
     }
 
-    private void RecreateSecondaryWindow(PersistedWindow entry)
+    private void RecreateSecondaryWindow(PersistedWindow entry, PersistedWorkspaceLayout? layout)
     {
         var host = NewSecondaryHost(Guid.NewGuid());
+        host.WorkspaceId = entry.WorkspaceId;
         ApplyBounds(host.Window, entry.Bounds);
-        RestoreLayout(host, entry);
+        RestoreLayout(host, layout);
 
         // Before the reveal the recreated window stays hidden - Reveal() presents all windows in one
         // entrance. A restore that lands after the reveal (failsafe path) shows it directly.

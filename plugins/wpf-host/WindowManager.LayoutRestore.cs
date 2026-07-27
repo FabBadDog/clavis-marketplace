@@ -43,6 +43,13 @@ internal sealed partial class WindowManager
     private void RestoreSavedLayout(PersistedLayout saved)
     {
         _layoutApplied = true;
+
+        // A layout migrated from version 1 carries no workspace, and the workspace list has not arrived yet.
+        // Remember the layout's own active workspace so capture writes it back unchanged; the first
+        // WorkspaceActivated adopts any unassigned entries onto the real workspace.
+        _activeWorkspaceId = saved.ActiveWorkspaceId;
+        _restoredLayout = saved;
+
         var primary = GetPrimary();
         var primaryEntry = saved.Windows.FirstOrDefault(window => window.IsPrimary);
         if (primary is not null && primaryEntry is not null)
@@ -52,12 +59,12 @@ internal sealed partial class WindowManager
                 primary.Window.WindowState = WindowState.Maximized;
             }
 
-            RestoreLayout(primary, primaryEntry);
+            RestoreLayout(primary, saved.For(primaryEntry.WindowId, saved.ActiveWorkspaceId));
         }
 
         foreach (var entry in saved.Windows.Where(window => !window.IsPrimary))
         {
-            RecreateSecondaryWindow(entry);
+            RecreateSecondaryWindow(entry, saved.For(entry.WindowId, saved.ActiveWorkspaceId));
         }
 
         // If the window is already up (reveal or BootstrapComplete happened before this restore landed -
@@ -69,8 +76,13 @@ internal sealed partial class WindowManager
         }
     }
 
-    private void RestoreLayout(WindowHost host, PersistedWindow entry)
+    private void RestoreLayout(WindowHost host, PersistedWorkspaceLayout? entry)
     {
+        if (entry?.Layout is null)
+        {
+            return;
+        }
+
         // A layout saved under a since-renamed kind is read through the retirement map first, so an old name
         // does not restore as a slot nothing can resolve.
         var layout = LayoutTree.RenameKinds(entry.Layout, _config.RetiredPanelKinds);
@@ -145,14 +157,31 @@ internal sealed partial class WindowManager
         }
     }
 
+    /// Capture the whole layout: one entry per window (identity, role, workspace, bounds) and one docking tree
+    /// per (window, workspace) pair. Layouts belonging to workspaces that are not currently on screen are
+    /// carried over untouched from what was last read, so switching away from a workspace does not erase its
+    /// arrangement.
     private PersistedLayout CaptureLayout()
     {
         var windows = _windows.Values.Select(CaptureWindow).ToList();
-        return new PersistedLayout(LayoutFile.CurrentVersion, windows);
+        var live = _windows.Values.Select(CaptureWorkspaceLayout).ToList();
+        var carriedOver = (_restoredLayout?.Layouts ?? [])
+            .Where(entry => !live.Any(current =>
+                current.WindowId == entry.WindowId && current.WorkspaceId == entry.WorkspaceId))
+            .Where(entry => entry.WorkspaceId != _activeWorkspaceId);
+
+        return new PersistedLayout(
+            LayoutFile.CurrentVersion, _activeWorkspaceId, windows, [.. live, .. carriedOver]);
     }
 
     private PersistedWindow CaptureWindow(WindowHost host) =>
-        new(host.WindowId, host.IsPrimary, BoundsOf(host.Window), LayoutTree.FoldState(host.Surface.Capture(), _panelState))
+        new(host.WindowId,
+            host.IsPrimary ? WindowRole.Primary : WindowRole.Panel,
+            host.IsPrimary ? Guid.Empty : host.WorkspaceId,
+            BoundsOf(host.Window));
+
+    private PersistedWorkspaceLayout CaptureWorkspaceLayout(WindowHost host) =>
+        new(host.WindowId, _activeWorkspaceId, LayoutTree.FoldState(host.Surface.Capture(), _panelState))
         {
             SlideIns =
             [

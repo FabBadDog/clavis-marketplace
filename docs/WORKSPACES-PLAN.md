@@ -39,7 +39,8 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP3 chat becomes a panel kind | done, **not runtime-verified** | `76c5078` |
 | WP4 chats aggregate | done, **not runtime-verified** | `db7c40d` |
 | WP5 workspace-contracts 2.0.0 + Workspaces plugin | done, **not runtime-verified** | `9965ed0` + the Selection half |
-| WP6 per-workspace surfaces | **next** | - |
+| WP6a layout v2 + migration | done, **not runtime-verified** | see WP6 below |
+| WP6b per-workspace surfaces | **next** | - |
 | WP5b, WP7 - WP10 | not started | - |
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
@@ -63,7 +64,7 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 > - No `PluginError`, no crash, no non-viable startup. The recurring `Marketplace*` dead letters are the
 >   pre-existing watcher noise.
 >
-> ### Open anomaly: a secondary window closed itself on the COLD launch (not reproducible)
+> ### Closed anomaly: a secondary window closed itself on the COLD launch (once, not reproducible)
 >
 > On the **first** (cold, everything recompiling) launch, the restored secondary window holding `code-editor`
 > closed itself ~16 s after the reveal, so its panel was lost from the saved layout. On a **warm** relaunch
@@ -77,11 +78,12 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 > decision. Timing-dependent, and only on a cold launch where background plugins activate 5-18 s after the
 > reveal.
 >
-> **Next step if it recurs:** re-add the four `DIAG` log lines (they were reverted, not committed) and launch
-> cold - i.e. after touching a source file so the item recompiles. Worth resolving before WP6, which
-> restructures exactly this machinery.
+> **Resolution:** left as a single unexplained cold-launch occurrence. A second disappearance later the same
+> session was the user closing the window by hand (confirmed), so there is no warm-launch reproduction. If it
+> ever recurs, re-add the four `DIAG` log lines (reverted, not committed) and launch cold - i.e. after touching
+> a source file so the item recompiles.
 >
-> ### Still untested - needs a human at the keyboard
+> ### Interactive checks - CONFIRMED BY THE USER
 >
 > WPF routes keyboard input through the foreground window's focused element, and a background process cannot
 > take foreground (`SetForegroundWindow` is refused); `PostMessage(WM_CHAR)` to the top-level HWND does not
@@ -89,7 +91,10 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 > **`Ctrl+Up`/`Ctrl+Down` chat scroll**, the **permission `Left`/`Right`/`Enter`** keys, `Ctrl+P`, and
 > **tear-off** (a real mouse drag). They are checks 2-6 below.
 >
-> ## A launch is the gating step - do this before WP6
+> ## The gate is passed - WP6 is unblocked
+>
+> The launch below was the precondition for WP6 and it succeeded. Kept for the record, and because the
+> first-launch checks are the right smoke test after any future boot-path change.
 >
 > **Nothing has booted since WP2**, and WP3-WP5 are no longer just structural. Five contract majors have moved
 > (session 3, host 3, layout 2, workspace 2 reusing a freed name) and - the part that actually matters - **WP5
@@ -874,7 +879,47 @@ instance is already adopted.
 
 ---
 
-## WP6 - Per-workspace surfaces + layout v2 - NEXT
+## WP6 - Per-workspace surfaces + layout v2 - HALF DONE
+
+Split in two so each half is committable. **Layout v2 + migration has landed**; the N-surface machinery has
+not. Catalog gate green after the first half: 40/40 items, 24/24 suites (wpf-host 67 -> 78).
+
+### Landed: layout v2, migration, and window/workspace ownership (`wpf-host 5.0.0`)
+
+The persisted shape is normalised exactly as designed: a `windows` list of (identity, **role**, **workspace**,
+bounds) and a separate `layouts` list of one docking tree + slide-ins per **(window, workspace)** pair, plus
+`activeWorkspaceId` at the top. Geometry stays on the window so the primary's bounds are not duplicated per
+workspace. `WindowRole` (`primary`/`panel`) replaces the `isPrimary` bool - WP7 needs a third role for the bar,
+which a bool cannot express.
+
+- **Version 1 is migrated, not discarded.** `LayoutMigration.FromVersion1` lifts each v1 window's inline tree
+  into a `layouts` entry. The host does not know a workspace while reading the file, so migrated entries carry
+  `Guid.Empty` as an explicit **"unassigned"** marker - *not* an orphan - and `LayoutMigration.Adopt` binds them
+  on the first `WorkspaceActivated`. Treating unassigned as orphaned would silently delete everyone's layout,
+  which is why `DropOrphans` deliberately keeps `Guid.Empty` entries.
+- **`DropOrphans` is written and tested but not yet wired** - it belongs to the second half, on the first
+  `WorkspaceListChanged`.
+- **Reveal gating untouched**, as the plan requires.
+- `WindowHost.WorkspaceId` exists and is captured; a secondary window records the workspace it was torn off in.
+  Nothing hides or shows by workspace yet - that is the second half.
+- Carrying over unshown workspaces: `CaptureLayout` keeps the layouts of workspaces that are not on screen from
+  the last-read file, so saving while workspace 1 is visible does not erase workspace 2's arrangement.
+- `wpf-host` now declares `workspace-contracts` and subscribes to `WorkspaceActivated`. That is intended by
+  WP6 - the host becomes workspace-aware here - but note it still knows no *session* vocabulary.
+
+Tests: `LayoutFileTests` rewritten for v2 (round-trip with a split tree, geometry-not-per-workspace, slide-ins,
+a secondary carrying its workspace, a future version discarded) and a new `LayoutMigrationTests` (v1 -> v2
+end-to-end, geometry and slide-ins landing in the right place, unassigned-not-orphaned, adopt binding /
+not-rebinding / no-op, orphan dropping, unassigned surviving a drop).
+
+### Remaining: the N-surface machinery
+
+`WorkspaceSurfaces` (one `DockingSurface` per workspace per window, lazily created, hidden, `Motion.crossfade`
+on switch), `WindowHost.Surface => _surfaces.Active` so the ~40 existing call sites compile unchanged,
+secondary windows hiding/showing with their workspace, `OrderedWindows`/`HideAll`/`Summon`/drop-targets
+filtering by workspace, per-workspace `RestorePanel` on first activation, and wiring `DropOrphans`.
+
+### Original scope
 
 **N surfaces, lazily created, hidden** - not one surface captured and restored. One-surface swapping tears
 down and rebuilds panel views on every switch: scroll positions lost, `PanelClosed` fired so the registry

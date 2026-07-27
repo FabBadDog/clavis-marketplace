@@ -152,6 +152,29 @@ internal sealed partial class WindowManager
             return Task.CompletedTask;
         }));
 
+        // Which workspace is on screen. A layout migrated from version 1 (or written before the workspace list
+        // existed) carries Guid.Empty as its workspace; the first activation adopts those entries onto the real
+        // workspace, so an existing layout is kept rather than discarded as an orphan.
+        _subscriptions.Add(_bus.Subscribe<WorkspaceActivated>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                _activeWorkspaceId = message.WorkspaceId;
+                if (_restoredLayout is { } restored)
+                {
+                    _restoredLayout = LayoutMigration.Adopt(restored, message.WorkspaceId);
+                }
+
+                foreach (var host in _windows.Values.Where(host => !host.IsPrimary && host.WorkspaceId == Guid.Empty))
+                {
+                    host.WorkspaceId = message.WorkspaceId;
+                }
+
+                ScheduleSave();
+            });
+            return Task.CompletedTask;
+        }));
+
         // Quitting is now an explicit intent rather than what `exit` happens to mean: the palette's `exit`
         // closes the active workspace, so this is the one gesture that ends the process. Persist the layout
         // first - the same order the primary window's own close uses.

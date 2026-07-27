@@ -85,6 +85,12 @@ internal sealed partial class WindowManager : IDisposable
     private bool _layoutApplied;
     private bool _defaultsOpened;
 
+    // The workspace whose panels are on screen, and the layout as last read from disk. The layout is kept so
+    // a capture can carry over the arrangements of workspaces that are not currently shown - otherwise
+    // switching away from a workspace and saving would erase what it had.
+    private Guid _activeWorkspaceId;
+    private PersistedLayout? _restoredLayout;
+
     // The windows stay invisible until the essential plugins are ready AND the saved-layout answer has
     // been applied, then appear once - already at their restored bounds, so the boot never shows a window
     // that then jumps to its saved position. The failsafe reveals anyway when the state answer cannot

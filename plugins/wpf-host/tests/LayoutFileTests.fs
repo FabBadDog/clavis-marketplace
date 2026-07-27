@@ -1,6 +1,7 @@
 module FabioSoft.Nucleus.WpfHost.Tests.LayoutFileTests
 
 open System
+open System.Collections.Generic
 open FabioSoft.Clavis.Rendering
 open FabioSoft.Nucleus.Plugins.WpfHost
 open Faqt
@@ -10,84 +11,131 @@ open Xunit
 let private slot id kind state =
     { PanelId = id; PanelKind = kind; Title = "t"; SavedState = state }
 
+let private bounds () = PersistedWindowState(10.0, 20.0, 800.0, 600.0, false)
+
+let private leafOf kind state =
+    DockingModel.leaf (Guid.NewGuid()) [| slot (Guid.NewGuid()) kind state |] 0
+
+/// A v2 layout: one primary window (belonging to no workspace) plus one docking tree for the active workspace.
+let private v2 workspaceId layout =
+    let windowId = Guid.NewGuid()
+    PersistedLayout(
+        LayoutFile.CurrentVersion,
+        workspaceId,
+        [| PersistedWindow(windowId, WindowRole.Primary, Guid.Empty, bounds ()) |],
+        [| PersistedWorkspaceLayout(windowId, workspaceId, layout) |])
+
 [<Fact>]
 let ``round-trips a layout with a split tree and per-panel state`` () =
 
     // Arrange
-    let groupOne = Guid.NewGuid()
-    let groupTwo = Guid.NewGuid()
+    let workspaceId = Guid.NewGuid()
     let layout =
         DockingModel.split (Guid.NewGuid()) DockingModel.Horizontal [| 0.6; 0.4 |]
-            [| DockingModel.leaf groupOne [| slot (Guid.NewGuid()) "conversation" "" |] 0
-               DockingModel.leaf groupTwo [| slot (Guid.NewGuid()) "markdown" "# Hello" |] 0 |]
-    let bounds = PersistedWindowState(10.0, 20.0, 800.0, 600.0, false)
-    let window = PersistedWindow(Guid.NewGuid(), true, bounds, layout)
-    let saved = PersistedLayout(LayoutFile.CurrentVersion, [| window |])
+            [| leafOf "chat" ""
+               leafOf "markdown" "# Hello" |]
 
     // Act
-    let restored = LayoutFile.Deserialize(LayoutFile.Serialize(saved))
+    let restored = LayoutFile.Deserialize(LayoutFile.Serialize(v2 workspaceId layout))
 
     // Assert
     %(isNull (box restored)).Should().BeFalse()
+    %restored.ActiveWorkspaceId.Should().Be(workspaceId)
     %restored.Windows.Count.Should().Be(1)
-    let restoredWindow = restored.Windows[0]
-    %restoredWindow.IsPrimary.Should().BeTrue()
-    %restoredWindow.Bounds.Width.Should().Be(800.0)
-    %restoredWindow.Layout.Kind.Should().Be(DockingModel.Split)
-    %restoredWindow.Layout.Children.Length.Should().Be(2)
-    %restoredWindow.Layout.Sizes[0].Should().Be(0.6)
-    let markdownSlot = restoredWindow.Layout.Children[1].Panels[0]
-    %markdownSlot.PanelKind.Should().Be("markdown")
-    %markdownSlot.SavedState.Should().Be("# Hello")
+    %restored.Windows[0].IsPrimary.Should().BeTrue()
+    %restored.Windows[0].Bounds.Width.Should().Be(800.0)
+    let tree = restored.Layouts[0].Layout
+    %tree.Kind.Should().Be(DockingModel.Split)
+    %tree.Children.Length.Should().Be(2)
+    %tree.Sizes[0].Should().Be(0.6)
+    %tree.Children[1].Panels[0].PanelKind.Should().Be("markdown")
+    %tree.Children[1].Panels[0].SavedState.Should().Be("# Hello")
 
 [<Fact>]
-let ``round-trips a window's edge slide-ins`` () =
+let ``geometry lives on the window and never in a per-workspace layout`` () =
 
-    // Arrange
-    let bounds = PersistedWindowState(0.0, 0.0, 800.0, 600.0, false)
-    let layout = DockingModel.leaf (Guid.NewGuid()) [| slot (Guid.NewGuid()) "conversation" "" |] 0
-    let slide = PersistedSlideIn(Guid.NewGuid(), "git-log", "git log", "left", "saved-state")
-    let window =
-        PersistedWindow(Guid.NewGuid(), true, bounds, layout, SlideIns = ResizeArray [ slide ])
-    let saved = PersistedLayout(LayoutFile.CurrentVersion, [| window |])
+    // Arrange - two workspaces sharing one window
+    let windowId = Guid.NewGuid()
+    let first = Guid.NewGuid()
+    let second = Guid.NewGuid()
+    let saved =
+        PersistedLayout(
+            LayoutFile.CurrentVersion,
+            first,
+            [| PersistedWindow(windowId, WindowRole.Primary, Guid.Empty, bounds ()) |],
+            [| PersistedWorkspaceLayout(windowId, first, leafOf "chat" "")
+               PersistedWorkspaceLayout(windowId, second, leafOf "git-log" "") |])
 
     // Act
-    let restored = LayoutFile.Deserialize(LayoutFile.Serialize(saved))
+    let restored = LayoutFile.Deserialize(LayoutFile.Serialize saved)
+
+    // Assert - one window, one set of bounds, two arrangements
+    %restored.Windows.Count.Should().Be(1)
+    %restored.Layouts.Count.Should().Be(2)
+    %(restored.For(windowId, second)).Layout.Panels[0].PanelKind.Should().Be("git-log")
+
+[<Fact>]
+let ``round-trips a workspace layout's edge slide-ins`` () =
+
+    // Arrange
+    let workspaceId = Guid.NewGuid()
+    let windowId = Guid.NewGuid()
+    let slide = PersistedSlideIn(Guid.NewGuid(), "git-log", "git log", "left", "saved-state")
+    let saved =
+        PersistedLayout(
+            LayoutFile.CurrentVersion,
+            workspaceId,
+            [| PersistedWindow(windowId, WindowRole.Primary, Guid.Empty, bounds ()) |],
+            [| PersistedWorkspaceLayout(windowId, workspaceId, leafOf "chat" "",
+                                        SlideIns = ResizeArray [ slide ]) |])
+
+    // Act
+    let restored = LayoutFile.Deserialize(LayoutFile.Serialize saved)
 
     // Assert
-    %(isNull (box restored)).Should().BeFalse()
-    let slides = restored.Windows[0].SlideIns
+    let slides = restored.Layouts[0].SlideIns
     %slides.Count.Should().Be(1)
     %slides[0].Kind.Should().Be("git-log")
     %slides[0].Edge.Should().Be("left")
     %slides[0].SavedState.Should().Be("saved-state")
 
 [<Fact>]
-let ``a window with no slide-ins round-trips to an empty list`` () =
-
-    // Arrange
-    let bounds = PersistedWindowState(0.0, 0.0, 800.0, 600.0, false)
-    let layout = DockingModel.leaf (Guid.NewGuid()) [| slot (Guid.NewGuid()) "conversation" "" |] 0
-    let window = PersistedWindow(Guid.NewGuid(), true, bounds, layout)
-    let saved = PersistedLayout(LayoutFile.CurrentVersion, [| window |])
+let ``a layout with no slide-ins round-trips to an empty list`` () =
 
     // Act
-    let restored = LayoutFile.Deserialize(LayoutFile.Serialize(saved))
+    let restored = LayoutFile.Deserialize(LayoutFile.Serialize(v2 (Guid.NewGuid()) (leafOf "chat" "")))
 
     // Assert
-    %restored.Windows[0].SlideIns.Count.Should().Be(0)
+    %restored.Layouts[0].SlideIns.Count.Should().Be(0)
 
 [<Fact>]
-let ``discards a layout whose version does not match the current version`` () =
+let ``discards a layout whose version is newer than this build understands`` () =
 
-    // Arrange: a layout serialized with an incompatible (future) version
-    let bounds = PersistedWindowState(0.0, 0.0, 800.0, 600.0, false)
-    let layout = DockingModel.leaf (Guid.NewGuid()) [| slot (Guid.NewGuid()) "conversation" "" |] 0
-    let window = PersistedWindow(Guid.NewGuid(), true, bounds, layout)
-    let json = LayoutFile.Serialize(PersistedLayout(LayoutFile.CurrentVersion + 1, [| window |]))
+    // Arrange
+    let saved = v2 (Guid.NewGuid()) (leafOf "chat" "")
+    saved.Version <- LayoutFile.CurrentVersion + 1
+
+    // Act & Assert
+    %(isNull (box (LayoutFile.Deserialize(LayoutFile.Serialize saved)))).Should().BeTrue()
+
+[<Fact>]
+let ``a secondary window carries the workspace it was torn off in`` () =
+
+    // Arrange
+    let workspaceId = Guid.NewGuid()
+    let secondaryId = Guid.NewGuid()
+    let saved =
+        PersistedLayout(
+            LayoutFile.CurrentVersion,
+            workspaceId,
+            [| PersistedWindow(Guid.NewGuid(), WindowRole.Primary, Guid.Empty, bounds ())
+               PersistedWindow(secondaryId, WindowRole.Panel, workspaceId, bounds ()) |],
+            [| PersistedWorkspaceLayout(secondaryId, workspaceId, leafOf "code-editor" "") |])
 
     // Act
-    let restored = LayoutFile.Deserialize(json)
+    let restored = LayoutFile.Deserialize(LayoutFile.Serialize saved)
 
     // Assert
-    %(isNull (box restored)).Should().BeTrue()
+    let secondary = restored.Windows |> Seq.find (fun w -> not w.IsPrimary)
+    %secondary.WorkspaceId.Should().Be(workspaceId)
+    %secondary.Role.Should().Be(WindowRole.Panel)

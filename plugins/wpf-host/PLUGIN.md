@@ -1,13 +1,14 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 4.1.0
+version: 5.0.0
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
 dependencies:
   - { name: host-contracts, version: 3 }
   - { name: layout-contracts, version: 2 }
+  - { name: workspace-contracts, version: 2 }
   - { name: keymap-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }
 language: csharp
@@ -17,6 +18,7 @@ useWpf: true
 globalUsings:
   - FabioSoft.Contracts.Host
   - FabioSoft.Contracts.Layout
+  - FabioSoft.Contracts.Workspace
   - FabioSoft.Contracts.Keymap
   - FabioSoft.Contracts.Services
 resources:
@@ -84,8 +86,15 @@ unit-tested.
 ## Notes
 
 - **UI-thread bound.** Activation and all window/region work marshal onto `Application.Current.Dispatcher`.
-- **Persistence.** Docking trees + per-panel state, each window's on-screen bounds, AND its edge slide-ins
-  (panel, edge, saved state) are all saved together as this plugin's runtime *state* - the `WpfHost` section
+- **Persistence (layout v2).** The saved layout is normalised: a `windows` list carries identity, **role**
+  (`primary`/`panel`), the owning **workspace** and one set of bounds each, and a separate `layouts` list carries
+  one docking tree + slide-ins per **(window, workspace)** pair. Geometry is deliberately not per workspace -
+  otherwise the primary's bounds would be duplicated once per workspace and the copies would drift. The layout
+  also persists `activeWorkspaceId` itself, so it stays self-sufficient and the reveal keeps waiting on exactly
+  the two answers it always did (a third precondition would be a third way for boot to hang). A **version-1**
+  layout is migrated forward rather than discarded (`LayoutMigration.FromVersion1`), with `Guid.Empty` as an
+  explicit "unassigned" workspace that `Adopt` binds on the first `WorkspaceActivated`; `DropOrphans` discards
+  layouts of workspaces that no longer exist. All of it saved as this plugin's runtime *state* - the `WpfHost` section
   of `state.yaml` via the Configuration plugin (`SaveState`/`GetState`); `LayoutFile` owns the YAML
   (de)serialization, and every window carries its own `Bounds`, so there is no separate per-window state
   file. This is disposable state, not configuration: deleting `state.yaml` only resets the layout to the
