@@ -36,7 +36,7 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP1 `WindowManager` split + `LayoutTree` | done | `d9895a7` |
 | WP2 session activity + session ids | done | `8a39514`, `06e1ad9`, `50a8156` |
 | Host: WP0 fallout + BuildSpec cache key | done | `967c0f2`, `2c21571`, `81479a2` (host repo) |
-| WP3 chat becomes a panel kind | done, **not runtime-verified** | see WP3 below |
+| WP3 chat becomes a panel kind | done, **not runtime-verified** | `76c5078` |
 | WP4 | **next** | - |
 | WP5 - WP10, WP5b | not started | - |
 
