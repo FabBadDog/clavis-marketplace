@@ -38,8 +38,9 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | Host: WP0 fallout + BuildSpec cache key | done | `967c0f2`, `2c21571`, `81479a2` (host repo) |
 | WP3 chat becomes a panel kind | done, **not runtime-verified** | `76c5078` |
 | WP4 chats aggregate | done, **not runtime-verified** | `db7c40d` |
-| WP5 | **next** | - |
-| WP5b, WP6 - WP10 | not started | - |
+| WP5 workspace-contracts 2.0.0 + Workspaces plugin | done except the Selection half, **not runtime-verified** | see WP5 below |
+| WP6 per-workspace surfaces | **next** | - |
+| WP5b, WP7 - WP10 | not started | - |
 
 **Not runtime-verified since WP2.** Four contract majors have moved now (session, host x2, layout) and
 nothing has booted against them. WP3 in particular changes what the primary window contains, so it needs a
@@ -614,7 +615,52 @@ for a single-chat state (regression guard).
 
 ---
 
-## WP5 - `workspace-contracts` 2.0.0 + the `Workspaces` plugin (headless) - NEXT
+## WP5 - `workspace-contracts` 2.0.0 + the `Workspaces` plugin (headless) - DONE (except the Selection half)
+
+Catalog gate green: 40/40 items, 24/24 test suites, 77/77 dependency edges (workspaces 44 tests, palette 45).
+Bumps: new `workspace-contracts 2.0.0` and `workspaces 1.0.0`; `host-contracts 3.1.0` (`ExitApplication`
+added); `conversation 10.0.0` (its config lost `WorkingDirectory`/`Model`); `command-palette 2.0.0` (`exit`
+changed meaning); `wpf-host 4.1.0`.
+
+**Session creation moved, which is the load-bearing part.** `Workspaces` mints the session id and sends
+`StartNewSession` with the workspace's directory; `Conversation` starts from `ConversationState.Empty` and
+creates a chat when `WorkspaceSessionStarted` arrives, switches the visible chat on `WorkspaceActivated`, and
+drops it on `WorkspaceClosed`. `ConversationConfig.WorkingDirectory`/`Model` are gone, and
+`StartNewSessionEffect` now carries the chat's directory so a restart still knows where to run. There is
+therefore exactly one place a session is born, which is what WP6 onwards depends on.
+
+Deviations and decisions:
+
+1. **Accent assignment is deterministic (least-used), not random.** The plan said randomly assigned;
+   least-used-wins guarantees no two workspaces collide until there are more than four, which is the outcome
+   random assignment was reaching for, and it is testable. `AccentPalette.Next` covers the re-roll gesture.
+   The four keys are `Accent1Brush`..`Accent4Brush`, added to the host theme from the identity family only
+   (`#ADA6F2`, `#9FD5F0`, `#C79BF0`, `#8FBEEA`).
+2. **Slot 0 means "no slot".** F1-F11 is the cap by construction, so a workspace created when all eleven are
+   taken gets slot 0: reachable by click or from the overview, no key hint. `InSlotOrder()` puts the slotless
+   ones last, which is also the render order the bar wants.
+3. **`Create` takes an explicit slot.** `ActivateWorkspaceSlot` on a free slot must give you *that* slot, not
+   the lowest free one - pressing F5 on an empty bar lands in slot 5. The generated name follows the slot it
+   actually took.
+4. **Effects, not bus messages, out of the pure core.** `WorkspaceUpdate` returns
+   `StartSessionEffect`/`DisposeSessionEffect`/`ActivatedEffect`/`ClosedEffect`/`SessionStartedEffect`, and
+   the shell translates them. Same shape as `ConversationEffect`, and it keeps the slot and lazy-start rules
+   testable without a bus.
+5. **Activity never writes the file.** An activity change re-announces the list but skips persistence, so a
+   streaming turn does not rewrite `configuration.yaml` four times a second.
+6. **The palette needed no change to reach the new commands.** `MessageCatalog.Discover()` scans every loaded
+   `FabioSoft.Contracts.*` assembly, so the `[<Description>]`-carrying workspace messages become palette
+   commands as soon as the module is loaded. Only the aliases were touched: `exit` -> `CloseActiveWorkspace`,
+   new `quit` -> `ExitApplication`, plus `workspace` and `workspaces`.
+
+**Still outstanding from this package: per-session capabilities in the Selection plugin.** Turning its single
+`volatile AgentCapabilities` into a `ConcurrentDictionary<Guid, AgentCapabilities>` keyed by session, fed by
+`WorkspaceActivated`, is independent of everything above and is the last WP5 item. Until it lands the
+model/effort/mode pickers still show "whichever session reported last" - today's behaviour, harmless while
+only one workspace exists, wrong as soon as two do. Do it before WP7 puts a second workspace in front of a
+user.
+
+### Original scope
 
 New `modules/workspace-contracts` (2.0.0) and `plugins/workspaces` (`essential: true`; deps
 `configuration`, `workspace-contracts`, `session-contracts`, `layout-contracts`).
@@ -755,7 +801,7 @@ instance is already adopted.
 
 ---
 
-## WP6 - Per-workspace surfaces + layout v2
+## WP6 - Per-workspace surfaces + layout v2 - NEXT
 
 **N surfaces, lazily created, hidden** - not one surface captured and restored. One-surface swapping tears
 down and rebuilds panel views on every switch: scroll positions lost, `PanelClosed` fired so the registry

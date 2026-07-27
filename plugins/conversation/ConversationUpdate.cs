@@ -1044,6 +1044,67 @@ public static partial class ConversationUpdate
         return (state.WithSessionById(sessionId, _ => promoted), effects);
     }
 
+    /// A workspace started its agent session, so give it a chat. Workspaces owns session creation (the working
+    /// directory is per workspace), so this is how a chat comes into being. A workspace that already has a chat
+    /// gets its live session replaced rather than a second chat - that is a restart from the workspace's side.
+    /// The first chat to arrive becomes the visible one.
+    public static (ConversationState State, ConversationEffect[] Effects) HandleWorkspaceSession(
+        ConversationState state, Guid workspaceId, Guid sessionId, string workingDirectory)
+    {
+        if (sessionId == Guid.Empty)
+        {
+            return (state, NoEffects);
+        }
+
+        var existing = state.Chats.FirstOrDefault(chat => chat.WorkspaceId == workspaceId);
+        if (existing is not null)
+        {
+            var replacement = SessionState.Create() with { Id = sessionId };
+            return (
+                state.WithChat(existing.ChatId, chat =>
+                    (chat with { WorkingDirectory = workingDirectory }).Restarted(replacement)),
+                [new ScheduleInitTimeoutEffect(sessionId)]);
+        }
+
+        var created = Chat.Create(workspaceId, workingDirectory, sessionId);
+        return (
+            state with
+            {
+                Chats = [.. state.Chats, created],
+                VisibleChatId = state.VisibleChatId ?? created.ChatId
+            },
+            [new ScheduleInitTimeoutEffect(sessionId)]);
+    }
+
+    /// A workspace became active, so show its chat. A workspace whose session has not started yet has no chat
+    /// to show; HandleWorkspaceSession makes it visible when it arrives.
+    public static (ConversationState State, ConversationEffect[] Effects) HandleWorkspaceActivated(
+        ConversationState state, Guid workspaceId)
+    {
+        var target = state.Chats.FirstOrDefault(chat => chat.WorkspaceId == workspaceId);
+        return target is null
+            ? (state, NoEffects)
+            : (state.WithVisibleChatId(target.ChatId), NoEffects);
+    }
+
+    /// A workspace was closed, so drop its chat. Its session is disposed by Workspaces, which owns it.
+    public static (ConversationState State, ConversationEffect[] Effects) HandleWorkspaceClosed(
+        ConversationState state, Guid workspaceId)
+    {
+        var target = state.Chats.FirstOrDefault(chat => chat.WorkspaceId == workspaceId);
+        if (target is null)
+        {
+            return (state, NoEffects);
+        }
+
+        var remaining = state.Chats.Where(chat => chat.ChatId != target.ChatId).ToList();
+        var visible = state.VisibleChatId == target.ChatId
+            ? remaining.FirstOrDefault()?.ChatId
+            : state.VisibleChatId;
+
+        return (state with { Chats = remaining, VisibleChatId = visible }, NoEffects);
+    }
+
     /// Restart the visible chat's session: end the old one (kept in that chat's history), start a fresh one,
     /// and leave every other chat untouched.
     public static (ConversationState State, ConversationEffect[] Effects) HandleFullRestart(
@@ -1070,7 +1131,7 @@ public static partial class ConversationUpdate
 
         var effects = new List<ConversationEffect>
         {
-            new StartNewSessionEffect(newSession.Id),
+            new StartNewSessionEffect(newSession.Id, target.WorkingDirectory),
             new ScheduleInitTimeoutEffect(newSession.Id)
         };
 

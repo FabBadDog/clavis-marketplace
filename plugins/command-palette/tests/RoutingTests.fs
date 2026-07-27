@@ -8,13 +8,14 @@ open FabioSoft.Nucleus.Bus
 open FabioSoft.Nucleus.Contracts
 open FabioSoft.Contracts.Session
 open FabioSoft.Contracts.Layout
+open FabioSoft.Contracts.Host
 open FabioSoft.Nucleus.Plugins.CommandPalette
 open Faqt
 open Faqt.Operators
 open Xunit
 
 let private catalog : IReadOnlyList<Type> =
-    [| typeof<LogEntry>; typeof<ApplicationShutdown>; typeof<FullRestartRequested>; typeof<OpenPanel>; typeof<TogglePanel> |] :> _
+    [| typeof<LogEntry>; typeof<ApplicationShutdown>; typeof<ExitApplication>; typeof<FullRestartRequested>; typeof<OpenPanel>; typeof<TogglePanel> |] :> _
 
 let private noAliases : IReadOnlyDictionary<string, string> = readOnlyDict []
 let private aliases (pairs: (string * string) list) : IReadOnlyDictionary<string, string> = readOnlyDict pairs
@@ -51,11 +52,11 @@ let ``route expands an alias and applies the invocation's positional argument`` 
 [<Fact>]
 let ``route expands a built-in alias to a parameterless message`` () =
 
-    // Act
-    let outcome = CommandRouter.Route("exit", AliasCatalog.BuiltIns, catalog, noClaude, Placeholders.Default)
+    // Act - `quit` is the alias that ends the process; `exit` now closes the active workspace
+    let outcome = CommandRouter.Route("quit", AliasCatalog.BuiltIns, catalog, noClaude, Placeholders.Default)
 
     // Assert
-    %((outcome :?> SendBusMessage).Message :? ApplicationShutdown).Should().BeTrue()
+    %((outcome :?> SendBusMessage).Message :? ExitApplication).Should().BeTrue()
 
 [<Fact>]
 let ``built-in log alias sets the user source and carries the typed message`` () =

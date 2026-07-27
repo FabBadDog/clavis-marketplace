@@ -15,7 +15,9 @@ public sealed record InterruptSessionEffect(Guid SessionId) : ConversationEffect
 
 public sealed record DisposeSessionEffect(Guid SessionId) : ConversationEffect;
 
-public sealed record StartNewSessionEffect(Guid SessionId) : ConversationEffect;
+/// Start a session for a chat. Carries the chat's working directory, because it is per workspace now - the
+/// plugin no longer has one global directory to fall back on.
+public sealed record StartNewSessionEffect(Guid SessionId, string WorkingDirectory) : ConversationEffect;
 
 public sealed record ScheduleInitTimeoutEffect(Guid SessionId) : ConversationEffect;
 

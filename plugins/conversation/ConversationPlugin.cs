@@ -50,10 +50,10 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
     public Task<IDisposable> ActivateAsync(IBus bus, ConversationConfig config)
     {
         var lockObj = new object();
-        var workingDirectory = string.IsNullOrWhiteSpace(config.WorkingDirectory)
-            ? Directory.GetCurrentDirectory()
-            : config.WorkingDirectory;
-        var state = ConversationState.Init(Guid.Empty, workingDirectory);
+
+        // No implicit chat: Workspaces owns session creation (the working directory is per workspace), so a
+        // chat comes into being when a workspace reports its session started.
+        var state = ConversationState.Empty;
         var cts = new CancellationTokenSource();
 
         // One view model per chat, created by the chat panel's view factory. Until Workspaces owns chat
@@ -401,12 +401,39 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             return Task.CompletedTask;
         });
 
-        ScheduleInitTimeout();
+        // A workspace's session has started, so it gets a chat bound to that session and directory. This is
+        // where a chat comes into being: the conversation no longer starts a session of its own, because the
+        // working directory belongs to the workspace.
+        var workspaceSessionSub = bus.Subscribe<WorkspaceSessionStarted>(message =>
+        {
+            lock (lockObj)
+            {
+                var (newState, effects) = ConversationUpdate.HandleWorkspaceSession(
+                    state, message.WorkspaceId, message.SessionId, message.WorkingDirectory);
+                HandleUpdate(ref state, newState, effects);
+            }
+            return Task.CompletedTask;
+        });
 
-        // Start the first session. The old Shell did this at boot; under the kernel nobody published
-        // the initial StartNewSession, so the session never started. Use the same session id the
-        // ConversationState was initialised with so stream events correlate.
-        bus.Send(new StartNewSession(state.ActiveSessionId!.Value, workingDirectory, config.Model));
+        var workspaceActivatedSub = bus.Subscribe<WorkspaceActivated>(message =>
+        {
+            lock (lockObj)
+            {
+                var (newState, effects) = ConversationUpdate.HandleWorkspaceActivated(state, message.WorkspaceId);
+                HandleUpdate(ref state, newState, effects);
+            }
+            return Task.CompletedTask;
+        });
+
+        var workspaceClosedSub = bus.Subscribe<WorkspaceClosed>(message =>
+        {
+            lock (lockObj)
+            {
+                var (newState, effects) = ConversationUpdate.HandleWorkspaceClosed(state, message.WorkspaceId);
+                HandleUpdate(ref state, newState, effects);
+            }
+            return Task.CompletedTask;
+        });
 
         bus.Send(new LogEntry(
             LogLevel.Info,
@@ -422,6 +449,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             panelCommandsSub, placeholdersRequestedSub, placeholderSnapshotSub, usageReportSub,
             configResultSub, configChangedSub, panelKindsSub,
             panelChromeSub, activePanelSub,
+            workspaceSessionSub, workspaceActivatedSub, workspaceClosedSub,
             pluginErrorSub);
 
         return Task.FromResult<IDisposable>(disposable);
@@ -572,9 +600,10 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
                         bus.Send(new DisposeSession(e.SessionId));
                         break;
                     case StartNewSessionEffect e:
-                        bus.Send(new StartNewSession(e.SessionId, workingDirectory, config.Model));
+                        bus.Send(new StartNewSession(e.SessionId, e.WorkingDirectory, null));
                         break;
-                    case ScheduleInitTimeoutEffect:
+                    case ScheduleInitTimeoutEffect e:
+                        ScheduleInitTimeout(e.SessionId);
                         break;
                     case PublishPromptModeEffect e:
                         Application.Current?.Dispatcher.InvokeAsync(
@@ -586,10 +615,9 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
 
         // Closes over the live `state` so it reads the current session at fire time and writes the result
         // back to the shared state every bus handler sees - otherwise the init turn never finishes and its
-        // pulsing indicators run forever.
-        void ScheduleInitTimeout()
+        // pulsing indicators run forever. Armed per session, since each chat initialises on its own clock.
+        void ScheduleInitTimeout(Guid sessionId)
         {
-            var sessionId = state.ActiveSessionId!.Value;
             _ = Task.Run(async () =>
             {
                 try { await Task.Delay(TimeSpan.FromSeconds(config.InitTimeoutSeconds), cts.Token); }

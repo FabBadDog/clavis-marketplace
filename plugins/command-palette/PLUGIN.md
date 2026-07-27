@@ -1,7 +1,7 @@
 ---
 name: command-palette
 pluginId: CommandPalette
-version: 1.1.3
+version: 2.0.0
 apiVersion: 1.0.0
 description: Keyboard-first command palette and primary input surface.
 dependencies:

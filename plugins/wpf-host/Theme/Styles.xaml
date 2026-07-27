@@ -49,6 +49,16 @@
     <SolidColorBrush x:Key="EventErrorBrush" Color="#E47E7E" />
     <SolidColorBrush x:Key="SecondaryBrush" Color="#9A9AA4" />
 
+    <!-- Workspace identity accents. Drawn from the identity family (the periwinkle/violet/blue range), never
+         from the signal colours: green, yellow and red mean something, and a workspace accent means only
+         "this is which one". Four is deliberate - enough that neighbours read as distinct, few enough that
+         every one stays clearly inside the family. A workspace persists the KEY, never a colour, so an
+         assignment survives a restart and stays re-themable here. -->
+    <SolidColorBrush x:Key="Accent1Brush" Color="#ADA6F2" />
+    <SolidColorBrush x:Key="Accent2Brush" Color="#9FD5F0" />
+    <SolidColorBrush x:Key="Accent3Brush" Color="#C79BF0" />
+    <SolidColorBrush x:Key="Accent4Brush" Color="#8FBEEA" />
+
     <!-- Modern semantic keys (the names new code targets). Same palette, clearer intent. -->
     <SolidColorBrush x:Key="PrimaryAccentBrush" Color="#9FD5F0" />
     <SolidColorBrush x:Key="SecondaryAccentBrush" Color="#ADA6F2" />

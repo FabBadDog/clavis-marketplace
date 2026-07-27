@@ -1,7 +1,7 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 4.0.0
+version: 4.1.0
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
@@ -77,8 +77,9 @@ unit-tested.
 - Panels: `PanelInstanceReady`, `PanelStateChanged`, `ShowSlideIn`, `TogglePanel`,
   `CloseActivePanel`.
 - Keymap/commands: `KeymapChanged`, `CommandsAvailable`, `ToggleShortcutHelp`.
-- Windows/app: `CloseWindow`, `CloseActiveWindow`, `SummonClavis`,
-  `ToggleClavis`, `BootstrapComplete`, `LayoutSnapshotRequested`.
+- Windows/app: `CloseWindow`, `CloseActiveWindow`, `ExitApplication` (the one gesture that ends the process -
+  the palette's `exit` closes a workspace now), `SummonClavis`, `ToggleClavis`, `BootstrapComplete`,
+  `LayoutSnapshotRequested`.
 
 ## Notes
 

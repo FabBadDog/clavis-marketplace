@@ -1,7 +1,7 @@
 ---
 name: conversation
 pluginId: Conversation
-version: 9.0.0
+version: 10.0.0
 essential: true
 apiVersion: 1.0.0
 description: The elm/flux conversation state, update, and view models.
@@ -12,6 +12,7 @@ dependencies:
   - { name: placeholders-contracts, version: 1 }
   - { name: services-contracts, version: 1 }
   - { name: layout-contracts, version: 2 }
+  - { name: workspace-contracts, version: 2 }
   - { name: clavis-placeholders, version: 1 }
   - { name: clavis-rendering, version: 2 }
   - { name: clavis-controls, version: 1 }
@@ -28,6 +29,7 @@ globalUsings:
   - FabioSoft.Contracts.Placeholders
   - FabioSoft.Contracts.Services
   - FabioSoft.Contracts.Layout
+  - FabioSoft.Contracts.Workspace
 ---
 
 # Conversation
@@ -50,11 +52,11 @@ WpfHost's `title-bar-left`, `title-bar-right`, and `status-bar` chrome regions.
 
 ## Config (`ConversationConfig`)
 
-- `InitTimeoutSeconds` (default `90`) - how long to wait for a new session to initialise before treating
-  init as failed.
-- `WorkingDirectory` (default `null`) - working directory for Claude sessions; null uses the process
-  current directory (the folder Clavis was launched in).
-- `Model` (default `null`) - model override passed to `StartNewSession`; null lets the provider default.
+- `InitTimeoutSeconds` (default `240`) - how long to wait for a session to initialise before treating init as
+  failed. Armed per session, since each chat initialises on its own clock.
+- `WorkingDirectory` and `Model` used to live here and are **gone**: they are per workspace now. The
+  Workspaces plugin owns session creation, because the working directory is a property of the workspace, and
+  each chat carries the directory its workspace gave it.
 
 ## Messages published
 
@@ -75,6 +77,8 @@ WpfHost's `title-bar-left`, `title-bar-right`, and `status-bar` chrome regions.
   `FullRestartRequested`.
 - Panels: `PanelKindsRequested`, `PanelKindRegistration` (to learn other kinds' chrome), `ActivePanelChanged`,
   `RequestPanelCommands`, `FocusInputRequested` (the prompt lives here, so this panel answers it).
+- Workspaces: `WorkspaceSessionStarted` (a chat comes into being here), `WorkspaceActivated` (switch which
+  chat is visible), `WorkspaceClosed` (drop its chat).
 
 ## Notes
 

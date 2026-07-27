@@ -80,6 +80,8 @@ public sealed class ChatViewModels
     /// too, since `ForChat` will seed it from the live state when one does.
     public void Project(ConversationState previous, ConversationState current)
     {
+        AdoptUnbound(current);
+
         foreach (var chat in current.Chats)
         {
             if (!_byChatId.TryGetValue(chat.ChatId, out var viewModel))
@@ -104,6 +106,29 @@ public sealed class ChatViewModels
         {
             _byChatId.Remove(chatId);
         }
+    }
+
+    // A chat panel can resolve before any chat exists: Workspaces creates the first one only after its config
+    // answer arrives, and a restored panel is materialised on its own schedule. Such a panel is bound under
+    // Guid.Empty, which no chat will ever match - so the first chat to appear adopts it, rather than the panel
+    // staying blank forever behind a view model nothing projects onto.
+    private void AdoptUnbound(ConversationState current)
+    {
+        if (!_byChatId.TryGetValue(Guid.Empty, out var unbound) || current.Chats.Count == 0)
+        {
+            return;
+        }
+
+        var adopting = current.VisibleChat ?? current.Chats[0];
+        if (_byChatId.ContainsKey(adopting.ChatId))
+        {
+            // That chat already has its own view model, so the placeholder is simply stale.
+            _byChatId.Remove(Guid.Empty);
+            return;
+        }
+
+        _byChatId.Remove(Guid.Empty);
+        _byChatId[adopting.ChatId] = unbound;
     }
 
     private static bool Unchanged(ConversationState previous, Chat chat) =>

@@ -10,8 +10,16 @@ public static class AliasCatalog
     public static IReadOnlyDictionary<string, string> BuiltIns { get; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["exit"] = "ApplicationShutdown",
+            // `exit` closes the WORKSPACE, not the application: with several workspaces open, "exit" meaning
+            // "quit everything" is the wrong default, and the destructive gesture should be the one you have to
+            // name. Quitting for real is `quit` (ExitApplication).
+            ["exit"] = "CloseActiveWorkspace",
+            ["quit"] = "ExitApplication",
             ["restart"] = "FullRestartRequested",
+
+            // Workspace intents, so switching and managing them is reachable by name before any bar exists.
+            ["workspace"] = "CreateWorkspace",
+            ["workspaces"] = "RequestWorkspaces",
 
             // Logging shortcuts: the single positional argument fills LogEntry.Message; the source is the
             // user and the timestamp resolves to the moment the command runs. Quote a multi-word message.

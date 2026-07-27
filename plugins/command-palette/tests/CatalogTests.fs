@@ -45,6 +45,16 @@ let ``alias parse falls back to built-ins and merges file entries`` () =
     %merged["foo"].Should().Be("Bar")
 
 [<Fact>]
+let ``exit closes the workspace and quit ends the application`` () =
+
+    // Act
+    let builtIns = AliasCatalog.BuiltIns
+
+    // Assert - separating the two gestures means the destructive one has to be named
+    %builtIns["exit"].Should().Be("CloseActiveWorkspace")
+    %builtIns["quit"].Should().Be("ExitApplication")
+
+[<Fact>]
 let ``serialize starter contains the built-in aliases`` () =
 
     // Act

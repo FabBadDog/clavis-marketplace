@@ -152,6 +152,19 @@ internal sealed partial class WindowManager
             return Task.CompletedTask;
         }));
 
+        // Quitting is now an explicit intent rather than what `exit` happens to mean: the palette's `exit`
+        // closes the active workspace, so this is the one gesture that ends the process. Persist the layout
+        // first - the same order the primary window's own close uses.
+        _subscriptions.Add(_bus.Subscribe<ExitApplication>(_ =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                SaveLayout();
+                _bus.Send(new ApplicationShutdown());
+            });
+            return Task.CompletedTask;
+        }));
+
         _subscriptions.Add(_bus.Subscribe<SummonClavis>(_ =>
         {
             Application.Current.Dispatcher.InvokeAsync(Summon);

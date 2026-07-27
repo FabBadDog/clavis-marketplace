@@ -90,6 +90,14 @@ type ToggleShortcutHelp() =
 type SummonClavis() =
     do ()
 
+/// Quit the application for real. Needed because the palette's `exit` was repurposed to mean "close this
+/// workspace": separating the two gestures left no way out of the app, so this is the explicit one. The only
+/// destructive gesture in the workspace bar, and the only one that goes through a confirmation first.
+[<Sealed>]
+[<Description("Quit Clavis")>]
+type ExitApplication() =
+    do ()
+
 /// Toggle Clavis visibility: when no application window is focused, bring them all to the foreground
 /// (windows that were hidden fall in from the top); when one is focused, hide them all (they rise out
 /// the top). Bound to the system-scope global hotkey, so one gesture both summons and banishes the

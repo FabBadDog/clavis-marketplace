@@ -262,9 +262,15 @@ public sealed record Chat
         };
     }
 
-    public static Chat Create(Guid workspaceId, string workingDirectory)
+    public static Chat Create(Guid workspaceId, string workingDirectory) =>
+        Create(workspaceId, workingDirectory, Guid.NewGuid());
+
+    /// Create a chat around a session id someone else minted - which is the normal path: Workspaces owns
+    /// session creation, because the working directory is per workspace, and tells the conversation which
+    /// session its new chat is for.
+    public static Chat Create(Guid workspaceId, string workingDirectory, Guid sessionId)
     {
-        var session = SessionState.Create();
+        var session = SessionState.Create() with { Id = sessionId };
         return new Chat
         {
             WorkspaceId = workspaceId,

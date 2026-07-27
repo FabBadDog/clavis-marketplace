@@ -25,6 +25,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 ### FabioSoft.Contracts.Host
 
 - **CycleSessionMode** - pub: _none found_ - sub: Selection
+- **ExitApplication** - pub: _none found_ - sub: WpfHost
 - **FocusInputRequested** - pub: AgentGateway, EventsPanel - sub: Conversation
 - **SelectEffort** - pub: _none found_ - sub: Selection
 - **SelectionCompleted** - pub: Selection - sub: AgentGateway
@@ -115,11 +116,11 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 ### FabioSoft.Contracts.Services
 
 - **ConfigChanged** - pub: Configuration - sub: CommandPalette, Conversation, KeyMap, MarkdownPanel
-- **ConfigResult** - pub: _none found_ - sub: CommandPalette, Conversation, KeyMap, MarkdownPanel
+- **ConfigResult** - pub: _none found_ - sub: CommandPalette, Conversation, KeyMap, MarkdownPanel, Workspaces
 - **ConfigSaved** - pub: Configuration - sub: _none found_
-- **GetConfig** - pub: CommandPalette, Conversation, KeyMap, MarkdownPanel - sub: Configuration
+- **GetConfig** - pub: CommandPalette, Conversation, KeyMap, MarkdownPanel, Workspaces - sub: Configuration
 - **GetState** - pub: WpfHost - sub: Configuration
-- **SaveConfig** - pub: CommandPalette, Conversation, KeyMap, MarkdownPanel - sub: Configuration
+- **SaveConfig** - pub: CommandPalette, Conversation, KeyMap, MarkdownPanel, Workspaces - sub: Configuration
 - **SaveState** - pub: WpfHost - sub: Configuration
 - **StateResult** - pub: _none found_ - sub: WpfHost
 
@@ -132,20 +133,35 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **AgentStreamEvent** - pub: _none found_ - sub: CommandPalette, Conversation, Selection, TaskTracker
 - **AgentUsageReport** - pub: _none found_ - sub: Conversation, UsageLimits
 - **ClavisMcpAvailable** - pub: AgentGateway - sub: ClaudeBridge
-- **DisposeSession** - pub: Conversation - sub: ClaudeBridge
+- **DisposeSession** - pub: Conversation, Workspaces - sub: ClaudeBridge
 - **FullRestartRequested** - pub: _none found_ - sub: Conversation
 - **InterruptSession** - pub: Conversation - sub: ClaudeBridge
 - **PermissionDecided** - pub: Conversation - sub: Conversation
 - **SendPermissionResponse** - pub: Conversation - sub: ClaudeBridge
 - **SendPrompt** - pub: Conversation - sub: ClaudeBridge
+- **SessionActivityChanged** - pub: _none found_ - sub: Workspaces
 - **SessionReady** - pub: ClaudeBridge - sub: _none found_
 - **SessionStarted** - pub: ClaudeBridge - sub: _none found_
 - **SetSessionEffort** - pub: Selection - sub: ClaudeBridge
 - **SetSessionMode** - pub: Selection - sub: ClaudeBridge
 - **SetSessionModel** - pub: Selection - sub: ClaudeBridge
-- **StartNewSession** - pub: Conversation - sub: ClaudeBridge
+- **StartNewSession** - pub: Conversation, Workspaces - sub: ClaudeBridge
 - **Summarize** - pub: MarketplacePlugin - sub: ClaudeBridge
 - **SummaryResult** - pub: ClaudeBridge - sub: _none found_
+
+### FabioSoft.Contracts.Workspace
+
+- **ActivateWorkspace** - pub: _none found_ - sub: Workspaces
+- **ActivateWorkspaceSlot** - pub: _none found_ - sub: Workspaces
+- **CloseActiveWorkspace** - pub: _none found_ - sub: Workspaces
+- **CloseWorkspace** - pub: _none found_ - sub: Workspaces
+- **CreateWorkspace** - pub: _none found_ - sub: Workspaces
+- **RenameWorkspace** - pub: _none found_ - sub: Workspaces
+- **RequestWorkspaces** - pub: _none found_ - sub: Workspaces
+- **WorkspaceActivated** - pub: Workspaces - sub: Conversation
+- **WorkspaceClosed** - pub: Workspaces - sub: Conversation
+- **WorkspaceListChanged** - pub: Workspaces - sub: _none found_
+- **WorkspaceSessionStarted** - pub: Workspaces - sub: Conversation
 
 ### FabioSoft.Nucleus.Contracts
 
@@ -156,7 +172,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **EssentialPluginsReady** - pub: Nucleus.Kernel - sub: WpfHost
 - **ListPlugins** - pub: AgentGateway - sub: _none found_
 - **LoadPlugin** - pub: MarketplacePlugin - sub: _none found_
-- **LogEntry** - pub: AgentGateway, ClaudeBridge, CodeEditorPanel, CommandPalette, Configuration, Conversation, Environment, EventsPanel, FileSystem, GitLogPanel, Http, KeyMap, KeymapPanel, MarkdownPanel, MarketplacePlugin, Nucleus.Kernel, PanelRegistry, PluginManager, ResourceBroker, Selection, Settings, Shell, TaskTracker, UsageLimits, WpfHost - sub: Shell, other
+- **LogEntry** - pub: AgentGateway, ClaudeBridge, CodeEditorPanel, CommandPalette, Configuration, Conversation, Environment, EventsPanel, FileSystem, GitLogPanel, Http, KeyMap, KeymapPanel, MarkdownPanel, MarketplacePlugin, Nucleus.Kernel, PanelRegistry, PluginManager, ResourceBroker, Selection, Settings, Shell, TaskTracker, UsageLimits, Workspaces, WpfHost - sub: Shell, other
 - **PluginActivated** - pub: Nucleus.Kernel - sub: PluginManager, Settings, WpfHost
 - **PluginAwaitingConfig** - pub: Nucleus.Kernel - sub: _none found_
 - **PluginDeactivated** - pub: Nucleus.Kernel - sub: PluginManager
@@ -197,7 +213,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 
 ### Conversation
 - publishes: DisposeSession, GetConfig, InterruptSession, LogEntry, PanelCommandsRegistered, PanelKindRegistration, PanelKindsRequested, PermissionDecided, PlaceholderSnapshot, PlaceholdersRequested, RegisterPlaceholderProvider, SaveConfig, SendPermissionResponse, SendPrompt, StartNewSession, StatusBarAvailability, TogglePanel, UiRegionContribution, UserAborted, UserCancelledQueued, UserConfirmedPermission, UserNavigatedPermission, UserSubmittedPrompt
-- subscribes: ActivePanelChanged, AgentParsingError, AgentStreamEvent, AgentUsageReport, ConfigChanged, ConfigResult, FocusInputRequested, FullRestartRequested, PanelKindRegistration, PanelKindsRequested, PermissionDecided, PlaceholderSnapshot, PlaceholdersRequested, PluginError, RegisterPlaceholderProvider, RequestPanelCommands, RunPanelCommand, UserAborted, UserCancelledQueued, UserConfirmedPermission, UserNavigatedPermission, UserSubmittedPrompt
+- subscribes: ActivePanelChanged, AgentParsingError, AgentStreamEvent, AgentUsageReport, ConfigChanged, ConfigResult, FocusInputRequested, FullRestartRequested, PanelKindRegistration, PanelKindsRequested, PermissionDecided, PlaceholderSnapshot, PlaceholdersRequested, PluginError, RegisterPlaceholderProvider, RequestPanelCommands, RunPanelCommand, UserAborted, UserCancelledQueued, UserConfirmedPermission, UserNavigatedPermission, UserSubmittedPrompt, WorkspaceActivated, WorkspaceClosed, WorkspaceSessionStarted
 
 ### Environment
 - publishes: LogEntry, PlaceholderSnapshot, RegisterPlaceholderProvider
@@ -271,9 +287,13 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - publishes: LogEntry, PanelKindRegistration
 - subscribes: AgentUsageReport, PanelKindsRequested
 
+### Workspaces
+- publishes: DisposeSession, GetConfig, LogEntry, SaveConfig, StartNewSession, WorkspaceActivated, WorkspaceClosed, WorkspaceListChanged, WorkspaceSessionStarted
+- subscribes: ActivateWorkspace, ActivateWorkspaceSlot, CloseActiveWorkspace, CloseWorkspace, ConfigResult, CreateWorkspace, RenameWorkspace, RequestWorkspaces, SessionActivityChanged
+
 ### WpfHost
 - publishes: ActivePanelChanged, ApplicationShutdown, GetState, LogEntry, OpenPanel, PanelClosed, RequestCommands, RequestKeymap, RestorePanel, RunCommand, RunPanelCommand, SaveState, SlideInClosed, SlideInRegistered, SummonClavis, WindowClosed, WindowFocusChanged, WindowOpened
-- subscribes: BootstrapComplete, CloseActivePanel, CloseActiveWindow, ClosePanel, CloseWindow, CommandsAvailable, EssentialPluginsReady, KeymapChanged, LayoutSnapshotRequested, PanelInstanceReady, PanelStateChanged, PluginActivated, PluginDiscovered, SetPanelTitle, ShowSlideIn, StateResult, StatusBarAvailability, SummonClavis, ToggleClavis, TogglePanel, ToggleShortcutHelp, UiRegionContribution, UiRegionRemoved
+- subscribes: BootstrapComplete, CloseActivePanel, CloseActiveWindow, ClosePanel, CloseWindow, CommandsAvailable, EssentialPluginsReady, ExitApplication, KeymapChanged, LayoutSnapshotRequested, PanelInstanceReady, PanelStateChanged, PluginActivated, PluginDiscovered, SetPanelTitle, ShowSlideIn, StateResult, StatusBarAvailability, SummonClavis, ToggleClavis, TogglePanel, ToggleShortcutHelp, UiRegionContribution, UiRegionRemoved
 
 ### other
 - publishes: _none_

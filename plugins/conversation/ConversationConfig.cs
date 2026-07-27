@@ -7,9 +7,7 @@ public sealed record ConversationConfig
     // init turn before its progress rows arrive.
     public int InitTimeoutSeconds { get; init; } = 240;
 
-    /// Working directory for Claude sessions. Null means use the process's current directory
-    /// (the directory Clavis was launched in), matching the old Shell behaviour.
-    public string? WorkingDirectory { get; init; }
-
-    public string? Model { get; init; }
+    // WorkingDirectory and Model used to live here. They are per workspace now: the Workspaces plugin owns
+    // session creation, because the working directory is a property of the workspace, and each chat carries the
+    // directory its workspace gave it.
 }
