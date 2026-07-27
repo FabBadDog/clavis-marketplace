@@ -40,7 +40,7 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP4 chats aggregate | done, **not runtime-verified** | `db7c40d` |
 | WP5 workspace-contracts 2.0.0 + Workspaces plugin | done, **not runtime-verified** | `9965ed0` + the Selection half |
 | WP6a layout v2 + migration | done, **not runtime-verified** | `5c020d6` |
-| WP6b window-level workspace ownership | done, **not runtime-verified** | see WP6 below |
+| WP6b window-level workspace ownership | done, **not runtime-verified** | `5a514e3` |
 | WP6c N surfaces per window | **next** (needs the three chrome controllers made surface-agnostic first) | - |
 | WP5b, WP7 - WP10 | not started | - |
 
