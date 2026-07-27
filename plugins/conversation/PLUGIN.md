@@ -14,7 +14,7 @@ dependencies:
   - { name: layout-contracts, version: 2 }
   - { name: workspace-contracts, version: 2 }
   - { name: clavis-placeholders, version: 1 }
-  - { name: clavis-rendering, version: 2 }
+  - { name: clavis-rendering, version: 3 }
   - { name: clavis-controls, version: 1 }
   - { name: fabiosoft-common, version: ^1.0.0 }
   - { name: yamldotnet, version: 1 }

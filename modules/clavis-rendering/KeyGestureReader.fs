@@ -60,8 +60,48 @@ module KeyGestureReader =
             parts.Add token
             System.String.Join("+", parts)
 
-    /// True when the gesture carries a modifier that does not itself produce text (Ctrl or Win), so it is
-    /// safe to resolve even while a text input has focus. Plain and Shift-only gestures are left for the
-    /// focused control to type.
-    let isTextSafe (modifiers: ModifierKeys) =
-        modifiers.HasFlag ModifierKeys.Control || modifiers.HasFlag ModifierKeys.Windows
+    /// True when a gesture would be consumed by a focused text input as editing or caret input, so a keymap
+    /// binding must yield to it.
+    ///
+    /// This asks about the **key**, not just the modifiers. Asking only about modifiers ("is it Ctrl or Win?")
+    /// gets the common case right and then silently swallows every other non-text key: bare F1-F24 and Escape
+    /// carry no modifier, produce no text, and were being handed to the text box, which ignores them - so the
+    /// binding simply never fired while the prompt had focus.
+    ///
+    /// Text-producing keys (letters, digits, punctuation, Space, Enter, Backspace, Delete, Tab) and caret
+    /// movement (arrows, Home, End, PageUp/Down) with at most Shift qualify. Function keys, Escape, and
+    /// anything carrying Ctrl, Alt or Win do not, so a shortcut on those fires while typing. Tab is classified
+    /// here once rather than special-cased at the call site.
+    let isTextEditingGesture (modifiers: ModifierKeys) (key: Key) =
+        let carriesCommandModifier =
+            modifiers.HasFlag ModifierKeys.Control
+            || modifiers.HasFlag ModifierKeys.Alt
+            || modifiers.HasFlag ModifierKeys.Windows
+
+        if carriesCommandModifier then
+            false
+        else
+            let code = int key
+
+            match key with
+            | _ when code >= int Key.F1 && code <= int Key.F24 -> false
+            | Key.Escape -> false
+            | _ when code >= int Key.A && code <= int Key.Z -> true
+            | _ when code >= int Key.D0 && code <= int Key.D9 -> true
+            | _ when code >= int Key.NumPad0 && code <= int Key.NumPad9 -> true
+            | Key.Space
+            | Key.Enter
+            | Key.Tab
+            | Key.Back
+            | Key.Delete
+            | Key.Up
+            | Key.Down
+            | Key.Left
+            | Key.Right
+            | Key.Home
+            | Key.End
+            | Key.PageUp
+            | Key.PageDown -> true
+            // Punctuation and anything else that yields a token is text; a key with no token produces nothing
+            // and so is free for a binding.
+            | _ -> keyToken key <> ""

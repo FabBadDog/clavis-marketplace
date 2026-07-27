@@ -57,22 +57,50 @@ public static class KeymapBindings
     /// too. So a default command renamed or added between builds is still bound from the defaults rather
     /// than silently lost behind a stale persisted entry. Defaults lead the result, so when a stale
     /// persisted gesture collides with a live default's gesture the default wins (first match wins).
-    public static IReadOnlyList<KeyBinding> Merge(IReadOnlyList<KeyBinding> persisted)
-    {
-        var merged = new List<KeyBinding>(Defaults.Count + persisted.Count);
+    public static IReadOnlyList<KeyBinding> Merge(IReadOnlyList<KeyBinding> persisted) =>
+        Merge(persisted, []);
 
-        foreach (var defaultBinding in Defaults)
+    /// Merge persisted bindings over the built-in defaults **and** the defaults plugins declared for their own
+    /// commands. Precedence is **user rebinding > plugin declaration > built-in default**: a plugin ships the
+    /// shortcut for its own feature, and the user still overrides it.
+    ///
+    /// A declared gesture already claimed by an earlier declaration is dropped (first declaration wins) rather
+    /// than silently shadowing it - two plugins cannot own one gesture. A declaration for a command that is also
+    /// a built-in default replaces that default, which is how a hardcoded shortcut migrates to its owning plugin
+    /// without a flag day.
+    public static IReadOnlyList<KeyBinding> Merge(
+        IReadOnlyList<KeyBinding> persisted, IReadOnlyList<KeyBinding> declared)
+    {
+        var claimedGestures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var acceptedDeclarations = new List<KeyBinding>(declared.Count);
+        foreach (var binding in declared)
+        {
+            if (claimedGestures.Add(GestureKey(binding)))
+            {
+                acceptedDeclarations.Add(binding);
+            }
+        }
+
+        // A declaration for a command wins over the built-in default for that same command.
+        var baseline = Defaults
+            .Where(defaultBinding => !acceptedDeclarations.Any(declaration =>
+                SameCommand(declaration, defaultBinding.Scope, defaultBinding.PanelKind, defaultBinding.Command)))
+            .Concat(acceptedDeclarations)
+            .ToList();
+
+        var merged = new List<KeyBinding>(baseline.Count + persisted.Count);
+        foreach (var baseBinding in baseline)
         {
             var rebound = persisted.FirstOrDefault(binding =>
-                SameCommand(binding, defaultBinding.Scope, defaultBinding.PanelKind, defaultBinding.Command));
-            merged.Add(rebound ?? defaultBinding);
+                SameCommand(binding, baseBinding.Scope, baseBinding.PanelKind, baseBinding.Command));
+            merged.Add(rebound ?? baseBinding);
         }
 
         foreach (var binding in persisted)
         {
-            var isDefaultCommand = Defaults.Any(defaultBinding =>
-                SameCommand(binding, defaultBinding.Scope, defaultBinding.PanelKind, defaultBinding.Command));
-            if (!isDefaultCommand)
+            var isKnownCommand = baseline.Any(baseBinding =>
+                SameCommand(binding, baseBinding.Scope, baseBinding.PanelKind, baseBinding.Command));
+            if (!isKnownCommand)
             {
                 merged.Add(binding);
             }
@@ -80,6 +108,9 @@ public static class KeymapBindings
 
         return merged;
     }
+
+    private static string GestureKey(KeyBinding binding) =>
+        $"{NormalizeScope(binding.Scope)}|{(binding.PanelKind ?? "").ToLowerInvariant()}|{binding.Gesture}";
 
     /// Assign a gesture to a command in a scope (and panel kind). Removes any prior gesture bound to the
     /// same command in that scope+panel (so the binding moves), and any other command on the same gesture

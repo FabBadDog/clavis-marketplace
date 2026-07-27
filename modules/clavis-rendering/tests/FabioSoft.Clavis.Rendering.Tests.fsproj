@@ -22,5 +22,6 @@
     <Compile Include="TextRevealTests.fs" />
     <Compile Include="SelectorHistoryTests.fs" />
     <Compile Include="ModeAccentTests.fs" />
+    <Compile Include="KeyGestureReaderTests.fs" />
   </ItemGroup>
 </Project>

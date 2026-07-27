@@ -9,7 +9,7 @@ dependencies:
   - { name: session-contracts, version: 3 }
   - { name: layout-contracts, version: 2 }
   - { name: workspace-contracts, version: 2 }
-  - { name: clavis-rendering, version: 2 }
+  - { name: clavis-rendering, version: 3 }
 language: csharp
 assemblyName: Selection
 rootNamespace: FabioSoft.Nucleus.Plugins.Selection

@@ -247,6 +247,18 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
             return Task.CompletedTask;
         }));
 
+        // F1-F11 switch (or create) a workspace by slot, F12 opens the overview. Declared here rather than
+        // hardcoded in the keymap plugin, so the shortcuts ship with the feature that owns them. Application
+        // scope, never system: a system-scope binding registers an OS global hotkey, which would steal F1-F12
+        // from every application on the machine - F1 is help everywhere and F12 is devtools.
+        void DeclareBindings() => bus.Send(new DefaultBindingsDeclared(Id, WorkspaceBindings.Defaults));
+        subscriptions.Add(bus.Subscribe<RequestDefaultBindings>(_ =>
+        {
+            DeclareBindings();
+            return Task.CompletedTask;
+        }));
+        DeclareBindings();
+
         bus.Send(new GetConfig(Id));
         bus.LogInfo(Id, "Workspaces plugin activated; awaiting the workspace list");
 

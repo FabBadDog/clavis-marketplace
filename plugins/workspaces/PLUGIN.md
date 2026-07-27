@@ -1,7 +1,7 @@
 ---
 name: workspaces
 pluginId: Workspaces
-version: 1.0.0
+version: 1.1.0
 essential: true
 apiVersion: 1.0.0
 description: The single authority for workspace identity, activation, and the workspace list.
@@ -9,6 +9,8 @@ dependencies:
   - { name: workspace-contracts, version: 2 }
   - { name: session-contracts, version: 3 }
   - { name: services-contracts, version: 1 }
+  - { name: keymap-contracts, version: 1 }
+  - { name: layout-contracts, version: 2 }
   - { name: yamldotnet, version: 1 }
 language: csharp
 assemblyName: Workspaces
@@ -17,6 +19,8 @@ globalUsings:
   - FabioSoft.Contracts.Workspace
   - FabioSoft.Contracts.Session
   - FabioSoft.Contracts.Services
+  - FabioSoft.Contracts.Keymap
+  - FabioSoft.Contracts.Layout
 ---
 
 # Workspaces

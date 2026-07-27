@@ -18,6 +18,7 @@
   <ItemGroup>
     <Compile Include="KeyGestureTests.fs" />
     <Compile Include="KeymapBindingsTests.fs" />
+    <Compile Include="DeclaredBindingsTests.fs" />
     <Compile Include="KeymapFileTests.fs" />
     <Compile Include="KeyMapPluginTests.fs" />
   </ItemGroup>

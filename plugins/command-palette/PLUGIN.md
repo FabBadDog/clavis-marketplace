@@ -10,7 +10,7 @@ dependencies:
   - { name: services-contracts, version: 1 }
   - { name: keymap-contracts, version: 1 }
   - { name: layout-contracts, version: 2 }
-  - { name: clavis-rendering, version: 2 }
+  - { name: clavis-rendering, version: 3 }
   - { name: yamldotnet, version: 1 }
 language: csharp
 assemblyName: CommandPalette

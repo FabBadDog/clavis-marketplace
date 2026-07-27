@@ -9,7 +9,7 @@ dependencies:
   - { name: host-contracts, version: 3 }
   - { name: keymap-contracts, version: 1 }
   - { name: layout-contracts, version: 2 }
-  - { name: clavis-rendering, version: 2 }
+  - { name: clavis-rendering, version: 3 }
 language: csharp
 assemblyName: EventsPanel
 rootNamespace: FabioSoft.Nucleus.Plugins.EventsPanel

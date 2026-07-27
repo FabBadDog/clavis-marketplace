@@ -363,12 +363,12 @@ internal sealed partial class WindowHost
         // CloseActivePanel bound only while a panel is focused - goes through the palette router.
         var isPanelLocal = binding.Scope == KeymapScope.Panel && _keymap.IsPanelLocalCommand(binding.Command);
 
-        // A focused text input keeps text-producing (plain or Shift-only) gestures for editing - unless the
-        // gesture is bound to a panel-local command for the focused panel (e.g. the conversation's Ctrl+Up/
-        // Down scroll), which takes precedence over caret movement. Tab is exempt: it never produces text in
-        // these inputs (AcceptsTab is off), so a Shift+Tab binding must still fire while the prompt is focused.
-        if (IsTextInputFocused() && !KeyGestureReader.isTextSafe(Keyboard.Modifiers) && !isPanelLocal
-            && key != Key.Tab)
+        // A focused text input keeps the gestures it would actually consume as editing or caret input - unless
+        // the gesture is bound to a panel-local command for the focused panel (e.g. the conversation's
+        // Ctrl+Up/Down scroll), which takes precedence over caret movement. The question is about the key, not
+        // just the modifiers: bare F-keys and Escape produce no text, so they must still reach their binding
+        // while the prompt has focus. Tab is classified inside isTextEditingGesture rather than special-cased.
+        if (IsTextInputFocused() && KeyGestureReader.isTextEditingGesture(Keyboard.Modifiers, key) && !isPanelLocal)
         {
             return;
         }

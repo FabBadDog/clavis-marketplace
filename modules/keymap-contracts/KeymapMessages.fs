@@ -65,6 +65,24 @@ type KeymapChanged(bindings: IReadOnlyList<KeyBinding>) =
 type RequestKeymap() =
     do ()
 
+/// A plugin declares the default gestures for its own commands, so a shortcut ships with the feature that owns
+/// it instead of being hardcoded in the keymap plugin's built-in list - which would mean every plugin's
+/// keyboard story living in another plugin's source file.
+///
+/// The keymap folds these into its default set. Precedence is **user rebinding > plugin declaration > built-in
+/// default**, and a gesture already claimed by an earlier declaration is reported as a conflict with the first
+/// declaration winning.
+[<Sealed>]
+type DefaultBindingsDeclared(pluginId: string, bindings: IReadOnlyList<KeyBinding>) =
+    member _.PluginId = pluginId
+    member _.Bindings = bindings
+
+/// The keymap broadcasts this on its own activation so plugins re-declare their defaults; makes activation
+/// order irrelevant (mirrors PanelKindsRequested).
+[<Sealed>]
+type RequestDefaultBindings() =
+    do ()
+
 /// Assign or change a binding. The KeyMap plugin validates (warning on same-scope duplicates), persists,
 /// and re-broadcasts KeymapChanged.
 [<Sealed>]

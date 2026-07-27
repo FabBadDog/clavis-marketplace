@@ -9,7 +9,7 @@ dependencies:
   - { name: services-contracts, version: 1 }
   - { name: placeholders-contracts, version: 1 }
   - { name: clavis-placeholders, version: 1 }
-  - { name: clavis-rendering, version: 2 }
+  - { name: clavis-rendering, version: 3 }
   - { name: clavis-controls, version: 1 }
   - { name: yamldotnet, version: 1 }
 language: csharp

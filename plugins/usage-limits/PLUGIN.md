@@ -8,7 +8,7 @@ dependencies:
   - { name: session-contracts, version: 3 }
   - { name: host-contracts, version: 3 }
   - { name: layout-contracts, version: 2 }
-  - { name: clavis-rendering, version: 2 }
+  - { name: clavis-rendering, version: 3 }
 language: csharp
 assemblyName: UsageLimits
 rootNamespace: FabioSoft.Nucleus.Plugins.UsageLimits

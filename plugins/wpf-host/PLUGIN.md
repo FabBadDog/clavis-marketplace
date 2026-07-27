@@ -1,7 +1,7 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 6.0.0
+version: 6.0.1
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
@@ -10,7 +10,7 @@ dependencies:
   - { name: layout-contracts, version: 2 }
   - { name: workspace-contracts, version: 2 }
   - { name: keymap-contracts, version: 1 }
-  - { name: clavis-rendering, version: 2 }
+  - { name: clavis-rendering, version: 3 }
 language: csharp
 assemblyName: WpfHost
 rootNamespace: FabioSoft.Nucleus.Plugins.WpfHost

@@ -13,6 +13,13 @@ public sealed class KeyMapPlugin : IPlugin<KeyMapConfig>
 
     private volatile IReadOnlyList<KeyBinding> _bindings = KeymapBindings.Defaults;
 
+    // Defaults declared by other plugins for their own commands, and the persisted set as last read. Both are
+    // needed to re-merge: a declaration can arrive after the config has already been loaded (plugins activate in
+    // the background), so the merge has to be repeatable rather than a one-shot at load time.
+    private readonly Dictionary<string, IReadOnlyList<KeyBinding>> _declared = [];
+    private readonly object _declaredGate = new();
+    private volatile IReadOnlyList<KeyBinding> _persisted = [];
+
     public Task<ConfigValidationResult> ValidateConfigAsync(KeyMapConfig config) =>
         Task.FromResult<ConfigValidationResult>(
             KeyGesture.TryNormalize(config.SummonGesture) is not null
@@ -29,7 +36,8 @@ public sealed class KeyMapPlugin : IPlugin<KeyMapConfig>
             }
             else if (result is ConfigNotFound notFound && notFound.PluginId == Id)
             {
-                _bindings = KeymapBindings.Defaults;
+                _persisted = [];
+                _bindings = KeymapBindings.Merge(_persisted, DeclaredBindings());
                 bus.Send(new SaveConfig(Id, KeymapFile.SerializeStarter()));
                 Broadcast(bus);
             }
@@ -53,6 +61,20 @@ public sealed class KeyMapPlugin : IPlugin<KeyMapConfig>
             return Task.CompletedTask;
         });
 
+        // A plugin declares the gestures for its own commands, so a shortcut ships with the feature that owns
+        // it. Re-merged and re-broadcast on arrival, since plugins activate in the background long after the
+        // keymap loaded its config.
+        var declaredSubscription = bus.Subscribe<DefaultBindingsDeclared>(message =>
+        {
+            lock (_declaredGate)
+            {
+                _declared[message.PluginId] = message.Bindings;
+            }
+
+            ReMerge(bus);
+            return Task.CompletedTask;
+        });
+
         var setSubscription = bus.Subscribe<SetKeyBinding>(message =>
         {
             Persist(bus, KeymapBindings.Set(_bindings, message.Command, message.Scope, message.PanelKind, message.Gesture));
@@ -65,11 +87,14 @@ public sealed class KeyMapPlugin : IPlugin<KeyMapConfig>
             return Task.CompletedTask;
         });
 
+        // Ask plugins to declare their own default gestures, so activation order does not matter.
+        bus.Send(new RequestDefaultBindings());
         bus.Send(new GetConfig(Id));
         bus.LogInfo(Id, "Key map plugin activated");
 
         return Task.FromResult<IDisposable>(new PluginDisposable(
-            configSubscription, changedSubscription, requestSubscription, setSubscription, removeSubscription));
+            configSubscription, changedSubscription, requestSubscription, declaredSubscription,
+            setSubscription, removeSubscription));
     }
 
     private void LoadAndBroadcast(IBus bus, string rawConfig)
@@ -85,6 +110,24 @@ public sealed class KeyMapPlugin : IPlugin<KeyMapConfig>
         }
 
         Broadcast(bus);
+    }
+
+    // Re-run the merge over the current persisted set and every declaration seen so far.
+    private void ReMerge(IBus bus)
+    {
+        _bindings = KeymapBindings.Merge(_persisted, DeclaredBindings());
+        WarnOnConflicts(bus, _bindings);
+        Broadcast(bus);
+    }
+
+    private IReadOnlyList<KeyBinding> DeclaredBindings()
+    {
+        lock (_declaredGate)
+        {
+            // Ordered by plugin id so "the first declaration wins" is deterministic rather than depending on
+            // which plugin happened to finish compiling first.
+            return [.. _declared.OrderBy(entry => entry.Key, StringComparer.Ordinal).SelectMany(entry => entry.Value)];
+        }
     }
 
     private void Persist(IBus bus, IReadOnlyList<KeyBinding> bindings)
