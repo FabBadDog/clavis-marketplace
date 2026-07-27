@@ -154,7 +154,13 @@ public static class WorkspaceUpdate
     /// Fold a session's reported activity onto the workspace that owns it. A session no workspace owns is
     /// ignored: another plugin's session, or one from a workspace already closed.
     public static (WorkspaceSet Set, WorkspaceEffect[] Effects) ApplyActivity(
-        WorkspaceSet set, Guid sessionId, string activity, string detail)
+        WorkspaceSet set, Guid sessionId, string activity, string detail) =>
+        ApplyActivity(set, sessionId, activity, detail, DateTimeOffset.UtcNow);
+
+    /// The same, with the transition instant supplied - so the elapsed readout is testable, and so a provider
+    /// that reports when something started can be honoured rather than re-stamped on arrival.
+    public static (WorkspaceSet Set, WorkspaceEffect[] Effects) ApplyActivity(
+        WorkspaceSet set, Guid sessionId, string activity, string detail, DateTimeOffset since)
     {
         if (set.BySession(sessionId) is not { } owner)
         {
@@ -167,7 +173,8 @@ public static class WorkspaceUpdate
         }
 
         return (
-            set.With(owner.WorkspaceId, workspace => workspace with { Activity = activity, ActivityDetail = detail }),
+            set.With(owner.WorkspaceId, workspace =>
+                workspace with { Activity = activity, ActivityDetail = detail, ActivitySince = since }),
             NoEffects);
     }
 

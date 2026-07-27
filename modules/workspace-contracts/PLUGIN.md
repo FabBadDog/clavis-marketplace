@@ -1,7 +1,7 @@
 ---
 name: workspace-contracts
 assemblyName: FabioSoft.Contracts.Workspace
-version: 2.0.0
+version: 2.1.0
 apiVersion: 1.0.0
 description: Workspace identity, activation, and the workspace list.
 produces: [ FabioSoft.Contracts.Workspace.dll ]

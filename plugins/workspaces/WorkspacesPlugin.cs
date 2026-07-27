@@ -103,6 +103,7 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
                         workspace.SessionId,
                         workspace.Activity,
                         workspace.ActivityDetail,
+                        workspace.ActivitySince,
                         workspace.Slot))
                 ],
                 set.ActiveWorkspaceId));
@@ -240,12 +241,28 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
             lock (gate)
             {
                 Apply(
-                    WorkspaceUpdate.ApplyActivity(set, message.SessionId, message.Activity, message.Detail),
+                    WorkspaceUpdate.ApplyActivity(
+                        set, message.SessionId, message.Activity, message.Detail, message.Since),
                     persist: false);
             }
 
             return Task.CompletedTask;
         }));
+
+        // The overview is an ordinary panel kind, so it inherits open/toggle/close/restore/persist/tear-off/Esc
+        // and a palette command for free. One per application, not per workspace: it is a view *of* all of them.
+        void AnnounceOverviewPanel() => bus.Send(new PanelKindRegistration(
+            "workspace-overview", "Workspaces", 420, 200, "", true,
+            _ => Views.WorkspaceOverviewView.Create(bus))
+        {
+            Cardinality = PanelCardinality.OnePerApplication
+        });
+        subscriptions.Add(bus.Subscribe<PanelKindsRequested>(_ =>
+        {
+            AnnounceOverviewPanel();
+            return Task.CompletedTask;
+        }));
+        AnnounceOverviewPanel();
 
         // F1-F11 switch (or create) a workspace by slot, F12 opens the overview. Declared here rather than
         // hardcoded in the keymap plugin, so the shortcuts ship with the feature that owns them. Application

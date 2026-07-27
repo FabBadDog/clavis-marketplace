@@ -19,6 +19,7 @@ type WorkspaceInfo
      sessionId: Guid,
      activity: string,
      activityDetail: string,
+     activitySince: DateTimeOffset,
      slot: int) =
 
     member _.WorkspaceId = workspaceId
@@ -34,6 +35,10 @@ type WorkspaceInfo
     /// can still say it needs you.
     member _.Activity = activity
     member _.ActivityDetail = activityDetail
+
+    /// When the workspace entered its current activity, so a consumer renders elapsed time without polling.
+    member _.ActivitySince = activitySince
+
     member _.Slot = slot
 
 /// The whole workspace list, broadcast whenever anything in it changes (created, closed, renamed, activated,

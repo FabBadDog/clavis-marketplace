@@ -1,7 +1,7 @@
 ---
 name: workspaces
 pluginId: Workspaces
-version: 1.1.0
+version: 1.2.0
 essential: true
 apiVersion: 1.0.0
 description: The single authority for workspace identity, activation, and the workspace list.
@@ -15,6 +15,7 @@ dependencies:
 language: csharp
 assemblyName: Workspaces
 rootNamespace: FabioSoft.Nucleus.Plugins.Workspaces
+useWpf: true
 globalUsings:
   - FabioSoft.Contracts.Workspace
   - FabioSoft.Contracts.Session
@@ -38,10 +39,12 @@ own comments hold the invariant "the host knows no session vocabulary".
 
 ## Location
 
-`plugins/workspaces/` - a headless plugin (no `UseWPF`). Pure core in `WorkspaceSet.cs` (state, slot
+`plugins/workspaces/` - a **UI plugin** (`UseWPF`), because it owns the F12 overview panel; everything else
+about it is headless. Pure core in `WorkspaceSet.cs` (state, slot
 arithmetic) and `WorkspaceUpdate.cs` (every operation, returning the new set plus effects);
 `WorkspacesPlugin.cs` is the impure shell that turns effects into bus messages and persistence.
-`WorkspaceFile.cs` owns the YAML, `AccentPalette.cs` the accent assignment.
+`WorkspaceFile.cs` owns the YAML, `AccentPalette.cs` the accent assignment, `WorkspaceBindings.cs` the declared
+F-key defaults, and `WorkspaceOverviewRows.cs` the pure row projection behind `Views/WorkspaceOverviewView.cs`.
 
 ## Config
 
@@ -60,6 +63,8 @@ arithmetic) and `WorkspaceUpdate.cs` (every operation, returning the new set plu
 - Sessions: `StartNewSession`, `DisposeSession` - this plugin owns session creation, because the working
   directory is per workspace.
 - `SaveConfig`, `GetConfig`, `LogEntry`.
+- `PanelKindRegistration` (`workspace-overview`, one-per-application) and `DefaultBindingsDeclared` (F1-F11 ->
+  activate-or-create by slot, F12 -> toggle the overview).
 
 ## Messages subscribed
 
@@ -88,5 +93,16 @@ arithmetic) and `WorkspaceUpdate.cs` (every operation, returning the new set plu
   the signal colours - green/yellow/red mean something. Correspondingly the accent and the activity dot are
   separate marks: the dot carries activity, the accent carries identity, and tinting the dot with the accent
   would destroy the activity signal.
+- **The overview is an ordinary panel kind** (`workspace-overview`, one-per-**application** - it is a view *of*
+  all the workspaces). It therefore inherits open/toggle/close/restore/persist/tear-off/Esc and a palette
+  command for free, and F12 is literally `TogglePanel workspace-overview`. A bespoke chromeless overlay was
+  rejected: it would be the third overlay mechanism after the shortcut-help overlay and slide-ins. Rows come
+  from the pure `WorkspaceOverviewRows` (slot order with gaps preserved, coarse elapsed time, an idle workspace
+  showing none). Model/effort and context fill are **not** shown yet - this plugin does not hold session
+  detail, and plumbing it here would duplicate what the placeholders already carry.
+- **Shortcuts are declared, not hardcoded elsewhere.** `WorkspaceBindings` declares F1-F11 and F12 to the
+  keymap via `DefaultBindingsDeclared`, so the shortcuts ship with the feature. Application scope, never
+  system: a system binding registers an OS global hotkey, which would take F1-F12 from every application on the
+  machine.
 - **Persistence is skipped for activity.** An activity change re-announces the list but never writes the file,
   so a streaming turn does not rewrite `configuration.yaml` four times a second.

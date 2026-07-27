@@ -19,5 +19,6 @@
     <Compile Include="WorkspaceBindingsTests.fs" />
     <Compile Include="WorkspaceUpdateTests.fs" />
     <Compile Include="WorkspaceFileTests.fs" />
+    <Compile Include="WorkspaceOverviewRowsTests.fs" />
   </ItemGroup>
 </Project>

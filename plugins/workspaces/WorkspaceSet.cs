@@ -24,6 +24,9 @@ public sealed record Workspace
     public string Activity { get; init; } = WorkspaceActivity.Idle;
     public string ActivityDetail { get; init; } = "";
 
+    /// When this workspace entered its current activity, so the overview renders elapsed time without polling.
+    public DateTimeOffset ActivitySince { get; init; } = DateTimeOffset.UtcNow;
+
     public bool HasSession => SessionId != Guid.Empty;
 }
 
