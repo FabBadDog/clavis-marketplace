@@ -44,7 +44,9 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP6c N surfaces per window | done, **not runtime-verified** | `f807db8` |
 | WP8 keyboard: F1-F11/F12 + declared bindings | done, **not runtime-verified** | `5cc47b5` |
 | WP9 the F12 overview panel | done, **not runtime-verified** | `dbbcfe7` |
+| WP10 docs + agent surface | marketplace side done; host repo docs remain | `39f3334` |
 | WP7 the bar | **next** (the last visible piece) | - |
+| WP5b agent instances | not started (optional, independent) | - |
 | WP5b, WP7 - WP10 | not started | - |
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
