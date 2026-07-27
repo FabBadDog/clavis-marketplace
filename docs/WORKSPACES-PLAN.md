@@ -42,14 +42,38 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP6 per-workspace surfaces | **next** | - |
 | WP5b, WP7 - WP10 | not started | - |
 
-**Not runtime-verified since WP2.** Four contract majors have moved now (session, host x2, layout) and
-nothing has booted against them. WP3 in particular changes what the primary window contains, so it needs a
-launch. The next launch also recompiles every item once (new `.buildspec` sidecars). Launch with
-`dotnet run --project src/FabioSoft.Clavis.Shell` from the host repo, in the background, and confirm via the
-newest `~/.clavis/logs/clavis-*.log`.
+> ## A launch is the gating step - do this before WP6
+>
+> **Nothing has booted since WP2**, and WP3-WP5 are no longer just structural. Five contract majors have moved
+> (session 3, host 3, layout 2, workspace 2 reusing a freed name) and - the part that actually matters - **WP5
+> rewired the boot sequence**: session creation moved out of `Conversation` into the new essential `Workspaces`
+> plugin, and `Conversation` now starts from `ConversationState.Empty` with **no chat at all** until
+> `WorkspaceSessionStarted` arrives. If that chain has a flaw the symptom is stark: no chat and no prompt.
+>
+> The chain is sound as far as static review goes - `Workspaces` subscribes to `ConfigResult` before sending
+> `GetConfig`, and the bus's bootstrap buffer holds a message until a subscriber appears, so
+> `WorkspaceSessionStarted` reaches `Conversation` regardless of activation order - but that is not the same as
+> having seen it work.
+>
+> **Do not start WP6 before a launch.** WP6 restructures the docking surface and layout persistence; stacked on
+> an unverified boot rewrite, a failure would have four candidate causes and could not be isolated. The
+> packages are small and individually revertible, which only helps if you know which one broke.
+>
+> Launch with `dotnet run --project src/FabioSoft.Clavis.Shell` from the host repo, in the background, and
+> confirm via the newest `~/.clavis/logs/clavis-*.log`. The first launch also recompiles every item once (new
+> `.buildspec` sidecars) and rebuilds the contract modules, so give it time.
 
-**First-launch checks specific to WP3** (all cheap, all worth doing before WP4 builds on it):
-1. The chat appears at all - over the existing `state.yaml`, whose primary window holds a slot of the retired
+**First-launch checks, in this order** (1-2 gate everything else):
+
+0. **The boot chain (WP5).** A chat exists at all: the log should show `Workspaces plugin activated`, then a
+   `StartNewSession`, then the chat panel filling. No chat and no prompt means the
+   Workspaces -> Conversation handover failed - check the log for a `WorkspaceSessionStarted` dead letter.
+   Also confirm exactly **one** `claude.exe`: two would mean both plugins are still starting sessions.
+   `configuration.yaml` should gain a `Workspaces` section with one workspace in slot 1.
+0b. **`exit` no longer quits** - it closes the active workspace; `quit` is the way out. Closing the only
+   workspace is expected to leave an empty bar-less state, which is currently only recoverable via `workspace`
+   (create) in the palette, so try `quit` first.
+1. **The retired kind (WP3).** Over the existing `state.yaml`, whose primary window holds a slot of the retired
    kind `conversation`. `WpfHostConfig.RetiredPanelKinds` should rewrite it to `chat` on restore; if that
    misfires the symptom is a tab stuck on its compile placeholder forever and no chat.
 2. Prompt submit still works (the panel now owns Enter), and Up/Down still recall history.
