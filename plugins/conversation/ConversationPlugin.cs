@@ -59,6 +59,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         ConversationViewModel? viewModel = null;
         DispatcherTimer? tickTimer = null;
         var lastPermissionPending = false;
+        var activityTracker = new SessionActivityTracker();
         IReadOnlyDictionary<string, string> lastPlaceholders = new Dictionary<string, string>();
         // The merged values from every provider's snapshot (keys are namespaced so providers never collide),
         // and the placeholder-driven views the status bar and title-bar cluster render from.
@@ -444,6 +445,7 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             current = newState;
             UpdateViewModel(newState);
             PublishPermissionPendingIfChanged(newState);
+            PublishActivityIfChanged(newState);
             PublishPlaceholders(newState);
             ProcessEffects(bus, effects, workingDirectory, config.Model);
         }
@@ -500,6 +502,20 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
                 agentCluster?.SetTemplate(chrome.TitleRight);
                 statusBar?.SetTemplates(chrome.StatusLeft, chrome.StatusCenter, chrome.StatusRight);
             });
+        }
+
+        // Announce each session's activity - idle, working, blocked on the user - on transitions only.
+        // Every session, not just the active one: the point is that a workspace you are not looking at can
+        // still say it needs you.
+        void PublishActivityIfChanged(ConversationState newState)
+        {
+            foreach (var session in newState.Sessions)
+            {
+                if (activityTracker.Next(session, DateTimeOffset.UtcNow) is { } changed)
+                {
+                    bus.Send(changed);
+                }
+            }
         }
 
         // The host routes Left/Right/Enter to the permission prompt only while one is pending. Announce

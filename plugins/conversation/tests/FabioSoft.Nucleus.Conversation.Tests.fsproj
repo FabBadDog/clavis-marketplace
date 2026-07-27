@@ -23,6 +23,7 @@
     <Compile Include="StatsColumnTests.fs" />
     <Compile Include="SessionPhaseTests.fs" />
     <Compile Include="SessionActivityProjectionTests.fs" />
+    <Compile Include="SessionActivityTrackerTests.fs" />
     <Compile Include="JsonPrettyTests.fs" />
     <Compile Include="ConversationUpdateTests.fs" />
     <Compile Include="PermissionNavigateTests.fs" />
