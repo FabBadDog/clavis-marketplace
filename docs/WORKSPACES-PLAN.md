@@ -1150,7 +1150,20 @@ Tests: `WorkspaceOverviewRowsTests` - pure row projection from `WorkspaceListCha
 
 ---
 
-## WP10 - Docs + agent surface
+## WP10 - Docs + agent surface - MARKETPLACE SIDE DONE, HOST REPO REMAINS
+
+Landed: `docs/MESSAGE-MAP.md` regenerated (136 messages, 27 components), `docs/CODEMAP.md` refreshed, and the
+agent surface gained **`workspaces_list`** and **`activate_workspace`** (`agent-gateway 3.1.0`). Note the map
+shows `ActivateWorkspaceSlot` and `ExitApplication` with no publisher - correct, not a defect: both are
+dispatched reflectively by the palette's `MessageActivator` from a keymap binding, which a static scan cannot
+see.
+
+**Remaining: the host repo** (`~/Repos/FS/clavis`) - its `CLAUDE.md` Terminology section needs the Workspace
+definition, and `docs/{CODEMAP,DEPENDENCY-MAP,CORE-AND-BUS}.md` need the new module and plugin. Deferred only
+because a background session must edit that repo through `EnterWorktree`, which was not worth opening for a
+docs-only change mid-flight.
+
+### Original scope
 
 Marketplace `docs/CODEMAP.md`; regenerate `docs/MESSAGE-MAP.md`
 (`tools/Generate-MessageMap.ps1 -CoreSrc <clavis>/src`); `MARKETPLACE.md`; `plugins/wpf-host/PLUGIN.md`

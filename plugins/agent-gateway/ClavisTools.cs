@@ -51,6 +51,43 @@ internal sealed class ClavisTools(GatewayContext context)
             : $"No CLAUDE.md found for plugin '{id}' (looked in {path}).";
     }
 
+    [McpServerTool(Name = "workspaces_list")]
+    [Description("List the workspaces: each one's name, slot (its F-key), working directory, agent session, and what it is currently doing (idle, working, or waiting for the user). Also reports which one is active.")]
+    public async Task<string> WorkspacesList()
+    {
+        var list = await Request<RequestWorkspaces, WorkspaceListChanged>(new RequestWorkspaces());
+        return Serialize(new
+        {
+            activeWorkspaceId = list.ActiveWorkspaceId,
+            workspaces = list.Workspaces.Select(workspace => new
+            {
+                workspaceId = workspace.WorkspaceId,
+                name = workspace.Name,
+                slot = workspace.Slot,
+                workingDirectory = workspace.WorkingDirectory,
+                sessionId = workspace.SessionId,
+                hasSession = workspace.SessionId != Guid.Empty,
+                activity = workspace.Activity,
+                activityDetail = workspace.ActivityDetail,
+                activitySince = workspace.ActivitySince,
+                isActive = workspace.WorkspaceId == list.ActiveWorkspaceId
+            })
+        });
+    }
+
+    [McpServerTool(Name = "activate_workspace")]
+    [Description("Switch to a workspace by its id (from workspaces_list). Its panels and chat come to the front; its agent session starts if it has not run yet.")]
+    public string ActivateWorkspace([Description("The workspace id to switch to.")] string workspaceId)
+    {
+        if (!Guid.TryParse(workspaceId, out var parsed) || parsed == Guid.Empty)
+        {
+            return $"'{workspaceId}' is not a workspace id. Call workspaces_list first.";
+        }
+
+        context.Bus.Send(new FabioSoft.Contracts.Workspace.ActivateWorkspace(parsed));
+        return $"Activating workspace {parsed}.";
+    }
+
     [McpServerTool(Name = "layout_snapshot")]
     [Description("Report what is on screen right now: the open windows and live panels, with which window and panel are focused and visible.")]
     public async Task<string> LayoutSnapshot()

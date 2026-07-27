@@ -49,10 +49,12 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 ### FabioSoft.Contracts.Keymap
 
 - **CommandsAvailable** - pub: CommandPalette - sub: KeymapPanel, WpfHost
+- **DefaultBindingsDeclared** - pub: Workspaces - sub: KeyMap
 - **KeymapChanged** - pub: KeyMap - sub: CommandPalette, KeymapPanel, WpfHost
 - **PanelCommandsRegistered** - pub: Conversation, EventsPanel - sub: CommandPalette
 - **RemoveKeyBinding** - pub: CommandPalette, KeymapPanel - sub: KeyMap
 - **RequestCommands** - pub: KeymapPanel, WpfHost - sub: CommandPalette
+- **RequestDefaultBindings** - pub: KeyMap - sub: Workspaces
 - **RequestKeymap** - pub: CommandPalette, KeymapPanel, WpfHost - sub: KeyMap
 - **RequestPanelCommands** - pub: CommandPalette - sub: Conversation, EventsPanel
 - **RunCommand** - pub: WpfHost - sub: CommandPalette
@@ -70,8 +72,8 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **OpenPanel** - pub: AgentGateway, MarkdownPanel, Selection, WpfHost - sub: PanelRegistry
 - **PanelClosed** - pub: WpfHost - sub: MarkdownPanel, PanelRegistry
 - **PanelInstanceReady** - pub: _none found_ - sub: WpfHost
-- **PanelKindRegistration** - pub: CodeEditorPanel, Conversation, EventsPanel, GitLogPanel, KeymapPanel, MarkdownPanel, UsageLimits - sub: CommandPalette, Conversation, PanelRegistry, Selection
-- **PanelKindsRequested** - pub: CommandPalette, Conversation, PanelRegistry, Selection - sub: CodeEditorPanel, Conversation, EventsPanel, GitLogPanel, KeymapPanel, MarkdownPanel, UsageLimits
+- **PanelKindRegistration** - pub: CodeEditorPanel, Conversation, EventsPanel, GitLogPanel, KeymapPanel, MarkdownPanel, UsageLimits, Workspaces - sub: CommandPalette, Conversation, PanelRegistry, Selection
+- **PanelKindsRequested** - pub: CommandPalette, Conversation, PanelRegistry, Selection - sub: CodeEditorPanel, Conversation, EventsPanel, GitLogPanel, KeymapPanel, MarkdownPanel, UsageLimits, Workspaces
 - **PanelStateChanged** - pub: PanelRegistry - sub: WpfHost
 - **RestorePanel** - pub: AgentGateway, WpfHost - sub: PanelRegistry
 - **SetPanelTitle** - pub: MarkdownPanel - sub: WpfHost
@@ -151,17 +153,17 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 
 ### FabioSoft.Contracts.Workspace
 
-- **ActivateWorkspace** - pub: _none found_ - sub: Workspaces
+- **ActivateWorkspace** - pub: Workspaces - sub: Workspaces
 - **ActivateWorkspaceSlot** - pub: _none found_ - sub: Workspaces
 - **CloseActiveWorkspace** - pub: _none found_ - sub: Workspaces
 - **CloseWorkspace** - pub: _none found_ - sub: Workspaces
 - **CreateWorkspace** - pub: _none found_ - sub: Workspaces
 - **RenameWorkspace** - pub: _none found_ - sub: Workspaces
-- **RequestWorkspaces** - pub: _none found_ - sub: Workspaces
-- **WorkspaceActivated** - pub: Workspaces - sub: Conversation
+- **RequestWorkspaces** - pub: AgentGateway, Workspaces - sub: Workspaces
+- **WorkspaceActivated** - pub: Workspaces - sub: Conversation, Selection, WpfHost
 - **WorkspaceClosed** - pub: Workspaces - sub: Conversation
-- **WorkspaceListChanged** - pub: Workspaces - sub: _none found_
-- **WorkspaceSessionStarted** - pub: Workspaces - sub: Conversation
+- **WorkspaceListChanged** - pub: Workspaces - sub: Workspaces, WpfHost
+- **WorkspaceSessionStarted** - pub: Workspaces - sub: Conversation, Selection
 
 ### FabioSoft.Nucleus.Contracts
 
@@ -187,12 +189,13 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 
 - **LayoutSnapshotRequested** -> **LayoutSnapshot** (caller: AgentGateway)
 - **ListPlugins** -> **PluginList** (caller: AgentGateway)
+- **RequestWorkspaces** -> **WorkspaceListChanged** (caller: AgentGateway)
 - **Summarize** -> **SummaryResult** (caller: MarketplacePlugin)
 
 ## Per-component summary
 
 ### AgentGateway
-- publishes: ClavisMcpAvailable, CloseActivePanel, ClosePanel, FocusInputRequested, LayoutSnapshotRequested, ListPlugins, LogEntry, OpenPanel, RestorePanel, ShowSlideIn, SummonClavis, ToggleCommandPalette, TogglePanel, ToggleShortcutHelp, UserAborted, UserSubmittedPrompt
+- publishes: ClavisMcpAvailable, CloseActivePanel, ClosePanel, FocusInputRequested, LayoutSnapshotRequested, ListPlugins, LogEntry, OpenPanel, RequestWorkspaces, RestorePanel, ShowSlideIn, SummonClavis, ToggleCommandPalette, TogglePanel, ToggleShortcutHelp, UserAborted, UserSubmittedPrompt
 - subscribes: SelectionCompleted
 
 ### ClaudeBridge
@@ -236,8 +239,8 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - subscribes: LoadSchemeResource, WriteSchemeResource
 
 ### KeyMap
-- publishes: GetConfig, KeymapChanged, LogEntry, SaveConfig
-- subscribes: ConfigChanged, ConfigResult, RemoveKeyBinding, RequestKeymap, SetKeyBinding
+- publishes: GetConfig, KeymapChanged, LogEntry, RequestDefaultBindings, SaveConfig
+- subscribes: ConfigChanged, ConfigResult, DefaultBindingsDeclared, RemoveKeyBinding, RequestKeymap, SetKeyBinding
 
 ### KeymapPanel
 - publishes: LogEntry, PanelKindRegistration, RemoveKeyBinding, RequestCommands, RequestKeymap, SetKeyBinding
@@ -269,7 +272,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 
 ### Selection
 - publishes: LogEntry, OpenPanel, PanelKindsRequested, SelectionCompleted, SetSessionEffort, SetSessionMode, SetSessionModel
-- subscribes: AgentStreamEvent, CycleSessionMode, PanelKindRegistration, SelectEffort, SelectionRequested, SelectMode, SelectModel, SelectPanel
+- subscribes: AgentStreamEvent, CycleSessionMode, PanelKindRegistration, SelectEffort, SelectionRequested, SelectMode, SelectModel, SelectPanel, WorkspaceActivated, WorkspaceSessionStarted
 
 ### Settings
 - publishes: LogEntry
@@ -288,12 +291,12 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - subscribes: AgentUsageReport, PanelKindsRequested
 
 ### Workspaces
-- publishes: DisposeSession, GetConfig, LogEntry, SaveConfig, StartNewSession, WorkspaceActivated, WorkspaceClosed, WorkspaceListChanged, WorkspaceSessionStarted
-- subscribes: ActivateWorkspace, ActivateWorkspaceSlot, CloseActiveWorkspace, CloseWorkspace, ConfigResult, CreateWorkspace, RenameWorkspace, RequestWorkspaces, SessionActivityChanged
+- publishes: ActivateWorkspace, DefaultBindingsDeclared, DisposeSession, GetConfig, LogEntry, PanelKindRegistration, RequestWorkspaces, SaveConfig, StartNewSession, WorkspaceActivated, WorkspaceClosed, WorkspaceListChanged, WorkspaceSessionStarted
+- subscribes: ActivateWorkspace, ActivateWorkspaceSlot, CloseActiveWorkspace, CloseWorkspace, ConfigResult, CreateWorkspace, PanelKindsRequested, RenameWorkspace, RequestDefaultBindings, RequestWorkspaces, SessionActivityChanged, WorkspaceListChanged
 
 ### WpfHost
 - publishes: ActivePanelChanged, ApplicationShutdown, GetState, LogEntry, OpenPanel, PanelClosed, RequestCommands, RequestKeymap, RestorePanel, RunCommand, RunPanelCommand, SaveState, SlideInClosed, SlideInRegistered, SummonClavis, WindowClosed, WindowFocusChanged, WindowOpened
-- subscribes: BootstrapComplete, CloseActivePanel, CloseActiveWindow, ClosePanel, CloseWindow, CommandsAvailable, EssentialPluginsReady, ExitApplication, KeymapChanged, LayoutSnapshotRequested, PanelInstanceReady, PanelStateChanged, PluginActivated, PluginDiscovered, SetPanelTitle, ShowSlideIn, StateResult, StatusBarAvailability, SummonClavis, ToggleClavis, TogglePanel, ToggleShortcutHelp, UiRegionContribution, UiRegionRemoved
+- subscribes: BootstrapComplete, CloseActivePanel, CloseActiveWindow, ClosePanel, CloseWindow, CommandsAvailable, EssentialPluginsReady, ExitApplication, KeymapChanged, LayoutSnapshotRequested, PanelInstanceReady, PanelStateChanged, PluginActivated, PluginDiscovered, SetPanelTitle, ShowSlideIn, StateResult, StatusBarAvailability, SummonClavis, ToggleClavis, TogglePanel, ToggleShortcutHelp, UiRegionContribution, UiRegionRemoved, WorkspaceActivated, WorkspaceListChanged
 
 ### other
 - publishes: _none_
