@@ -1,7 +1,7 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 5.1.0
+version: 6.0.0
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
@@ -117,6 +117,16 @@ unit-tested.
   workspaces' windows and fades this one's back in. The primary is the constant - it carries the chrome for
   every workspace and belongs to none. A secondary's layout is keyed by *its* workspace, not the active one, so
   a hidden window is not refiled to whatever you were looking at when the save fired.
+- **One docking surface per workspace, per window** (`WorkspaceSurfaces`), created lazily and kept alive;
+  `WindowHost.Surface` forwards to the active one so every existing call site is unchanged. N surfaces rather
+  than one captured-and-restored surface: swapping a single surface would rebuild every panel view on each
+  switch (scroll lost, `PanelClosed` disposing instances, git-log timers restarting) on a gesture used dozens of
+  times an hour - and keeping background panels alive is what makes "workspace 3 is working" mean anything. The
+  three chrome collaborators (`ActivePanelWatcher`, `FocusVisualController`, `PanelTitleController`) take an
+  accessor for the active surface rather than capturing one, so they follow the switch. Surface handlers are
+  attached per surface. The initial `Guid.Empty` surface is **adopted** on the first real activation rather than
+  replaced, so the panels restored during boot stay put. Switches cross-fade; the outgoing surface is collapsed,
+  not merely transparent, so it stops taking hit tests and tab stops.
 - **Snapshot.** It answers `LayoutSnapshotRequested` by building a `LayoutSnapshot` (windows,
   panels, focused window/panel) on the dispatcher - this is the response half of a bus request, used by
   AgentGateway's `layout_snapshot` tool.

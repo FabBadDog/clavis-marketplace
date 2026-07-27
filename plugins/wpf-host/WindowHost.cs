@@ -19,6 +19,8 @@ internal sealed partial class WindowHost
     private readonly ShortcutHelpOverlay _helpOverlay = new();
     private readonly Dictionary<string, SlideInHost> _slideHosts = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, SlideInEntry> _slideIns = [];
+    private readonly Grid _bodyGrid = new();
+    private readonly WorkspaceSurfaces _surfaces;
     private Border? _statusRow;
     private FocusVisualController? _focusVisual;
     private PanelTitleController? _panelTitle;
@@ -55,12 +57,16 @@ internal sealed partial class WindowHost
         WindowId = windowId;
         IsPrimary = isPrimary;
         Regions = new RegionManager();
-        Surface = new DockingSurface();
 
-        // A window's sole panel renders chromeless (no panel tab), so the surface shows no handle for it. A
-        // panel sharing the surface with others keeps its tab/handle. No panel is pinned: every panel,
-        // including the chat, can be closed or dragged out.
-        Surface.PanelCloseRequested += (_, panelId) => PanelCloseRequested?.Invoke(this, panelId);
+        // One surface per workspace, all hosted in the body grid, all but the active one collapsed. Every
+        // surface needs the same handlers, so they are attached as each is created - including the first, which
+        // exists before anything can subscribe.
+        _surfaces = new WorkspaceSurfaces(_bodyGrid, Guid.Empty);
+        _surfaces.Created += (_, surface) => AttachSurface(surface);
+        foreach (var surface in _surfaces.All.ToList())
+        {
+            AttachSurface(surface);
+        }
 
         Window = ResourceLoader.Load<Window>("Views/MainWindow.xaml");
 
@@ -95,9 +101,6 @@ internal sealed partial class WindowHost
 
         EnableWindowLevelDrop((FrameworkElement)contentControl.Content);
 
-        // A panel dropped into an edge slide zone is lifted off the surface and re-hosted as a slide-in.
-        Surface.SlideInRequested += (_, request) => MakeSlideIn(request);
-
         // Slide-ins are transient: when the window loses OS focus they slide away.
         Window.Deactivated += (_, _) => HideSlideIns();
 
@@ -123,7 +126,37 @@ internal sealed partial class WindowHost
 
     public RegionManager Regions { get; }
 
-    public DockingSurface Surface { get; }
+    /// The docking surface of the workspace currently on screen. Every call site that says "the surface" means
+    /// "the one the user is looking at", so this forwards rather than being a fixed instance.
+    public DockingSurface Surface => _surfaces.Active;
+
+    /// Every surface this window owns, so the manager can wire its handlers to each.
+    public IReadOnlyCollection<DockingSurface> Surfaces => _surfaces.All;
+
+    /// Raised as each surface is created, so the manager can wire the same handlers to it.
+    public event EventHandler<DockingSurface>? SurfaceCreated;
+
+    /// Bring a workspace's panels on screen, creating its surface on first activation. Adopts the initial
+    /// unassigned surface the first time a real workspace arrives, so the panels restored during boot stay put
+    /// instead of being replaced by an empty surface.
+    public bool ActivateWorkspace(Guid workspaceId) =>
+        _surfaces.Adopt(workspaceId) || _surfaces.Activate(workspaceId);
+
+    /// True when this window already has a surface for the workspace, so the manager knows whether that
+    /// workspace's panels still have to be materialised.
+    public bool HasSurfaceFor(Guid workspaceId) => _surfaces.Has(workspaceId);
+
+    // A window's sole panel renders chromeless (no panel tab), so the surface shows no handle for it. A panel
+    // sharing the surface with others keeps its tab/handle. No panel is pinned: every panel, including the
+    // chat, can be closed or dragged out. A panel dropped into an edge slide zone is lifted off the surface
+    // and re-hosted as a slide-in.
+    private void AttachSurface(DockingSurface surface)
+    {
+        surface.PanelCloseRequested += (_, panelId) => PanelCloseRequested?.Invoke(this, panelId);
+        surface.SlideInRequested += (_, request) => MakeSlideIn(request);
+        _activePanel?.Observe(surface);
+        SurfaceCreated?.Invoke(this, surface);
+    }
 
     public event EventHandler<Guid>? PanelCloseRequested;
 
@@ -184,7 +217,11 @@ internal sealed partial class WindowHost
         // The primary window's title/status bars are owned by the window but driven by the active docked
         // panel: the watcher announces the active kind and the Conversation re-templates the chrome strips it
         // contributes here. (Secondary windows have no status bar and use PanelTitleController for the title.)
-        _activePanel = new ActivePanelWatcher(_bus, Window, Surface);
+        _activePanel = new ActivePanelWatcher(_bus, Window, () => Surface);
+        foreach (var surface in _surfaces.All.ToList())
+        {
+            _activePanel.Observe(surface);
+        }
         var statusRow = WindowChromeViews.CreateStatusBar(statusBar, statusBarRight);
         _statusRow = statusRow;
 
@@ -197,8 +234,7 @@ internal sealed partial class WindowHost
         // top/left/right slide-in's hover handle flush with the window's top edge too - overlapping the title
         // bar, whose own press-drag would swallow the handle's hover/click before it could reveal. Confining
         // the body to the row below the title bar keeps every slide-in (and its handle) clear of it.
-        var bodyGrid = new Grid();
-        bodyGrid.Children.Add(Surface);
+        var bodyGrid = _bodyGrid;
 
         var chromePanel = new DockPanel { LastChildFill = true };
         DockPanel.SetDock(titleBar, Dock.Top);
@@ -225,7 +261,7 @@ internal sealed partial class WindowHost
 
         // The window owns no input box now (the chat panel does), so the focus visual has none to exempt -
         // the panel's own controls take focus like any other panel's.
-        _focusVisual = new FocusVisualController(Window, layoutGrid, Surface, null);
+        _focusVisual = new FocusVisualController(Window, layoutGrid, () => Surface, null);
 
         return layoutGrid;
     }
@@ -239,13 +275,12 @@ internal sealed partial class WindowHost
 
         var (titleBar, statusDot) = WindowChromeViews.CreateTitleBar(titleBarLeft, titleBarRight, CloseWithFade);
         _statusDot = statusDot;
-        _panelTitle = new PanelTitleController(Window, Surface, titleBranch, titleText);
+        _panelTitle = new PanelTitleController(Window, () => Surface, titleBranch, titleText);
 
         // The body cell holds the docking surface plus the edge slide-ins layered over it, confined below
         // the title bar so a slide-in's hover handle never lands inside the window's WindowChrome caption
         // band (see the matching comment in BuildPrimaryLayout for why that mattered).
-        var bodyGrid = new Grid();
-        bodyGrid.Children.Add(Surface);
+        var bodyGrid = _bodyGrid;
 
         var dockPanel = new DockPanel { LastChildFill = true };
         DockPanel.SetDock(titleBar, Dock.Top);
@@ -266,7 +301,7 @@ internal sealed partial class WindowHost
         layers.Children.Add(_helpOverlay);
 
         AttachSlideHosts(bodyGrid, layers);
-        _focusVisual = new FocusVisualController(Window, layers, Surface, null);
+        _focusVisual = new FocusVisualController(Window, layers, () => Surface, null);
 
         // A secondary window opens with nothing focused. Take keyboard focus once shown so the window-level
         // PreviewKeyDown resolver sees key presses and its shortcuts (Ctrl+W to close, etc.) stay alive.

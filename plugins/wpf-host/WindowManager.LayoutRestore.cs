@@ -114,6 +114,28 @@ internal sealed partial class WindowManager
         }
     }
 
+    /// Materialise a workspace's saved panels the first time it is activated - lazily, for the same reason its
+    /// session starts lazily: restoring eight workspaces up front would build every panel of every one of them.
+    /// Reuses the ordinary pending-restore machinery, so a panel whose plugin is still compiling shows the same
+    /// placeholder it would on a cold boot.
+    private void RestoreWorkspacePanels(Guid workspaceId)
+    {
+        if (_restoredLayout is not { } saved || workspaceId == Guid.Empty)
+        {
+            return;
+        }
+
+        foreach (var entry in saved.For(workspaceId).ToList())
+        {
+            if (_windows.TryGetValue(entry.WindowId, out var host))
+            {
+                RestoreLayout(host, entry);
+            }
+        }
+
+        FlushRestoreSends();
+    }
+
     // Restore requests are deferred until every plugin is up, so the registry has the kinds to resolve them.
     // A launch with no saved layout at all (first run, or a deleted state.yaml) opens the configured default
     // panels instead, so the window is never blank - that configuration is how the host seeds a chat without

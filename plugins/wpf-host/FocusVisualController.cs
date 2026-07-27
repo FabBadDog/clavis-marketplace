@@ -17,17 +17,17 @@ internal sealed class FocusVisualController
 {
     private readonly Window _window;
     private readonly FocusOverlay _overlay = new();
-    private readonly DockingSurface _surface;
+    private readonly Func<DockingSurface> _activeSurface;
     private readonly TextBox? _chatInput;
 
     private FrameworkElement? _tracked;
     private Rect _lastControl = Rect.Empty;
     private Rect _lastPanel = Rect.Empty;
 
-    public FocusVisualController(Window window, Panel overlayRoot, DockingSurface surface, TextBox? chatInput)
+    public FocusVisualController(Window window, Panel overlayRoot, Func<DockingSurface> activeSurface, TextBox? chatInput)
     {
         _window = window;
-        _surface = surface;
+        _activeSurface = activeSurface;
         _chatInput = chatInput;
 
         // Added last so it layers above the chrome, help overlay, and slide-ins.
@@ -122,9 +122,10 @@ internal sealed class FocusVisualController
                 return slide;
             }
 
-            if (ReferenceEquals(node, _surface))
+            var surface = _activeSurface();
+            if (ReferenceEquals(node, surface))
             {
-                return _surface.IsSplit ? _surface.ActivePanelContainer : null;
+                return surface.IsSplit ? surface.ActivePanelContainer : null;
             }
         }
 

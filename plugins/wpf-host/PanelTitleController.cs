@@ -17,15 +17,15 @@ internal sealed class PanelTitleController
     private const string ChatKind = "chat";
 
     private readonly Window _window;
-    private readonly DockingSurface _surface;
+    private readonly Func<DockingSurface> _activeSurface;
     private readonly FrameworkElement _branch;
     private readonly TextBlock _title;
     private string _shownKind = ChatKind;
 
-    public PanelTitleController(Window window, DockingSurface surface, FrameworkElement branch, TextBlock title)
+    public PanelTitleController(Window window, Func<DockingSurface> activeSurface, FrameworkElement branch, TextBlock title)
     {
         _window = window;
-        _surface = surface;
+        _activeSurface = activeSurface;
         _branch = branch;
         _title = title;
 
@@ -42,7 +42,7 @@ internal sealed class PanelTitleController
 
     private void Update()
     {
-        var kind = _surface.ActivePanelKind;
+        var kind = _activeSurface().ActivePanelKind;
         if (kind == _shownKind)
         {
             return;
@@ -55,7 +55,7 @@ internal sealed class PanelTitleController
         }
         else if (!string.IsNullOrEmpty(kind))
         {
-            _title.Text = _surface.ActivePanelTitle;
+            _title.Text = _activeSurface().ActivePanelTitle;
             Motion.crossfade(_branch, _title);
         }
         else

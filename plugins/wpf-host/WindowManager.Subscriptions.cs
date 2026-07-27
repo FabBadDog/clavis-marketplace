@@ -170,6 +170,19 @@ internal sealed partial class WindowManager
                     host.WorkspaceId = message.WorkspaceId;
                 }
 
+                // Swap each window onto this workspace's surface. A workspace seen for the first time gets a
+                // fresh surface, and its saved panels are materialised into it right after.
+                var firstVisit = !_windows.Values.Any(host => host.HasSurfaceFor(message.WorkspaceId));
+                foreach (var host in _windows.Values)
+                {
+                    host.ActivateWorkspace(message.WorkspaceId);
+                }
+
+                if (firstVisit)
+                {
+                    RestoreWorkspacePanels(message.WorkspaceId);
+                }
+
                 // A workspace's extra windows travel with it: the ones belonging to another workspace go away,
                 // and this workspace's come back. The primary is untouched - it is the constant.
                 ApplyWorkspaceWindowVisibility();

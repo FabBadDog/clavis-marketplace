@@ -162,22 +162,16 @@ internal sealed partial class WindowManager : IDisposable
             ScheduleSave();
         };
 
-        host.Surface.LayoutChanged += (_, _) => ScheduleSave();
-
-        // A panel closed off a secondary window's surface (its last) leaves it empty - retire the window so
-        // closing or dragging out the last panel closes the window. Drag-outs are handled at the move sites.
-        host.Surface.PanelRemoved += (_, _) => CloseIfEmptySecondary(host);
+        // Every surface the window owns needs the same handlers, so they are wired as each is created (one per
+        // workspace) rather than once for "the" surface.
+        host.SurfaceCreated += (_, surface) => WireSurface(host, surface);
+        foreach (var surface in host.Surfaces.ToList())
+        {
+            WireSurface(host, surface);
+        }
 
         host.SlideInMade += (_, made) =>
             _kindPlacement[made.Kind] = new PanelPlacement(host.WindowId, SlideMode, made.Edge);
-
-        host.Surface.ExternalPanelDropped += (_, drop) => MovePanelAcrossWindows(host, drop);
-
-        host.Surface.DragFellThrough += (_, fell) => ResolveCrossWindowDrop(host, fell);
-
-        host.Surface.DragMoving += (_, screenPoint) => UpdateCrossWindowHint(host, screenPoint);
-
-        host.Surface.DragCompleted += (_, _) => ClearCrossWindowHints();
 
         // A slide-in's handle drives the same cross-window drop machinery: its drag paints the drop hint,
         // falls through to a re-dock / tear-off, and its close cross dismisses the panel. The panel is lifted
@@ -204,6 +198,18 @@ internal sealed partial class WindowManager : IDisposable
         // monitor work areas. The neighbour rectangles are read fresh on each move, so they always
         // reflect the live layout.
         WindowSnapBehavior.Attach(host.Window, () => OtherWindowRects(host));
+    }
+
+    // The handlers every docking surface in a window needs. A panel closed off a secondary window's last
+    // surface leaves it empty, so the window is retired; drag events drive the cross-window move machinery.
+    private void WireSurface(WindowHost host, DockingSurface surface)
+    {
+        surface.LayoutChanged += (_, _) => ScheduleSave();
+        surface.PanelRemoved += (_, _) => CloseIfEmptySecondary(host);
+        surface.ExternalPanelDropped += (_, drop) => MovePanelAcrossWindows(host, drop);
+        surface.DragFellThrough += (_, fell) => ResolveCrossWindowDrop(host, fell);
+        surface.DragMoving += (_, screenPoint) => UpdateCrossWindowHint(host, screenPoint);
+        surface.DragCompleted += (_, _) => ClearCrossWindowHints();
     }
 
     // The physical-pixel rectangles of every window except the given one, so a dragged window can snap to
