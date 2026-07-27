@@ -42,6 +42,53 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP6 per-workspace surfaces | **next** | - |
 | WP5b, WP7 - WP10 | not started | - |
 
+> ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
+>
+> Two launches against the real `~/.clavis` (config + state backed up as `*.bak-wp5test-20260727`).
+> **The WP5 handover works end to end**, which was the open question:
+>
+> - `Conversation` activates (+02.758) and registers the `chat` kind (+02.861); `Workspaces` activates
+>   (+03.003); **exactly one** session starts (+03.576) in the workspace's directory; `WpfHost` activates
+>   *after* both (+03.846) - so `WorkspaceSessionStarted` went through the bootstrap buffer as designed.
+>   One `claude.exe` child, not two.
+> - `configuration.yaml` gained a correct `Workspaces` section: one workspace, slot 1, `Accent1Brush`,
+>   `workingDirectory: C:\Users\fhertell\Repos\FS\clavis`.
+> - `RetiredPanelKinds` rewrote the saved `conversation` slot to `chat`; no stuck placeholder.
+> - The chat panel's `SavedState` blob round-tripped as
+>   `{"workspaceId":"26e32960-…","chatId":"728ee53b-…"}` - WP3, WP4 and WP5 co-operating.
+> - Rendering confirmed by window capture: init turn with session-start hooks, timeline rail, stats column,
+>   the prompt input inside the chat panel (its framing line correctly clavis-blue when focused at the reveal
+>   and frame-grey when not), the `title-bar-left` branch strip, the `title-bar-right` agent cluster, and the
+>   status bar with `ctx 0/1M` + working directory. Slide-ins (`usage-limits`, `git-log`) preserved.
+> - No `PluginError`, no crash, no non-viable startup. The recurring `Marketplace*` dead letters are the
+>   pre-existing watcher noise.
+>
+> ### Open anomaly: a secondary window closed itself on the COLD launch (not reproducible)
+>
+> On the **first** (cold, everything recompiling) launch, the restored secondary window holding `code-editor`
+> closed itself ~16 s after the reveal, so its panel was lost from the saved layout. On a **warm** relaunch
+> from the identical saved layout it survived, and instrumentation on all four close paths
+> (`CloseIfEmptySecondary`, `ClosePanel`, `TogglePanel`, the cardinality dedupe) fired **none** of them.
+>
+> What is known: pre-WP3 logs contain no `WindowClosed` at all, so it cannot be dismissed as pre-existing.
+> The marketplace watcher is **ruled out** - its first message in that window lands *after* the close. The
+> log shows `WindowFocusChanged` → `WindowClosed` → `WindowFocusChanged`, i.e. the window was activated and
+> then closed, which matches `RevealInstance`'s `BringToFront` followed by a close, but nothing logged a close
+> decision. Timing-dependent, and only on a cold launch where background plugins activate 5-18 s after the
+> reveal.
+>
+> **Next step if it recurs:** re-add the four `DIAG` log lines (they were reverted, not committed) and launch
+> cold - i.e. after touching a source file so the item recompiles. Worth resolving before WP6, which
+> restructures exactly this machinery.
+>
+> ### Still untested - needs a human at the keyboard
+>
+> WPF routes keyboard input through the foreground window's focused element, and a background process cannot
+> take foreground (`SetForegroundWindow` is refused); `PostMessage(WM_CHAR)` to the top-level HWND does not
+> reach the focused `TextBox`. So these remain unverified: **prompt submit**, **Up/Down history recall**,
+> **`Ctrl+Up`/`Ctrl+Down` chat scroll**, the **permission `Left`/`Right`/`Enter`** keys, `Ctrl+P`, and
+> **tear-off** (a real mouse drag). They are checks 2-6 below.
+>
 > ## A launch is the gating step - do this before WP6
 >
 > **Nothing has booted since WP2**, and WP3-WP5 are no longer just structural. Five contract majors have moved
