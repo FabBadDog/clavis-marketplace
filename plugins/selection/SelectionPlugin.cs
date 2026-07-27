@@ -246,7 +246,7 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
             if (!answered)
             {
                 answered = true;
-                bus.Send(new SelectionCompleted(request.RequestId, accepted, value));
+                bus.Send(new SelectionCompleted(request.SessionId, request.RequestId, accepted, value));
             }
         }
 

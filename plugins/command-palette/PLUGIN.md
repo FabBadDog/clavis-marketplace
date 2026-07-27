@@ -1,12 +1,12 @@
 ---
 name: command-palette
 pluginId: CommandPalette
-version: 1.1.1
+version: 1.1.2
 apiVersion: 1.0.0
 description: Keyboard-first command palette and primary input surface.
 dependencies:
-  - { name: host-contracts, version: 1 }
-  - { name: session-contracts, version: 2 }
+  - { name: host-contracts, version: 2 }
+  - { name: session-contracts, version: 3 }
   - { name: services-contracts, version: 1 }
   - { name: keymap-contracts, version: 1 }
   - { name: layout-contracts, version: 1 }

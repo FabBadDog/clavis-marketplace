@@ -415,8 +415,10 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
 
         return Task.FromResult<IDisposable>(disposable);
 
+        // Reads the session at fire time rather than closing over one: the decision belongs to whichever
+        // session is live when the user answers, which a restart can have replaced since the prompt appeared.
         void PublishPermission(string requestId, string decision)
-            => bus.Send(new PermissionDecided(requestId, decision));
+            => bus.Send(new PermissionDecided(state.ActiveSessionId ?? Guid.Empty, requestId, decision));
 
         void UpdateViewModel(ConversationState newState)
         {

@@ -1,12 +1,12 @@
 ---
 name: events-panel
 pluginId: EventsPanel
-version: 1.0.3
+version: 1.0.4
 apiVersion: 1.0.0
 description: Raw bus-activity firehose with keyboard-first filters.
 dependencies:
-  - { name: session-contracts, version: 2 }
-  - { name: host-contracts, version: 1 }
+  - { name: session-contracts, version: 3 }
+  - { name: host-contracts, version: 2 }
   - { name: keymap-contracts, version: 1 }
   - { name: layout-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }

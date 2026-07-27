@@ -71,26 +71,11 @@ type SessionReady(sessionId: Guid, agentSessionId: string, model: string) =
     member _.AgentSessionId = agentSessionId
     member _.Model = model
 
+/// A permission prompt was answered. SessionId says which session it belongs to, so an observer can react
+/// without assuming there is only one; the requester correlates by RequestId as before.
 [<Sealed>]
-type ConversationStateChanged
-    (
-        model: string,
-        statusText: string,
-        contextSize: int,
-        contextFilled: int,
-        queuedCount: int,
-        hasActiveTurn: bool
-    ) =
-
-    member _.Model = model
-    member _.StatusText = statusText
-    member _.ContextSize = contextSize
-    member _.ContextFilled = contextFilled
-    member _.QueuedCount = queuedCount
-    member _.HasActiveTurn = hasActiveTurn
-
-[<Sealed>]
-type PermissionDecided(requestId: string, decision: string) =
+type PermissionDecided(sessionId: Guid, requestId: string, decision: string) =
+    member _.SessionId = sessionId
     member _.RequestId = requestId
     member _.Decision = decision
 

@@ -1,11 +1,11 @@
 ---
 name: marketplace-plugin
 pluginId: MarketplacePlugin
-version: 1.0.64
+version: 1.0.65
 apiVersion: 1.0.0
 description: Interactive marketplace surface - register marketplaces, search, and install/update/uninstall plugins.
 dependencies:
-  - { name: session-contracts, version: 2 }
+  - { name: session-contracts, version: 3 }
   - { name: marketplace-contracts, version: 1 }
 language: csharp
 assemblyName: MarketplacePlugin

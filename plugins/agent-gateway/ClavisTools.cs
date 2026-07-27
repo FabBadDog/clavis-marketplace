@@ -191,7 +191,10 @@ internal sealed class ClavisTools(GatewayContext context)
 
         var requestId = Guid.NewGuid();
         var pending = context.Selections.Register(requestId);
-        context.Bus.Send(new SelectionRequested(requestId, question, selectionOptions, allowFreeText));
+        // Guid.Empty: this gateway hosts one MCP server for the whole application and has no notion of
+        // which session invoked the tool, so an ask-user question cannot be attributed to one yet.
+        context.Bus.Send(
+            new SelectionRequested(Guid.Empty, requestId, question, selectionOptions, allowFreeText));
 
         var completed = await Task.WhenAny(pending, Task.Delay(AskUserTimeout));
         if (completed != pending)

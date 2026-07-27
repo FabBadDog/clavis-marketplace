@@ -1,12 +1,12 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 3.2.0
+version: 3.2.1
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
 dependencies:
-  - { name: host-contracts, version: 1 }
+  - { name: host-contracts, version: 2 }
   - { name: layout-contracts, version: 1 }
   - { name: keymap-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }

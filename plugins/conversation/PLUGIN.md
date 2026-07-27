@@ -1,13 +1,13 @@
 ---
 name: conversation
 pluginId: Conversation
-version: 7.5.0
+version: 7.6.0
 essential: true
 apiVersion: 1.0.0
 description: The elm/flux conversation state, update, and view models.
 dependencies:
-  - { name: session-contracts, version: 2 }
-  - { name: host-contracts, version: 1 }
+  - { name: session-contracts, version: 3 }
+  - { name: host-contracts, version: 2 }
   - { name: keymap-contracts, version: 1 }
   - { name: placeholders-contracts, version: 1 }
   - { name: services-contracts, version: 1 }

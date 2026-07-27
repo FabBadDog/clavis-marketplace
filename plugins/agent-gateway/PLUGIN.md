@@ -1,13 +1,13 @@
 ---
 name: agent-gateway
 pluginId: AgentGateway
-version: 2.0.0
+version: 2.0.1
 apiVersion: 1.0.0
 description: In-process MCP server over a named pipe for the agent.
 dependencies:
   - { name: layout-contracts, version: 1 }
-  - { name: host-contracts, version: 1 }
-  - { name: session-contracts, version: 2 }
+  - { name: host-contracts, version: 2 }
+  - { name: session-contracts, version: 3 }
 language: csharp
 assemblyName: AgentGateway
 rootNamespace: FabioSoft.Nucleus.Plugins.AgentGateway

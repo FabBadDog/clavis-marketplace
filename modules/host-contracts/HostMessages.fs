@@ -170,19 +170,30 @@ type SelectionOption(value: string, label: string, description: string) =
 /// ask-user tooling). RequestId correlates the answer; Prompt is the question shown above the input;
 /// AllowFreeText permits an answer that is not in the list. Answered with SelectionCompleted - also on
 /// dismissal, so the requester never hangs.
+///
+/// SessionId is the session the question belongs to, or Guid.Empty when it is not session-bound. Today the
+/// agent-driven path always sends Guid.Empty: ask_user is an MCP tool and the gateway hosts one server with
+/// no notion of which session called it. The field exists because this constructor is the single choke
+/// point - once the gateway is session-aware it fills in here and nothing else has to move.
 [<Sealed>]
 type SelectionRequested
-    (requestId: Guid, prompt: string, options: IReadOnlyList<SelectionOption>, allowFreeText: bool) =
+    (sessionId: Guid,
+     requestId: Guid,
+     prompt: string,
+     options: IReadOnlyList<SelectionOption>,
+     allowFreeText: bool) =
 
+    member _.SessionId = sessionId
     member _.RequestId = requestId
     member _.Prompt = prompt
     member _.Options = options
     member _.AllowFreeText = allowFreeText
 
 /// The user's answer to a SelectionRequested. Accepted is false when the popup was dismissed without a
-/// choice (Value is then empty).
+/// choice (Value is then empty). SessionId echoes the request's, so an observer sees the pair.
 [<Sealed>]
-type SelectionCompleted(requestId: Guid, accepted: bool, value: string) =
+type SelectionCompleted(sessionId: Guid, requestId: Guid, accepted: bool, value: string) =
+    member _.SessionId = sessionId
     member _.RequestId = requestId
     member _.Accepted = accepted
     member _.Value = value

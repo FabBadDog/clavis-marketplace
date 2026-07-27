@@ -1,12 +1,12 @@
 ---
 name: claude-bridge
 pluginId: ClaudeBridge
-version: 2.1.2
+version: 2.1.3
 essential: true
 apiVersion: 1.0.0
 description: Wraps Claude sessions; maps stream events onto bus messages.
 dependencies:
-  - { name: session-contracts, version: 2 }
+  - { name: session-contracts, version: 3 }
   - { name: editor-contracts, version: 1 }
   - { name: fabiosoft-claude, version: 2 }
 language: csharp

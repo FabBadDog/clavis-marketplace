@@ -93,7 +93,7 @@ let ``a permission request is surfaced and the decision is relayed to the agent`
         do! Task.Delay 100
 
         // Act
-        harness.Send(PermissionDecided(request.RequestId, "allow"))
+        harness.Send(PermissionDecided(request.SessionId, request.RequestId, "allow"))
         let! _ = harness.WaitFor<AgentAssistant>(fun message -> message.Text = "ran ls")
 
         // Assert

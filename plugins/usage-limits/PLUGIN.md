@@ -1,12 +1,12 @@
 ---
 name: usage-limits
 pluginId: UsageLimits
-version: 1.0.2
+version: 1.0.3
 apiVersion: 1.0.0
 description: Token usage / pacing indicator.
 dependencies:
-  - { name: session-contracts, version: 2 }
-  - { name: host-contracts, version: 1 }
+  - { name: session-contracts, version: 3 }
+  - { name: host-contracts, version: 2 }
   - { name: layout-contracts, version: 1 }
   - { name: clavis-rendering, version: 2 }
 language: csharp
