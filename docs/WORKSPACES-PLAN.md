@@ -42,6 +42,7 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP6a layout v2 + migration | done, **not runtime-verified** | `5c020d6` |
 | WP6b window-level workspace ownership | done, **not runtime-verified** | `5a514e3` |
 | WP6c N surfaces per window | done, **not runtime-verified** | `f807db8` |
+| WP8 keyboard: F1-F11/F12 + declared bindings | done, **not runtime-verified** | `5cc47b5` |
 | WP7 the bar | **next** | - |
 | WP5b, WP7 - WP10 | not started | - |
 
@@ -1077,7 +1078,7 @@ truncation leaves the full string as the tooltip;
 
 ---
 
-## WP8 - F1-F11 / F12
+## WP8 - F1-F11 / F12 - DONE
 
 **Scope: `Application`, definitively not `System`.** System scope means `RegisterHotKey` on the primary
 HWND, stealing F1-F12 from *every application on the machine* (F1 is help everywhere, F12 is devtools).
