@@ -39,7 +39,7 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP3 chat becomes a panel kind | done, **not runtime-verified** | `76c5078` |
 | WP4 chats aggregate | done, **not runtime-verified** | `db7c40d` |
 | WP5 workspace-contracts 2.0.0 + Workspaces plugin | done, **not runtime-verified** | `9965ed0` + the Selection half |
-| WP6a layout v2 + migration | done, **not runtime-verified** | see WP6 below |
+| WP6a layout v2 + migration | done, **not runtime-verified** | `5c020d6` |
 | WP6b per-workspace surfaces | **next** | - |
 | WP5b, WP7 - WP10 | not started | - |
 
