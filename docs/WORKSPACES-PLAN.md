@@ -40,7 +40,8 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP4 chats aggregate | done, **not runtime-verified** | `db7c40d` |
 | WP5 workspace-contracts 2.0.0 + Workspaces plugin | done, **not runtime-verified** | `9965ed0` + the Selection half |
 | WP6a layout v2 + migration | done, **not runtime-verified** | `5c020d6` |
-| WP6b per-workspace surfaces | **next** | - |
+| WP6b window-level workspace ownership | done, **not runtime-verified** | see WP6 below |
+| WP6c N surfaces per window | **next** (needs the three chrome controllers made surface-agnostic first) | - |
 | WP5b, WP7 - WP10 | not started | - |
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
@@ -879,7 +880,7 @@ instance is already adopted.
 
 ---
 
-## WP6 - Per-workspace surfaces + layout v2 - HALF DONE
+## WP6 - Per-workspace surfaces + layout v2 - LAYOUT + WINDOWS DONE, SURFACES REMAIN
 
 Split in two so each half is committable. **Layout v2 + migration has landed**; the N-surface machinery has
 not. Catalog gate green after the first half: 40/40 items, 24/24 suites (wpf-host 67 -> 78).
@@ -912,12 +913,35 @@ a secondary carrying its workspace, a future version discarded) and a new `Layou
 end-to-end, geometry and slide-ins landing in the right place, unassigned-not-orphaned, adopt binding /
 not-rebinding / no-op, orphan dropping, unassigned surviving a drop).
 
-### Remaining: the N-surface machinery
+### Also landed: window-level workspace ownership (`wpf-host 5.1.0`)
 
-`WorkspaceSurfaces` (one `DockingSurface` per workspace per window, lazily created, hidden, `Motion.crossfade`
-on switch), `WindowHost.Surface => _surfaces.Active` so the ~40 existing call sites compile unchanged,
-secondary windows hiding/showing with their workspace, `OrderedWindows`/`HideAll`/`Summon`/drop-targets
-filtering by workspace, per-workspace `RestorePanel` on first activation, and wiring `DropOrphans`.
+- **`OrderedWindows()` is scoped to the active workspace**, and that turned out to be the whole job for the
+  window half: it is the single funnel the reveal, summon, banish *and* the cross-window Tab ring all read, so
+  filtering there makes a foreign workspace's window uniformly absent from every one of them rather than each
+  site remembering. An unassigned secondary (`Guid.Empty`, pre-adoption) counts as present, so it is never
+  stranded invisible.
+- Switching workspaces hides the other workspaces' secondaries and fades this one's back in
+  (`ApplyWorkspaceWindowVisibility`), guarded to do nothing before the reveal or mid-slide - hiding during a
+  slide would capture an animated position as a window's resting place.
+- A secondary's layout is captured under **its own** workspace, not the active one, so a hidden window is not
+  refiled to whatever you were looking at when the debounced save fired.
+- `DropOrphans` is wired to the **first** `WorkspaceListChanged` (one-shot: later lists reflect in-session
+  creates and closes, which the live windows already track).
+
+### Remaining - WP6c: N surfaces per window
+
+The last piece is one `DockingSurface` per workspace *inside* a window (`WorkspaceSurfaces`, lazily created,
+hidden, `Motion.crossfade` on switch, `WindowHost.Surface => _surfaces.Active` so the ~40 call sites compile
+unchanged), plus per-workspace `RestorePanel` on first activation.
+
+**Why it was not done here, and what has to happen first.** `WindowHost` builds three collaborators that each
+capture *one* `DockingSurface` for the window's lifetime: `ActivePanelWatcher` (drives the title/status chrome
+from the active panel), `FocusVisualController` (the focus ring) and `PanelTitleController` (the secondary
+window's title cross-fade). With N surfaces they would all keep watching surface #1, so on workspace 2 the
+chrome would report the wrong active panel and the focus ring would track a hidden tree. **Make those three
+surface-agnostic (or re-target them on switch) before introducing `WorkspaceSurfaces`** - that is the real
+first step of WP6c, not the surface container itself. A `WorkspaceSurfaces` draft was written and deliberately
+discarded rather than committed unwired; its shape is described above.
 
 ### Original scope
 

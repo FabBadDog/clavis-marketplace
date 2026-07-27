@@ -170,7 +170,29 @@ internal sealed partial class WindowManager
                     host.WorkspaceId = message.WorkspaceId;
                 }
 
+                // A workspace's extra windows travel with it: the ones belonging to another workspace go away,
+                // and this workspace's come back. The primary is untouched - it is the constant.
+                ApplyWorkspaceWindowVisibility();
                 ScheduleSave();
+            });
+            return Task.CompletedTask;
+        }));
+
+        // The first workspace list is when orphans become knowable: a layout left behind by a workspace closed
+        // in an earlier session has nothing to belong to, so it is discarded rather than carried forward for
+        // ever. Unassigned (Guid.Empty) entries deliberately survive - those are adopted, not orphaned.
+        _subscriptions.Add(_bus.Subscribe<WorkspaceListChanged>(message =>
+        {
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                if (_orphansDropped || _restoredLayout is not { } restored)
+                {
+                    return;
+                }
+
+                _orphansDropped = true;
+                var live = message.Workspaces.Select(workspace => workspace.WorkspaceId).ToList();
+                _restoredLayout = LayoutMigration.DropOrphans(restored, live);
             });
             return Task.CompletedTask;
         }));

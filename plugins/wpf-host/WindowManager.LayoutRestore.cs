@@ -180,8 +180,13 @@ internal sealed partial class WindowManager
             host.IsPrimary ? Guid.Empty : host.WorkspaceId,
             BoundsOf(host.Window));
 
+    // A secondary window's layout is keyed by the workspace that window belongs to, not by whichever workspace
+    // is active: a hidden secondary is still captured, and filing it under the active workspace would move it
+    // to whatever you happened to be looking at when the save fired.
     private PersistedWorkspaceLayout CaptureWorkspaceLayout(WindowHost host) =>
-        new(host.WindowId, _activeWorkspaceId, LayoutTree.FoldState(host.Surface.Capture(), _panelState))
+        new(host.WindowId,
+            host.IsPrimary || host.WorkspaceId == Guid.Empty ? _activeWorkspaceId : host.WorkspaceId,
+            LayoutTree.FoldState(host.Surface.Capture(), _panelState))
         {
             SlideIns =
             [

@@ -1,7 +1,7 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 5.0.0
+version: 5.1.0
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
@@ -110,6 +110,13 @@ unit-tested.
   workspace. The rule itself is the pure `LivePanels.Find`; the host only enumerates what is live. Every panel
   id is remembered against its workspace, all `Guid.Empty` until workspaces exist - which is exactly the old
   application-wide behaviour.
+- **A workspace's extra windows travel with it.** Every secondary window records the workspace it was torn
+  off in, and `OrderedWindows()` is scoped to the active one. That is the single funnel the reveal, summon,
+  banish and the cross-window Tab ring all read, so a window belonging to a workspace you are not looking at is
+  uniformly absent from every one of them instead of each site remembering to filter. Switching hides the other
+  workspaces' windows and fades this one's back in. The primary is the constant - it carries the chrome for
+  every workspace and belongs to none. A secondary's layout is keyed by *its* workspace, not the active one, so
+  a hidden window is not refiled to whatever you were looking at when the save fired.
 - **Snapshot.** It answers `LayoutSnapshotRequested` by building a `LayoutSnapshot` (windows,
   panels, focused window/panel) on the dispatcher - this is the response half of a bus request, used by
   AgentGateway's `layout_snapshot` tool.

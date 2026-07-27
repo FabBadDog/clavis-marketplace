@@ -104,6 +104,30 @@ internal sealed partial class WindowManager
         FlushRestoreSends();
     }
 
+    /// Show the active workspace's secondary windows and hide the others. Only runs while the application is
+    /// revealed and not mid-transition: before the reveal every window is deliberately hidden, and hiding or
+    /// showing during a slide would capture an animated position as a window's resting place.
+    private void ApplyWorkspaceWindowVisibility()
+    {
+        if (!_revealed || InVisibilityTransition)
+        {
+            return;
+        }
+
+        foreach (var host in _windows.Values.Where(host => !host.IsPrimary))
+        {
+            var belongs = IsInActiveWorkspace(host);
+            if (belongs && !host.Window.IsVisible)
+            {
+                ShowWithFade(host.Window);
+            }
+            else if (!belongs && host.Window.IsVisible)
+            {
+                Motion.fadeWindow(host.Window, 0.0, host.Window.Hide);
+            }
+        }
+    }
+
     private void Summon()
     {
         var primary = GetPrimary();

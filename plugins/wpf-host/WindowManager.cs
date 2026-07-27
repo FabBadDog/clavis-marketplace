@@ -91,6 +91,10 @@ internal sealed partial class WindowManager : IDisposable
     private Guid _activeWorkspaceId;
     private PersistedLayout? _restoredLayout;
 
+    // Orphan pruning is one-shot on the first workspace list: later lists reflect workspaces being created and
+    // closed during the session, which the live windows already track.
+    private bool _orphansDropped;
+
     // The windows stay invisible until the essential plugins are ready AND the saved-layout answer has
     // been applied, then appear once - already at their restored bounds, so the boot never shows a window
     // that then jumps to its saved position. The failsafe reveals anyway when the state answer cannot
@@ -234,6 +238,10 @@ internal sealed partial class WindowManager : IDisposable
 
     // A stable ring for cross-window Tab: the primary first, then the secondaries. The order only needs to
     // be consistent (not screen-accurate) for traversal to cross windows predictably.
+    //
+    // Scoped to the active workspace, which is the single funnel every visibility path goes through - the
+    // reveal, summon, banish, and the Tab ring all read this, so a secondary window belonging to a workspace
+    // you are not looking at is uniformly absent from all of them rather than each site remembering to filter.
     private IReadOnlyList<WindowHost> OrderedWindows()
     {
         var primary = GetPrimary();
@@ -243,9 +251,17 @@ internal sealed partial class WindowManager : IDisposable
             ordered.Add(primary);
         }
 
-        ordered.AddRange(_windows.Values.Where(host => !ReferenceEquals(host, primary)));
+        ordered.AddRange(_windows.Values
+            .Where(host => !ReferenceEquals(host, primary))
+            .Where(IsInActiveWorkspace));
         return ordered;
     }
+
+    /// True when a window belongs on screen for the active workspace. The primary always does - it carries the
+    /// chrome for every workspace. An unassigned secondary (restored from a layout that predates workspaces,
+    /// before the first activation adopts it) does too, so it is never stranded invisible.
+    private bool IsInActiveWorkspace(WindowHost host) =>
+        host.IsPrimary || host.WorkspaceId == Guid.Empty || host.WorkspaceId == _activeWorkspaceId;
 
     public void Dispose()
     {
