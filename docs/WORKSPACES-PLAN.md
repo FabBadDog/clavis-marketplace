@@ -38,7 +38,7 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | Host: WP0 fallout + BuildSpec cache key | done | `967c0f2`, `2c21571`, `81479a2` (host repo) |
 | WP3 chat becomes a panel kind | done, **not runtime-verified** | `76c5078` |
 | WP4 chats aggregate | done, **not runtime-verified** | `db7c40d` |
-| WP5 workspace-contracts 2.0.0 + Workspaces plugin | done except the Selection half, **not runtime-verified** | `9965ed0` |
+| WP5 workspace-contracts 2.0.0 + Workspaces plugin | done, **not runtime-verified** | `9965ed0` + the Selection half |
 | WP6 per-workspace surfaces | **next** | - |
 | WP5b, WP7 - WP10 | not started | - |
 
@@ -615,7 +615,7 @@ for a single-chat state (regression guard).
 
 ---
 
-## WP5 - `workspace-contracts` 2.0.0 + the `Workspaces` plugin (headless) - DONE (except the Selection half)
+## WP5 - `workspace-contracts` 2.0.0 + the `Workspaces` plugin (headless) - DONE
 
 Catalog gate green: 40/40 items, 24/24 test suites, 77/77 dependency edges (workspaces 44 tests, palette 45).
 Bumps: new `workspace-contracts 2.0.0` and `workspaces 1.0.0`; `host-contracts 3.1.0` (`ExitApplication`
@@ -653,12 +653,14 @@ Deviations and decisions:
    commands as soon as the module is loaded. Only the aliases were touched: `exit` -> `CloseActiveWorkspace`,
    new `quit` -> `ExitApplication`, plus `workspace` and `workspaces`.
 
-**Still outstanding from this package: per-session capabilities in the Selection plugin.** Turning its single
-`volatile AgentCapabilities` into a `ConcurrentDictionary<Guid, AgentCapabilities>` keyed by session, fed by
-`WorkspaceActivated`, is independent of everything above and is the last WP5 item. Until it lands the
-model/effort/mode pickers still show "whichever session reported last" - today's behaviour, harmless while
-only one workspace exists, wrong as soon as two do. Do it before WP7 puts a second workspace in front of a
-user.
+7. **The Selection half landed too** - the WP2 deferral is closed. Its single `volatile AgentCapabilities`
+   became a `ConcurrentDictionary<Guid, AgentCapabilities>` plus a visible-session id fed by
+   `WorkspaceActivated` (and by `WorkspaceSessionStarted`, since activation reports `Guid.Empty` for a
+   workspace whose session has not started yet). The rule is the pure `SessionCapabilities.Resolve`: the
+   visible session wins; failing that a **sole** snapshot is used, which keeps the one-workspace case behaving
+   exactly as before; with several snapshots and no visible session nothing is offered, because there is no
+   honest answer. The pickers needed no other change - they already send `capabilities.SessionId`, so a pick
+   now targets the visible session by construction.
 
 ### Original scope
 

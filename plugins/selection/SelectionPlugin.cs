@@ -16,10 +16,28 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
 
     public SelectionConfig DefaultConfig => new();
 
-    // The latest capability snapshot (the active session's axes + choice catalogs) and the user-openable
-    // panel kinds (kind -> title), both rebuilt from incoming broadcasts.
-    private volatile AgentCapabilities? _capabilities;
+    // Each session's capability snapshot (its axes + choice catalogs) and which session is currently visible,
+    // so the pickers offer the axes of the workspace you are looking at rather than of whichever session
+    // reported last. Plus the user-openable panel kinds (kind -> title). All rebuilt from broadcasts.
+    private readonly ConcurrentDictionary<Guid, AgentCapabilities> _capabilitiesBySession = new();
     private readonly ConcurrentDictionary<string, string> _panelKinds = new(StringComparer.Ordinal);
+
+    // Written on a bus thread, read on the UI thread when a picker opens. A Guid write is not atomic, so this
+    // is guarded rather than marked volatile (which C# does not allow on a struct this size anyway) - a torn
+    // read would point at a session that does not exist.
+    private readonly object _visibleGate = new();
+    private Guid _visibleSessionId;
+
+    private Guid VisibleSessionId
+    {
+        get { lock (_visibleGate) { return _visibleSessionId; } }
+        set { lock (_visibleGate) { _visibleSessionId = value; } }
+    }
+
+    /// The capability snapshot the pickers offer, and the session a pick is applied to: the visible session's,
+    /// falling back per SessionCapabilities.Resolve.
+    private AgentCapabilities? Capabilities =>
+        SessionCapabilities.Resolve(_capabilitiesBySession, VisibleSessionId);
 
     // Lazily loaded XAML row templates (created on the dispatcher on first use).
     private SelectionTemplates? _templates;
@@ -38,9 +56,28 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
         {
             if (evt is AgentCapabilities capabilities)
             {
-                _capabilities = capabilities;
+                _capabilitiesBySession[capabilities.SessionId] = capabilities;
             }
 
+            return Task.CompletedTask;
+        });
+
+        // Which workspace is active decides which session's axes the pickers show. Both messages carry it:
+        // activation for a workspace whose session is already running, and the session-started announcement
+        // for one that had not started yet (activation reports Guid.Empty in that case).
+        var workspaceActivatedSubscription = bus.Subscribe<WorkspaceActivated>(message =>
+        {
+            if (message.SessionId != Guid.Empty)
+            {
+                VisibleSessionId = message.SessionId;
+            }
+
+            return Task.CompletedTask;
+        });
+
+        var workspaceSessionSubscription = bus.Subscribe<WorkspaceSessionStarted>(message =>
+        {
+            VisibleSessionId = message.SessionId;
             return Task.CompletedTask;
         });
 
@@ -103,12 +140,13 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
         return Task.FromResult<IDisposable>(new PluginDisposable(
             streamSubscription, panelKindSubscription, selectModelSubscription, selectEffortSubscription,
             selectModeSubscription, selectPanelSubscription, cycleModeSubscription,
+            workspaceActivatedSubscription, workspaceSessionSubscription,
             selectionRequestedSubscription));
     }
 
     private void CycleMode(IBus bus)
     {
-        if (_capabilities is not { } capabilities || capabilities.Modes.Count == 0)
+        if (Capabilities is not { } capabilities || capabilities.Modes.Count == 0)
         {
             return;
         }
@@ -134,7 +172,7 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
 
     private void ShowModelSelector(IBus bus, SelectionConfig config)
     {
-        if (_capabilities is not { } capabilities || capabilities.Models.Count == 0)
+        if (Capabilities is not { } capabilities || capabilities.Models.Count == 0)
         {
             return;
         }
@@ -158,7 +196,7 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
 
     private void ShowEffortSelector(IBus bus, SelectionConfig config)
     {
-        if (_capabilities is not { } capabilities)
+        if (Capabilities is not { } capabilities)
         {
             return;
         }
@@ -190,7 +228,7 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
 
     private void ShowModeSelector(IBus bus, SelectionConfig config)
     {
-        if (_capabilities is not { } capabilities || capabilities.Modes.Count == 0)
+        if (Capabilities is not { } capabilities || capabilities.Modes.Count == 0)
         {
             return;
         }

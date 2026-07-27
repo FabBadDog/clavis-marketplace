@@ -17,5 +17,6 @@
   <ItemGroup>
     <Compile Include="SelectionRowsTests.fs" />
     <Compile Include="ModeCycleTests.fs" />
+    <Compile Include="SessionCapabilitiesTests.fs" />
   </ItemGroup>
 </Project>
