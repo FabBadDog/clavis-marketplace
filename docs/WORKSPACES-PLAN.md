@@ -43,7 +43,8 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP6b window-level workspace ownership | done, **not runtime-verified** | `5a514e3` |
 | WP6c N surfaces per window | done, **not runtime-verified** | `f807db8` |
 | WP8 keyboard: F1-F11/F12 + declared bindings | done, **not runtime-verified** | `5cc47b5` |
-| WP7 the bar | **next** | - |
+| WP9 the F12 overview panel | done, **not runtime-verified** | `dbbcfe7` |
+| WP7 the bar | **next** (the last visible piece) | - |
 | WP5b, WP7 - WP10 | not started | - |
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
@@ -1133,7 +1134,7 @@ command is kept.
 
 ---
 
-## WP9 - The overview panel (F12)
+## WP9 - The overview panel (F12) - DONE
 
 **Architecturally: a panel kind. Nothing new.** `workspace-overview`, registered by `Workspaces`,
 `Cardinality = OnePerApplication`, default placement an edge slide-in via the existing
