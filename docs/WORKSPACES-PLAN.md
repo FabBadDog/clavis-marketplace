@@ -38,7 +38,7 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | Host: WP0 fallout + BuildSpec cache key | done | `967c0f2`, `2c21571`, `81479a2` (host repo) |
 | WP3 chat becomes a panel kind | done, **not runtime-verified** | `76c5078` |
 | WP4 chats aggregate | done, **not runtime-verified** | `db7c40d` |
-| WP5 workspace-contracts 2.0.0 + Workspaces plugin | done except the Selection half, **not runtime-verified** | see WP5 below |
+| WP5 workspace-contracts 2.0.0 + Workspaces plugin | done except the Selection half, **not runtime-verified** | `9965ed0` |
 | WP6 per-workspace surfaces | **next** | - |
 | WP5b, WP7 - WP10 | not started | - |
 
