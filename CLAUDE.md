@@ -22,7 +22,9 @@ clavis-marketplace/
   plugins/<name>/     a PLUGIN - its own collectible load context, reloadable at runtime
   modules/<name>/     a MODULE - loaded into the Default ALC, not unloadable
   tools/              repo scripts (Generate-MessageMap.ps1, run-tests.ps1)
-  docs/               CODEMAP.md (item index), MESSAGE-MAP.md (bus wiring), design/ (design language + mockups)
+  docs/               CODEMAP.md (item index), MESSAGE-MAP.md (bus wiring), design/ (design language + mockups),
+                      WORKSPACES-PLAN.md (the in-flight Workspaces feature - read it before touching the
+                      chat panel, the session lifecycle, or the docking layout)
   MARKETPLACE.md      the short catalog/authoring summary (frontmatter overview)
   CLAUDE.md           this file
 ```
