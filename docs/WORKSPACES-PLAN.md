@@ -41,7 +41,8 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP5 workspace-contracts 2.0.0 + Workspaces plugin | done, **not runtime-verified** | `9965ed0` + the Selection half |
 | WP6a layout v2 + migration | done, **not runtime-verified** | `5c020d6` |
 | WP6b window-level workspace ownership | done, **not runtime-verified** | `5a514e3` |
-| WP6c N surfaces per window | **next** (needs the three chrome controllers made surface-agnostic first) | - |
+| WP6c N surfaces per window | done, **not runtime-verified** | `f807db8` |
+| WP7 the bar | **next** | - |
 | WP5b, WP7 - WP10 | not started | - |
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
