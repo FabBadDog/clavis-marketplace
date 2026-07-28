@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
@@ -430,7 +431,15 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                     registry.IsAdopted(instance.SessionId)))
                 .ToArray();
 
-            bus.LogInfo("ClaudeBridge", $"discovered {instances.Length} reclaimable agent instance(s)");
+            // The supervisor daemon knows things the listing does not - which process backs each agent, and the
+            // pipes it is reachable on - which is what a clean hand-over needs. It is undocumented internals, so
+            // it is read behind its own proto gate and its absence is normal: discovery stands on
+            // `claude agents --json` either way, and only the hand-over strategy depends on this.
+            var workers = AgentRoster.parse(ReadRoster());
+            bus.LogInfo(
+                "ClaudeBridge",
+                $"discovered {instances.Length} reclaimable agent instance(s); daemon roster: "
+                + (workers.IsEmpty ? "not available (falling back to the listing alone)" : $"{workers.Length} supervised worker(s)"));
             bus.Send(new AgentInstancesAvailable(instances));
         });
 
@@ -582,6 +591,30 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                 .Select(l => l.Trim())
                 .FirstOrDefault(l => l.Length > 0) ?? "";
             return line.Length > maxLength ? line[..maxLength].TrimEnd() : line;
+        }
+        catch (Exception)
+        {
+            return "";
+        }
+    }
+
+    /// The supervisor daemon's roster for the Claude home this machine's CLI will use, or "" when there is none.
+    /// A missing, unreadable or locked roster is an ordinary outcome, not a failure: the caller degrades to the
+    /// documented listing.
+    [ExcludeFromCodeCoverage]
+    private static string ReadRoster()
+    {
+        try
+        {
+            var home = System.Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR");
+            if (string.IsNullOrWhiteSpace(home))
+            {
+                home = System.IO.Path.Combine(
+                    System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile), ".claude");
+            }
+
+            var path = AgentRoster.pathIn(home);
+            return System.IO.File.Exists(path) ? System.IO.File.ReadAllText(path) : "";
         }
         catch (Exception)
         {
