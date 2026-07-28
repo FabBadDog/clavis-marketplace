@@ -13,15 +13,38 @@ internal sealed partial class WindowManager
 {
     private void SubscribeToBus()
     {
+        // Routed by region owner rather than broadcast: the bar owns exactly one region, everything else is
+        // the primary's. Broadcasting to every window instead would hand the same view element to two visual
+        // trees (secondary windows define title-bar regions too), which WPF rejects outright.
         _subscriptions.Add(_bus.Subscribe<UiRegionContribution>(contribution =>
         {
-            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.Regions.AddContribution(contribution));
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                if (contribution.RegionId == BarWindow.RegionId)
+                {
+                    _bar?.Regions.AddContribution(contribution);
+                }
+                else
+                {
+                    GetPrimary()?.Regions.AddContribution(contribution);
+                }
+            });
             return Task.CompletedTask;
         }));
 
         _subscriptions.Add(_bus.Subscribe<UiRegionRemoved>(removal =>
         {
-            Application.Current.Dispatcher.InvokeAsync(() => GetPrimary()?.Regions.RemoveContribution(removal));
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                if (removal.RegionId == BarWindow.RegionId)
+                {
+                    _bar?.Regions.RemoveContribution(removal);
+                }
+                else
+                {
+                    GetPrimary()?.Regions.RemoveContribution(removal);
+                }
+            });
             return Task.CompletedTask;
         }));
 

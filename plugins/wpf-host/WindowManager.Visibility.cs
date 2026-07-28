@@ -92,6 +92,8 @@ internal sealed partial class WindowManager
             }
         }
 
+        ShowBar(primary);
+
         primary.Window.Activate();
         // Land focus inside the surface rather than on a window-owned input: the prompt belongs to the chat
         // panel now, so "focus the first thing in the active panel" is both correct and chat-agnostic.
@@ -126,6 +128,43 @@ internal sealed partial class WindowManager
                 Motion.fadeWindow(host.Window, 0.0, host.Window.Hide);
             }
         }
+    }
+
+    /// Place the bar on the monitor the primary window is on and show it. Never activated, never owned by the
+    /// primary: an owned window would hide with its owner, and the bar surviving a banish is the point of it.
+    private void ShowBar(WindowHost primary)
+    {
+        if (_bar is not { } bar)
+        {
+            return;
+        }
+
+        if (WindowSnapBehavior.RectOf(primary.Window) is { } rect)
+        {
+            var dpi = PresentationSource.FromVisual(primary.Window)?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+            bar.PlaceOn(WorkAreaContaining(rect), dpi);
+        }
+
+        bar.Window.Show();
+        bar.ReassertTopmost();
+    }
+
+    // The work area of the monitor the given rectangle sits on, falling back to the primary monitor's when the
+    // lookup fails (an unplugged display) so the bar lands somewhere visible rather than nowhere.
+    private static ScreenRectangle WorkAreaContaining(ScreenRectangle windowRect)
+    {
+        foreach (var area in WindowSnapBehavior.WorkAreas())
+        {
+            var centerX = (windowRect.Left + windowRect.Right) / 2;
+            if (centerX >= area.Left && centerX <= area.Right)
+            {
+                return area;
+            }
+        }
+
+        return new ScreenRectangle(
+            (int)SystemParameters.WorkArea.Left, (int)SystemParameters.WorkArea.Top,
+            (int)SystemParameters.WorkArea.Right, (int)SystemParameters.WorkArea.Bottom);
     }
 
     private void Summon()
@@ -167,6 +206,8 @@ internal sealed partial class WindowManager
         primary.Window.Activate();
         primary.Window.Topmost = true;
         primary.Window.Topmost = false;
+        // Summon's z-order kick above can momentarily lift the primary over the bar; reclaim the top.
+        _bar?.ReassertTopmost();
         primary.FocusSurface();
     }
 

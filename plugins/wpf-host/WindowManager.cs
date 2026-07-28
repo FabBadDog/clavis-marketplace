@@ -62,6 +62,11 @@ internal sealed partial class WindowManager : IDisposable
     private readonly DispatcherTimer _saveTimer;
     private readonly FocusTraversal _focusTraversal;
     private readonly TearOffPreview _tearOffPreview = new();
+    // The bar is deliberately NOT in _windows: it must never appear in the Tab ring, in snapping neighbours,
+    // as a tear-off drop target, in the captured layout, or in a snapshot. Keeping it in its own field makes
+    // that structural rather than a filter every site has to remember.
+    private BarWindow? _bar;
+
     private GlobalHotkey? _globalHotkey;
     private SummonSignal? _summonSignal;
     private Guid _focusedWindowId;
@@ -132,6 +137,12 @@ internal sealed partial class WindowManager : IDisposable
         // System-scope bindings register as OS global hotkeys on the primary window; a press runs the
         // bound command through the same RunCommand path as any other binding.
         _globalHotkey = new GlobalHotkey(primary.Window, command => _bus.Send(new RunCommand(command)));
+
+        // The bar is created with the primary but shown at the reveal, alongside it.
+        if (_config.ShowWorkspaceBar)
+        {
+            _bar = new BarWindow(_config.WorkspaceBarHeight);
+        }
 
         // A second Clavis launch signals the host's activation event instead of booting; route it into
         // the same summon path as the global hotkey.
@@ -291,5 +302,10 @@ internal sealed partial class WindowManager : IDisposable
             try { host.Window.Close(); }
             catch { /* window may already be closed */ }
         }
+
+        // The bar is closed only here. Its own Closing must never send ApplicationShutdown - it is not the
+        // application's lifetime, the primary is.
+        try { _bar?.Window.Close(); }
+        catch { /* window may already be closed */ }
     }
 }

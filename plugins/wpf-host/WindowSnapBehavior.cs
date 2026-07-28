@@ -91,7 +91,9 @@ internal sealed class WindowSnapBehavior
 
     // Every monitor's work area (the desktop minus the taskbar and any docked bars), in physical pixels,
     // so a window can snap to the usable edge of any display.
-    private static List<ScreenRectangle> WorkAreas()
+    /// The work area of every monitor. Public because the workspace bar places itself on the monitor its
+    /// primary window is on, and this is already the one place that enumerates them.
+    public static List<ScreenRectangle> WorkAreas()
     {
         var areas = new List<ScreenRectangle>();
 

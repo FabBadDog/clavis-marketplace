@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows;
 using FabioSoft.Nucleus.Contracts;
 
 namespace FabioSoft.Nucleus.Plugins.Workspaces;
@@ -248,6 +249,11 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
 
             return Task.CompletedTask;
         }));
+
+        // The bar is a window the HOST owns; this plugin only contributes the strip into its region, so the
+        // host stays free of workspace vocabulary and no second plugin mints a top-level window.
+        Application.Current?.Dispatcher.InvokeAsync(() => bus.Send(new UiRegionContribution(
+            "workspace-bar", Id, 0, () => Views.WorkspaceBarView.Create(bus))));
 
         // The overview is an ordinary panel kind, so it inherits open/toggle/close/restore/persist/tear-off/Esc
         // and a palette command for free. One per application, not per workspace: it is a view *of* all of them.

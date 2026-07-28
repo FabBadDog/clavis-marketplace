@@ -23,5 +23,6 @@
     <Compile Include="LayoutFileTests.fs" />
     <Compile Include="LayoutMigrationTests.fs" />
     <Compile Include="LivePanelsTests.fs" />
+    <Compile Include="BarPlacementTests.fs" />
   </ItemGroup>
 </Project>
