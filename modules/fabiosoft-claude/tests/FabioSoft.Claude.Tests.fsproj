@@ -21,5 +21,6 @@
     <Compile Include="PermissionRulesTests.fs" />
     <Compile Include="HookCatalogTests.fs" />
     <Compile Include="SessionTests.fs" />
+    <Compile Include="AgentInstancesTests.fs" />
   </ItemGroup>
 </Project>

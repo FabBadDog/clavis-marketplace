@@ -135,6 +135,10 @@ module ClaudeCommand =
     /// Create a new git worktree for this session.
     let withWorktree : CommandPipe = flag "worktree"
 
+    /// Run as a durable background agent: it keeps going after the launching process exits. This is how a
+    /// session is handed back when Clavis closes, so the work outlives the window instead of dying with it.
+    let withBackground : CommandPipe = flag "bg"
+
     /// Resume a conversation by session ID.
     let withResume sessionId : CommandPipe = flagWith "resume" sessionId
     

@@ -1,7 +1,7 @@
 ---
 name: fabiosoft-claude
 assemblyName: FabioSoft.Claude
-version: 2.1.1
+version: 2.2.0
 apiVersion: 1.0.0
 description: Standalone Claude Code bridge library.
 produces: [ FabioSoft.Claude.dll ]
@@ -13,6 +13,7 @@ sources:
   - NdjsonParser.fs
   - UsageApi.fs
   - ClaudeCommand.fs
+  - AgentInstances.fs
   - PermissionRules.fs
   - HookCatalog.fs
   - Session.fs

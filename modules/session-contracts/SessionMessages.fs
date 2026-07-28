@@ -1,6 +1,7 @@
 namespace FabioSoft.Contracts.Session
 
 open System
+open System.Collections.Generic
 open System.ComponentModel
 
 [<Sealed>]
@@ -104,3 +105,86 @@ type Summarize(text: string, maxLength: int) =
 [<Sealed>]
 type SummaryResult(summary: string) =
     member _.Summary = summary
+
+// --- Agent instances: discover, adopt, hand off ---
+//
+// A workspace's agent should outlive Clavis. Today the bridge spawns a child process per session and closing
+// Clavis kills the work; the goal is that an agent keeps running while Clavis is shut and is picked back up on
+// the next launch.
+//
+// Provider-neutral by design: no "claude", no "--bg", no pid appears in any of these. The facade stops assuming
+// Clavis spawns and owns a process - obtaining an instance is one way among several, and lifecycle is the
+// provider's business.
+//
+// The shape is constrained by what the CLI actually offers, verified rather than assumed: there is NO supported
+// local attach. The live channel for a background agent runs through a cloud bridge, and `--resume` does not
+// join a session - it starts a new process over the persisted transcript, and two processes on one session id
+// is not safe. So resume is *take over*, never *join*: Clavis owns the stream while it is open and hands the
+// session back when it closes.
+
+/// One agent instance the provider knows about, whether or not Clavis started it. InstanceId is the provider's
+/// own identifier for it (opaque here). IsAdopted is true when this Clavis has taken it over.
+[<Sealed>]
+type AgentInstance
+    (instanceId: string,
+     name: string,
+     workingDirectory: string,
+     status: string,
+     startedAt: DateTimeOffset,
+     isAdopted: bool) =
+
+    member _.InstanceId = instanceId
+    member _.Name = name
+    member _.WorkingDirectory = workingDirectory
+    member _.Status = status
+    member _.StartedAt = startedAt
+    member _.IsAdopted = isAdopted
+
+/// Ask the provider bridge which agent instances exist. Answered with AgentInstancesAvailable, so a caller uses
+/// IBus.Request.
+[<Sealed>]
+[<Description("List the agent instances that are running, including ones this Clavis did not start")>]
+type AgentInstancesRequested() =
+    do ()
+
+[<Sealed>]
+type AgentInstancesAvailable(instances: IReadOnlyList<AgentInstance>) =
+    member _.Instances = instances
+
+/// Take over an existing instance: the session continues in a Clavis-owned stream. Adoption is exclusive - two
+/// Clavis homes adopting one instance would give two windows onto one transcript.
+[<Sealed>]
+[<Description("Take over an existing agent instance")>]
+type AdoptAgentInstance(instanceId: string, sessionId: Guid) =
+    member _.InstanceId = instanceId
+    member _.SessionId = sessionId
+
+/// Give an instance back. Mode is a ReleaseMode literal: hand it to the background so it keeps running, or stop
+/// it outright.
+[<Sealed>]
+type ReleaseAgentInstance(sessionId: Guid, mode: string) =
+    member _.SessionId = sessionId
+    member _.Mode = mode
+
+/// How a released instance should be left. String literals so they cross load contexts (same pattern as
+/// SessionActivity).
+[<RequireQualifiedAccess>]
+module ReleaseMode =
+
+    /// Hand the session back to a background agent, which carries on without Clavis.
+    [<Literal>]
+    let KeepRunning = "keep-running"
+
+    /// End the session for good.
+    [<Literal>]
+    let Stop = "stop"
+
+[<Sealed>]
+type AgentInstanceAdopted(sessionId: Guid, instanceId: string) =
+    member _.SessionId = sessionId
+    member _.InstanceId = instanceId
+
+[<Sealed>]
+type AgentInstanceReleased(instanceId: string, keptRunning: bool) =
+    member _.InstanceId = instanceId
+    member _.KeptRunning = keptRunning
