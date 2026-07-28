@@ -46,7 +46,7 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP9 the F12 overview panel | done, **not runtime-verified** | `dbbcfe7` |
 | WP10 docs + agent surface | marketplace side done; host repo docs remain | `39f3334` |
 | WP7 the bar | done, **not runtime-verified** | `f0c1dd6` |
-| WP5b agent instances | not started (optional, independent) | - |
+| WP5b agent instances | contracts + pure logic done; bridge wiring remains | `342e95d` |
 | WP5b, WP7 - WP10 | not started | - |
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
@@ -815,7 +815,22 @@ workspace from the current directory.
 
 ---
 
-## WP5b - Agent instances: discover, adopt, hand off
+## WP5b - Agent instances: discover, adopt, hand off - FACADE DONE, BRIDGE WIRING REMAINS
+
+Landed: the provider-neutral contracts (`AgentInstance`, `AgentInstancesRequested`/`Available`,
+`AdoptAgentInstance`, `ReleaseAgentInstance` + `ReleaseMode`, `AgentInstanceAdopted`/`Released`), the pure
+`AgentInstances` module (parsing the discovery payload, the exclusivity rule, the release-mode decision) and
+`ClaudeCommand.withBackground`. Sixteen tests cover the malformed row, the absent name, a cwd outside every
+workspace, unparseable output, adoption refusal and the release table.
+
+**Remaining: the ClaudeBridge subscriptions** - run the discovery command and answer `AgentInstancesRequested`;
+on adopt, spawn with `--resume` instead of a fresh session; on release, end the owned stream and either stop or
+re-launch with `--bg --resume`. Deliberately not shipped unverified: the release path spawns *detached*
+processes, and getting it wrong strands agents on the machine with nothing tracking them. The edge cases the
+plan lists below - mid-turn hand-off, crash, adopting something Clavis did not start, two Clavis homes racing -
+all live in that half.
+
+### Original scope
 
 A workspace's agent should outlive Clavis. Today the bridge spawns a child process per session and closing
 Clavis kills the work; the goal is that an agent keeps running while Clavis is shut, and Clavis picks it
