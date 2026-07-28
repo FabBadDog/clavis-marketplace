@@ -45,7 +45,7 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP8 keyboard: F1-F11/F12 + declared bindings | done, **not runtime-verified** | `5cc47b5` |
 | WP9 the F12 overview panel | done, **not runtime-verified** | `dbbcfe7` |
 | WP10 docs + agent surface | marketplace side done; host repo docs remain | `39f3334` |
-| WP7 the bar | **next** (the last visible piece) | - |
+| WP7 the bar | done, **not runtime-verified** | `f0c1dd6` |
 | WP5b agent instances | not started (optional, independent) | - |
 | WP5b, WP7 - WP10 | not started | - |
 
@@ -1003,7 +1003,7 @@ round-trips, orphan layouts dropped; `LayoutMigrationTests` - v1 -> v2 end-to-en
 
 ---
 
-## WP7 - The bar
+## WP7 - The bar - DONE
 
 **Owner: `wpf-host`, as a new window role.** It already owns every HWND, the summon/hide flow,
 `Application.Current.MainWindow`, `WorkAreaMaximize`, and the physical->DIP conversion; a second plugin
