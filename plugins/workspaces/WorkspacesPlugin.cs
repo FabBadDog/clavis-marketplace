@@ -89,7 +89,11 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
             // The session id is minted here, so the workspace owns the correlation from the outset and the
             // bridge's stream events route back without a second round trip.
             var sessionId = Guid.NewGuid();
-            bus.Send(new StartNewSession(sessionId, workingDirectory, null));
+
+            // Name the session after the workspace: it is what the provider lists the agent under, and so what
+            // tells two agents in one repository apart when Clavis later looks for its own to reclaim.
+            var name = set.InSlotOrder().FirstOrDefault(workspace => workspace.WorkspaceId == workspaceId)?.Name;
+            bus.Send(new StartNewSession(sessionId, workingDirectory, null, name));
             Apply(WorkspaceUpdate.SessionStarted(set, workspaceId, sessionId));
         }
 

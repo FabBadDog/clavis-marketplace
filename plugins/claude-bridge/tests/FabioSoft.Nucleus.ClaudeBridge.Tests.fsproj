@@ -20,5 +20,7 @@
     <Compile Include="UsageReportMappingTests.fs" />
     <Compile Include="ClaudeBridgePluginTests.fs" />
     <Compile Include="EditorContextTests.fs" />
+    <Compile Include="AgentInstanceRegistryTests.fs" />
+    <Compile Include="TurnGateTests.fs" />
   </ItemGroup>
 </Project>

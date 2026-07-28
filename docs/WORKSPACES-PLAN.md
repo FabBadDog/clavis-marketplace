@@ -46,7 +46,7 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP9 the F12 overview panel | done, **not runtime-verified** | `dbbcfe7` |
 | WP10 docs + agent surface | marketplace side done; host repo docs remain | `39f3334` |
 | WP7 the bar | done, **not runtime-verified** | `f0c1dd6` |
-| WP5b agent instances | contracts + pure logic done; bridge wiring remains | `342e95d` |
+| WP5b agent instances | done (discover, adopt, hand off); no automatic release policy | `342e95d` + bridge |
 | WP5b, WP7 - WP10 | not started | - |
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
@@ -815,20 +815,58 @@ workspace from the current directory.
 
 ---
 
-## WP5b - Agent instances: discover, adopt, hand off - FACADE DONE, BRIDGE WIRING REMAINS
+## WP5b - Agent instances: discover, adopt, hand off - DONE (no automatic release policy)
 
-Landed: the provider-neutral contracts (`AgentInstance`, `AgentInstancesRequested`/`Available`,
-`AdoptAgentInstance`, `ReleaseAgentInstance` + `ReleaseMode`, `AgentInstanceAdopted`/`Released`), the pure
-`AgentInstances` module (parsing the discovery payload, the exclusivity rule, the release-mode decision) and
-`ClaudeCommand.withBackground`. Sixteen tests cover the malformed row, the absent name, a cwd outside every
-workspace, unparseable output, adoption refusal and the release table.
+Landed in full: the provider-neutral contracts, the pure `AgentInstances` module, `ClaudeCommand.withBackground`,
+and the ClaudeBridge wiring (`AgentInstancesRequested` -> discovery, `AdoptAgentInstance` -> `--resume`,
+`ReleaseAgentInstance` -> stop or `--bg --resume`). Catalog gate green: 40/40 items, 24/24 suites,
+fabiosoft-claude 193 -> 205, claude-bridge 78 -> 93.
 
-**Remaining: the ClaudeBridge subscriptions** - run the discovery command and answer `AgentInstancesRequested`;
-on adopt, spawn with `--resume` instead of a fresh session; on release, end the owned stream and either stop or
-re-launch with `--bg --resume`. Deliberately not shipped unverified: the release path spawns *detached*
-processes, and getting it wrong strands agents on the machine with nothing tracking them. The edge cases the
-plan lists below - mid-turn hand-off, crash, adopting something Clavis did not start, two Clavis homes racing -
-all live in that half.
+### What running the real CLI changed
+
+The shape here was verified against `claude agents --json` rather than assumed, and that corrected two things:
+
+- **`startedAt` is epoch milliseconds, not a timestamp string.** The first cut read it as a string, so every
+  real instance dated to `DateTimeOffset.MinValue` while the tests passed on an invented ISO fixture. Fixed, with
+  a regression test naming the real format and a string fallback kept for a future format change.
+- **The listing contains every live session on the machine** - the user's own editors and terminals, not just
+  Clavis's agents (`kind` is `background` for all of them, and status is `busy`/`waiting`, not `running`).
+  Offering those for adoption would let Clavis `--resume` a conversation somebody is holding open, which is
+  exactly the two-processes-on-one-transcript corruption this design set out to avoid.
+
+So **ownership had to become explicit**: every session Clavis starts is named `clavis/<label>` via `-n` (the
+workspace name, else the working directory's last segment), and only marked instances are offered. The name went
+from cosmetic to load-bearing, which is why `StartNewSession` gained an optional `Name` and `SessionConfig`
+gained `Name`/`ResumeSessionId`/`SessionId`.
+
+Observed in the wild while investigating, which argues the exclusivity rule guards something real: two live
+`claude` processes were sharing one session id on this machine, with no Clavis involved.
+
+### Decisions
+
+- **Adoption is exclusive and claimed before the spawn** (`AgentInstanceRegistry`). A refused claim costs
+  nothing; two owners corrupt the transcript.
+- **Release waits for the running turn** (`TurnGate`, started on `SendPrompt`, cleared on `AgentResult`), up to
+  `HandOffTurnWaitSeconds`, then proceeds and logs the loss - handing back restarts the process over the
+  persisted transcript, so an unfinished turn is gone, but a wedged one must not block shutdown.
+- **The owned stream is always disposed before the background agent spawns.** The two must never overlap.
+- **Adoption resumes in the instance's own directory**, cached from the last discovery pass, so taking over an
+  agent never silently moves it.
+- **Nothing releases automatically.** `DisposeSession` still ends an agent; keeping one alive needs an explicit
+  `ReleaseAgentInstance(keep-running)`. Making shutdown hand every session back would leave detached agents on
+  the machine that nobody tracks, so that policy belongs to whoever owns the workspace lifecycle, not the bridge.
+
+### Still open
+
+- **The live round trip is unverified.** `--bg --resume` is implemented but was never exercised end to end: the
+  CLI cannot authenticate from a background job (credentials are bound to the interactive logon), so the
+  hand-off could only be built, not watched. First run in a real Clavis is the real test.
+- **The shutdown policy** above - who decides that closing Clavis parks agents rather than ending them.
+- **Two Clavis homes** still share the provider's session store. Exclusivity guards one home; cross-home
+  coordination needs out-of-band state. Mitigated by adoption being an explicit user pick, never automatic.
+- **Crash** leaves no hand-off: the session stays resumable but is not still running, and the bar must not
+  claim otherwise.
+- **Orphans** - marked agents nobody reclaimed - surface in the overview panel (WP9).
 
 ### Original scope
 
@@ -882,21 +920,10 @@ stops assuming Clavis spawns and owns a process; lifecycle is the provider's bus
 - **Release (keep-running)**: end the owned stream, then `claude --bg --resume <sessionId>` so it carries on.
 - **Discover**: `claude agents --json`, mapping `sessionId`/`name`/`cwd`/`status` onto `AgentInstance`.
 
-### Edge cases that need deciding when this is built
-
-- **Mid-turn hand-off.** Releasing while a turn is running is the ugly case: either wait for `AgentResult`
-  or accept that the re-dispatched agent resumes from the transcript. Prefer waiting, with a timeout.
-- **Crash.** No clean shutdown means no hand-off; the session is still *resumable*, just not still running.
-  Acceptable, but the bar's "not started" state must not claim otherwise.
-- **Adopting something Clavis did not start**, including one whose `cwd` differs from the workspace's
-  working directory - offer it, but do not silently rebind the workspace's directory.
-- **Two Clavis homes** could both try to adopt one instance. Adoption must be exclusive; last-writer-wins
-  would give two windows onto one transcript.
-- **Orphans**: agents Clavis dispatched and never reclaimed. The overview panel (WP9) is where they surface.
-
-Tests: pure mapping from `claude agents --json` to `AgentInstance` (including a malformed row, an absent
-`name`, and a `cwd` outside every workspace); the release-mode decision table; adoption refused when the
-instance is already adopted.
+Tests: the pure mapping from `claude agents --json` (malformed row, absent `name`, a `cwd` outside every
+workspace, epoch-millisecond and string timestamps, a foreign name kept but not owned), the release-mode
+decision table, the hand-off argument list, adoption refused when already held or when unmarked, plus the
+registry's exclusivity and the turn gate's wait/timeout behaviour.
 
 ---
 

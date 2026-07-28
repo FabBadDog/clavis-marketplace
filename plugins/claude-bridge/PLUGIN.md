@@ -1,14 +1,14 @@
 ---
 name: claude-bridge
 pluginId: ClaudeBridge
-version: 2.1.3
+version: 2.2.0
 essential: true
 apiVersion: 1.0.0
 description: Wraps Claude sessions; maps stream events onto bus messages.
 dependencies:
   - { name: session-contracts, version: 3 }
   - { name: editor-contracts, version: 1 }
-  - { name: fabiosoft-claude, version: 2 }
+  - { name: fabiosoft-claude, version: 3 }
 language: csharp
 assemblyName: ClaudeBridge
 rootNamespace: FabioSoft.Nucleus.Plugins.ClaudeBridge
@@ -39,6 +39,10 @@ native-to-`Agent*` translation; `UsagePoller.cs` + `UsageReportMapping.cs` handl
 - `Model` (default `null`) - default model; null lets the provider choose.
 - `AttachClavisMcp` (default `true`) - when true, each spawned session is wired to the in-process
   AgentGateway MCP server and gets its system-prompt primer appended (see Notes).
+- `DiscoveryTimeoutSeconds` (default `15`) - bounds the "what is running" query, which answers a request
+  and so must not hang the caller.
+- `HandOffTurnWaitSeconds` (default `30`) - how long releasing an agent waits for a running turn before
+  handing it back anyway.
 
 ## Messages published
 
@@ -53,10 +57,14 @@ native-to-`Agent*` translation; `UsagePoller.cs` + `UsageReportMapping.cs` handl
   on init and after every switch), `AgentModelChanged` / `AgentModeChanged` / `AgentEffortChanged`
   (confirmations after a `SetSession*` command was applied to the running session).
 - `LogEntry` (diagnostics).
+- Agent instances: `AgentInstancesAvailable` (answering a request), `AgentInstanceAdopted`,
+  `AgentInstanceReleased`.
 
 ## Messages subscribed
 
 - `StartNewSession`, `SendPrompt`, `SendPermissionResponse`, `InterruptSession`, `DisposeSession`.
+- `AgentInstancesRequested`, `AdoptAgentInstance`, `ReleaseAgentInstance` - the instance lifecycle
+  (see Notes).
 - `SetSessionModel`, `SetSessionMode`, `SetSessionEffort` - runtime axis switches: validated against
   `ClaudeCatalog`, applied to the running session (`set_model` / `set_permission_mode` control requests;
   effort via the provider's non-interactive `/effort` command), then confirmed with the `Agent*Changed`
@@ -76,3 +84,20 @@ native-to-`Agent*` translation; `UsagePoller.cs` + `UsageReportMapping.cs` handl
   both written by AgentGateway, and attaches them to each new session's `SessionConfig`. Read per session
   (not at activation) so it never races gateway startup; absent files degrade to no attachment.
 - **Usage is account-global**, independent of any session, polled on its own timer by `UsagePoller`.
+- **Agent instances outlive Clavis.** Every session Clavis starts is named `clavis/<label>` (the workspace
+  name, else the working directory's last segment). That marker is not decoration: `claude agents --json`
+  lists *every* live session on the machine - the user's own editors and terminals included - and only the
+  marked ones are offered for adoption, because `--resume` starts a second process over a transcript rather
+  than joining the first. Adopting an unmarked session would hijack a conversation somebody is holding open.
+- **Adoption is exclusive**, enforced by `AgentInstanceRegistry` and claimed *before* the spawn: a refused
+  claim costs nothing, two owners corrupt the transcript. This guards one Clavis home; two homes on one
+  machine share the provider's session store and would need out-of-band state to coordinate.
+- **Releasing waits for the turn.** `TurnGate` tracks whether a turn is in flight (started on `SendPrompt`,
+  cleared on `AgentResult`). Handing back restarts the process over the persisted transcript, so an
+  unfinished turn is lost; the release waits `HandOffTurnWaitSeconds` for it, then proceeds anyway and logs
+  the loss. The owned stream is always disposed *before* the background agent is spawned - the two must
+  never overlap on one session id.
+- **Nothing releases automatically.** `DisposeSession` still ends an agent outright; keeping one alive
+  requires an explicit `ReleaseAgentInstance(keep-running)`. Making shutdown hand every session back would
+  leave detached agents on the machine that nobody is tracking, so that policy is deliberately not the
+  default and belongs to whoever owns the workspace lifecycle.

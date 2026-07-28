@@ -214,6 +214,15 @@ module Session =
         |> ClaudeCommand.withIncludeHookEvents
         |> ClaudeCommand.withPermissionPromptTool Stdio
         |> ClaudeCommand.withPermissionMode Default
+        // Resuming already names its session, so --resume and --session-id are mutually exclusive: resume wins
+        // and the requested id is ignored rather than sent alongside and rejected by the provider.
+        |> (match config.ResumeSessionId, config.SessionId with
+            | Some resume, _ -> ClaudeCommand.withResume resume
+            | None, Some sessionId -> ClaudeCommand.withSessionId sessionId
+            | None, None -> id)
+        |> (match config.Name with
+            | Some name -> ClaudeCommand.withName name
+            | None -> id)
         |> (match config.Model with
             | Some model -> ClaudeCommand.withModel model
             | None -> id)

@@ -69,7 +69,22 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
         ClavisMcpAvailable? clavisMcp = null;
         var clavisMcpLock = new object();
 
-        var startSubscription = bus.Subscribe<StartNewSession>(message =>
+        // Which provider instance each session holds, and whether a turn is in flight - both needed to hand an
+        // agent back cleanly rather than yanking it out from under a running turn.
+        var registry = new AgentInstanceRegistry();
+        var turnGate = new TurnGate();
+
+        // Where each session runs and what it is called, so handing it back reuses its own directory and name
+        // rather than reconstructing them from plugin config, which would be a different agent by any other name.
+        var sessionOrigins = new ConcurrentDictionary<Guid, (string WorkingDirectory, string Name)>();
+
+        // The working directory each discovered instance reported. Adoption resumes an agent in the directory it
+        // was already living in; the adopt message carries only an id, and guessing would move somebody's agent.
+        var discoveredDirectories = new ConcurrentDictionary<string, string>();
+
+        // Creating and adopting differ only in whether a transcript is resumed; everything after the spawn -
+        // the stream wiring, the axis bookkeeping, the lifecycle messages - is identical, so it lives here once.
+        void LaunchSession(Guid sessionId, string workingDirectory, string? model, string? label, string? resumeInstanceId)
         {
             ClavisMcpAvailable? availableMcp;
             lock (clavisMcpLock)
@@ -78,23 +93,31 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             }
 
             var (mcpConfig, appendSystemPrompt, allowedTools) = ResolveClavisMcp(config.AttachClavisMcp, availableMcp);
+
+            // The provider-visible name carries Clavis's ownership marker. It is not decoration: `claude agents`
+            // lists every live session on the machine, and the marker is the only thing that later distinguishes
+            // an agent Clavis parked from a conversation somebody else is holding open.
+            var sessionName = AgentInstances.nameFor(LabelFor(label, workingDirectory));
             var sessionConfig = new SessionConfig(
-                message.WorkingDirectory,
-                message.Model is not null ? FSharpOption<string>.Some(message.Model) : FSharpOption<string>.None,
+                workingDirectory,
+                model is not null ? FSharpOption<string>.Some(model) : FSharpOption<string>.None,
                 FSharpOption<string>.None,
                 appendSystemPrompt,
                 mcpConfig,
-                allowedTools);
+                allowedTools,
+                FSharpOption<string>.None,
+                resumeInstanceId is not null ? FSharpOption<string>.Some(resumeInstanceId) : FSharpOption<string>.None,
+                FSharpOption<string>.Some(sessionName));
 
-            var sessionId = message.SessionId;
             var session = CreateSession(sessionConfig);
             sessions.TryAdd(sessionId, session);
+            sessionOrigins[sessionId] = (workingDirectory, sessionName);
 
             // Per-session provider-specific resolvers bound into the mapper: the hook firing counter is
             // private to this session's stream (observed serially, so no locking), and the permission
             // resolver reads the settings files scoped to this session's working directory.
             var hookCounters       = new Dictionary<string, int>();
-            var permissionResolver = new ClaudePermissionResolver(message.WorkingDirectory);
+            var permissionResolver = new ClaudePermissionResolver(workingDirectory);
 
             string ResolveHookDisplayName(string hookEvent)
             {
@@ -133,8 +156,22 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                 .Subscribe(mapped =>
                 {
                     bus.Send(mapped!);
+                    if (mapped is AgentResult)
+                    {
+                        turnGate.Finished(sessionId);
+                    }
+
                     if (mapped is AgentInit init)
                     {
+                        // The provider's own session id, whether we asked for this session or took it over. It is
+                        // what a later hand-off resumes, so it is claimed here rather than assumed from the spawn.
+                        if (!registry.TryClaim(init.AgentSessionId, sessionId))
+                        {
+                            bus.LogWarn(
+                                "ClaudeBridge",
+                                $"session {sessionId} reports instance {init.AgentSessionId}, which is already held");
+                        }
+
                         bus.Send(new SessionReady(sessionId, init.AgentSessionId, init.Model));
 
                         // The bridge sets these when launching the session, so it is the source of truth
@@ -178,7 +215,13 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             session.OnNext(SessionInput.Initialize);
 
             bus.Send(new SessionStarted(sessionId));
-            bus.LogInfo("ClaudeBridge", $"session started: {sessionId} ({message.WorkingDirectory})");
+            var origin = resumeInstanceId is null ? "started" : $"adopted {resumeInstanceId} into";
+            bus.LogInfo("ClaudeBridge", $"session {origin}: {sessionId} ({workingDirectory}) as '{sessionName}'");
+        }
+
+        var startSubscription = bus.Subscribe<StartNewSession>(message =>
+        {
+            LaunchSession(message.SessionId, message.WorkingDirectory, message.Model, message.Name, null);
             return Task.CompletedTask;
         });
 
@@ -195,6 +238,7 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                 snapshot = editorState;
             }
 
+            turnGate.Started(message.SessionId);
             session.OnNext(SessionInput.NewPrompt(EditorContext.Decorate(message.Text, snapshot)));
 
             return Task.CompletedTask;
@@ -228,6 +272,11 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             if (sessions.TryRemove(message.SessionId, out var session))
             {
                 axesBySession.TryRemove(message.SessionId, out _);
+                turnGate.Finished(message.SessionId);
+
+                // Disposing ends the agent: the claim is dropped without a hand-off, which is what makes this
+                // different from ReleaseAgentInstance(keep-running).
+                registry.Forget(message.SessionId);
                 session.OnNext(SessionInput.Dispose);
                 bus.LogInfo("ClaudeBridge", $"session disposed: {message.SessionId}");
             }
@@ -359,6 +408,94 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             bus.Send(new SummaryResult(summary));
         });
 
+        // What is running, including agents Clavis did not start. Only instances carrying Clavis's ownership
+        // marker are offered: the listing also contains the user's editors and terminals, and resuming one of
+        // those would take over a conversation somebody is in the middle of.
+        var instancesSubscription = bus.Subscribe<AgentInstancesRequested>(async _ =>
+        {
+            var output = await AgentProcess.ListAsync(TimeSpan.FromSeconds(config.DiscoveryTimeoutSeconds));
+            var reclaimable = AgentInstances.reclaimable(AgentInstances.parse(output));
+            foreach (var instance in reclaimable)
+            {
+                discoveredDirectories[instance.SessionId] = instance.WorkingDirectory;
+            }
+
+            var instances = reclaimable
+                .Select(instance => new AgentInstance(
+                    instance.SessionId,
+                    instance.Name,
+                    instance.WorkingDirectory,
+                    instance.Status,
+                    instance.StartedAt,
+                    registry.IsAdopted(instance.SessionId)))
+                .ToArray();
+
+            bus.LogInfo("ClaudeBridge", $"discovered {instances.Length} reclaimable agent instance(s)");
+            bus.Send(new AgentInstancesAvailable(instances));
+        });
+
+        var adoptSubscription = bus.Subscribe<AdoptAgentInstance>(message =>
+        {
+            // Claim before spawning: a refused claim costs nothing, whereas a second process on one transcript
+            // corrupts it. This is also why the claim is not taken optimistically after the spawn.
+            if (!registry.TryClaim(message.InstanceId, message.SessionId))
+            {
+                bus.LogWarn("ClaudeBridge", $"refusing to adopt {message.InstanceId}: already held");
+                return Task.CompletedTask;
+            }
+
+            // Resume where the agent already lives. Falling back to the plugin's directory only happens when the
+            // instance was never seen in a discovery pass, and it does not rebind anything the caller owns.
+            var workingDirectory = discoveredDirectories.TryGetValue(message.InstanceId, out var known) && known.Length > 0
+                ? known
+                : config.WorkingDirectory;
+
+            LaunchSession(message.SessionId, workingDirectory, config.Model, null, message.InstanceId);
+            bus.Send(new AgentInstanceAdopted(message.SessionId, message.InstanceId));
+            return Task.CompletedTask;
+        });
+
+        var releaseSubscription = bus.Subscribe<ReleaseAgentInstance>(async message =>
+        {
+            var instanceId = registry.InstanceOf(message.SessionId);
+            if (instanceId is null)
+            {
+                bus.LogWarn("ClaudeBridge", $"cannot release session {message.SessionId}: no instance recorded");
+                return;
+            }
+
+            // Handing back starts a fresh process over the persisted transcript, so anything the running turn
+            // has not written yet is lost. Wait for it, but not forever - a wedged turn must not block shutdown.
+            var keepRunning = AgentInstances.keepsRunning(message.Mode);
+            if (keepRunning && !await turnGate.WaitForIdleAsync(message.SessionId, TimeSpan.FromSeconds(config.HandOffTurnWaitSeconds)))
+            {
+                bus.LogWarn(
+                    "ClaudeBridge",
+                    $"handing back {instanceId} with a turn still running: the unfinished turn will be lost");
+            }
+
+            sessionOrigins.TryRemove(message.SessionId, out var origin);
+            if (sessions.TryRemove(message.SessionId, out var session))
+            {
+                axesBySession.TryRemove(message.SessionId, out _);
+                session.OnNext(SessionInput.Dispose);
+            }
+
+            registry.Forget(message.SessionId);
+            turnGate.Finished(message.SessionId);
+
+            // Only now, with our own stream finished, is it safe to start the background agent: the two must
+            // never overlap on one session id.
+            var handedBack = keepRunning && AgentProcess.HandOff(instanceId, origin.Name, origin.WorkingDirectory);
+            if (keepRunning && !handedBack)
+            {
+                bus.LogError("ClaudeBridge", $"failed to hand {instanceId} back to a background agent; it is stopped");
+            }
+
+            bus.LogInfo("ClaudeBridge", $"released {instanceId} (kept running: {handedBack})");
+            bus.Send(new AgentInstanceReleased(instanceId, handedBack));
+        });
+
         // Usage is account-global, independent of any session: poll it on its own cadence and publish a
         // provider-neutral AgentUsageReport for the usage indicator.
         var usagePoller = new UsagePoller(bus, UsageFetcher ?? (() => UsageApi.fetchUsage()));
@@ -380,7 +517,10 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             editorStateSubscription,
             editorClosedSubscription,
             clavisMcpSubscription,
-            summarizeSubscription);
+            summarizeSubscription,
+            instancesSubscription,
+            adoptSubscription,
+            releaseSubscription);
 
         return Task.FromResult<IDisposable>(disposable);
     }
@@ -447,6 +587,23 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
         {
             return "";
         }
+    }
+
+    /// What to call a session in the provider's listing. An explicit label (a workspace name) wins; otherwise the
+    /// working directory's last segment, which is what the user would recognise anyway.
+    private static string LabelFor(string? label, string workingDirectory)
+    {
+        if (!string.IsNullOrWhiteSpace(label))
+        {
+            return label;
+        }
+
+        if (string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            return "";
+        }
+
+        return System.IO.Path.GetFileName(workingDirectory.TrimEnd('\\', '/'));
     }
 
     private Session CreateSession(SessionConfig config)

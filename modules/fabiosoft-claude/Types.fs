@@ -55,6 +55,16 @@ type SessionConfig = {
     AppendSystemPrompt: string option
     McpConfig: string option
     AllowedTools: ToolSpec list
+    /// Launch under a caller-chosen session id instead of a provider-generated one, so the session stays
+    /// addressable even if Clavis dies before the init event reports it. Ignored when resuming, which already
+    /// names its session. An id is single-use: the provider refuses one it has seen before.
+    SessionId: string option
+    /// Continue an existing session's transcript instead of starting a fresh one. This takes the session over -
+    /// it starts a new process over the persisted conversation, it does not join the old one.
+    ResumeSessionId: string option
+    /// The provider-visible display name, shown in `claude agents` listings. Clavis marks its own sessions here
+    /// (see AgentInstances.nameFor) so it can recognise them again later.
+    Name: string option
 }
 
 [<RequireQualifiedAccess>]
@@ -68,6 +78,9 @@ module SessionConfig =
         AppendSystemPrompt = None
         McpConfig = None
         AllowedTools = []
+        SessionId = None
+        ResumeSessionId = None
+        Name = None
     }
 
 type AssistantMessage = {

@@ -6,10 +6,18 @@ open System.ComponentModel
 
 [<Sealed>]
 [<Description("Start a new agent session")>]
-type StartNewSession(sessionId: Guid, workingDirectory: string, model: string) =
+type StartNewSession(sessionId: Guid, workingDirectory: string, model: string, name: string) =
+
+    new(sessionId, workingDirectory, model) = StartNewSession(sessionId, workingDirectory, model, null)
+
     member _.SessionId = sessionId
     member _.WorkingDirectory = workingDirectory
     member _.Model = model
+
+    /// A human label for the session (a workspace name), or null to let the bridge derive one from the working
+    /// directory. It reaches the provider as the session's display name, which is what makes the agent
+    /// recognisable in a listing when Clavis later looks for its own instances to reclaim.
+    member _.Name = name
 
 [<Sealed>]
 [<Description("Send a prompt to a session")>]

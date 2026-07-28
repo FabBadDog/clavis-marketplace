@@ -6,20 +6,47 @@ open FabioSoft.Json
 /// One live agent the CLI reports, reduced to the fields Clavis can use. The CLI reports more (a pid, a bridge
 /// session id, a peer protocol version); those are deliberately dropped here rather than carried up, because
 /// they are undocumented internals of a self-updating CLI and nothing above this line should depend on them.
+///
+/// IsOwned says the reported name carried Clavis's ownership marker, i.e. Clavis started this agent and may
+/// take it back. It is the safety gate on adoption: `claude agents --json` lists *every* live session on the
+/// machine, including the user's unrelated editors and terminals, and resuming one of those would hijack a
+/// conversation somebody else is holding open.
 type AgentInstanceInfo =
     { SessionId: string
       Name: string
+      IsOwned: bool
       WorkingDirectory: string
       Status: string
       StartedAt: DateTimeOffset }
 
-/// Reading `claude agents --json`, and deciding what releasing an instance should do. Pure over the JSON text,
-/// so the malformed-row handling is testable without invoking the CLI.
+/// Reading `claude agents --json`, naming sessions so they can be recognised later, and deciding what releasing
+/// an instance should do. Pure over the JSON text and over the argument lists, so the malformed-row handling and
+/// the spawn shape are testable without invoking the CLI.
 [<RequireQualifiedAccess>]
 module AgentInstances =
 
+    /// Marks a session as Clavis-owned in the provider's session name. The name is the only field that survives
+    /// into `claude agents --json` and is under our control, so it carries ownership; without a marker Clavis
+    /// could not tell its own parked agents from the user's live sessions.
     [<Literal>]
-    let ListCommand = "agents"
+    let OwnershipPrefix = "clavis/"
+
+    /// `claude agents --json` - list active sessions without needing a TTY.
+    let listArguments = [ "agents"; "--json" ]
+
+    /// Hand a session back to a durable background agent, which carries on after Clavis exits. `--resume` starts
+    /// a *new* process over the persisted transcript rather than joining the old one, which is why the owned
+    /// stream must be finished before this runs.
+    let handOffArguments (sessionId: string) (name: string) =
+        let resume = [ "--bg"; "--resume"; sessionId ]
+        if String.IsNullOrWhiteSpace name then resume
+        else resume @ [ "-n"; name ]
+
+    /// The provider-visible name for a session Clavis starts. The label is what the user recognises (a workspace
+    /// name, or the working directory's last segment); the prefix is what makes it reclaimable.
+    let nameFor (label: string) =
+        if String.IsNullOrWhiteSpace label then OwnershipPrefix.TrimEnd('/')
+        else $"{OwnershipPrefix}{label.Trim()}"
 
     let private field name json =
         match json with
@@ -31,8 +58,12 @@ module AgentInstances =
         | Some (Json.String value) when not (String.IsNullOrWhiteSpace value) -> Some value
         | _ -> None
 
+    /// The CLI reports startedAt as Unix epoch milliseconds, not as a timestamp string (verified against the
+    /// real output, which is why the string branch is only a fallback for a format change).
     let private timeField name json =
         match field name json with
+        | Some (Json.Integer milliseconds) -> DateTimeOffset.FromUnixTimeMilliseconds milliseconds
+        | Some (Json.Float milliseconds) -> DateTimeOffset.FromUnixTimeMilliseconds(int64 milliseconds)
         | Some (Json.String value) ->
             match DateTimeOffset.TryParse value with
             | true, parsed -> parsed
@@ -41,7 +72,8 @@ module AgentInstances =
 
     /// Map one reported row. A row without a session id is unusable - it cannot be resumed or addressed - so it
     /// yields None and is dropped rather than surfacing an instance nothing can act on. An absent name falls
-    /// back to the working directory's last segment, which is what the user would recognise anyway.
+    /// back to the working directory's last segment, which is what the user would recognise anyway; an absent
+    /// name is never owned, because ownership is something Clavis writes.
     let ofJson (json: Json) =
         match stringField "sessionId" json with
         | None -> None
@@ -51,9 +83,24 @@ module AgentInstances =
                 if String.IsNullOrWhiteSpace workingDirectory then sessionId
                 else IO.Path.GetFileName(workingDirectory.TrimEnd('\\', '/'))
 
+            let reported = stringField "name" json
+            let isOwned =
+                reported
+                |> Option.exists _.StartsWith(OwnershipPrefix, StringComparison.OrdinalIgnoreCase)
+
+            let name =
+                match reported with
+                | Some value when isOwned ->
+                    match value.Substring(OwnershipPrefix.Length).Trim() with
+                    | "" -> fallbackName
+                    | label -> label
+                | Some value -> value
+                | None -> fallbackName
+
             Some
                 { SessionId = sessionId
-                  Name = stringField "name" json |> Option.defaultValue fallbackName
+                  Name = name
+                  IsOwned = isOwned
                   WorkingDirectory = workingDirectory
                   Status = stringField "status" json |> Option.defaultValue "unknown"
                   StartedAt = timeField "startedAt" json }
@@ -69,11 +116,17 @@ module AgentInstances =
             | Ok (Json.Array rows) -> rows |> List.ofArray |> List.choose ofJson
             | _ -> []
 
+    /// The instances Clavis may offer to take over: only the ones it marked as its own. Everything else in the
+    /// listing belongs to a live session somebody is using, and resuming it would put two processes on one
+    /// transcript.
+    let reclaimable (instances: AgentInstanceInfo list) =
+        instances |> List.filter _.IsOwned
+
     /// Whether an instance may be adopted. Adoption is exclusive: one already taken over is refused rather than
     /// handed to a second owner, because two processes on one session id means two windows onto one transcript
     /// and a corrupted conversation.
     let canAdopt (adoptedSessionIds: Set<string>) (instance: AgentInstanceInfo) =
-        not (adoptedSessionIds.Contains instance.SessionId)
+        instance.IsOwned && not (adoptedSessionIds.Contains instance.SessionId)
 
     /// Whether a release should leave the agent running. Anything that is not an explicit keep-running is a
     /// stop: the safe default when a caller sends something unrecognised is to end the session, not to leave a
