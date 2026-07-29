@@ -192,6 +192,14 @@ type AgentInstanceAdopted(sessionId: Guid, instanceId: string) =
     member _.SessionId = sessionId
     member _.InstanceId = instanceId
 
+/// Adoption did not happen and no session was started. Adoption is a hand-over - the running agent has to let go
+/// of the conversation before Clavis can pick it up - so it can fail without anything being wrong, and a caller
+/// waiting on AgentInstanceAdopted would otherwise wait forever.
+[<Sealed>]
+type AgentInstanceAdoptionFailed(sessionId: Guid, instanceId: string) =
+    member _.SessionId = sessionId
+    member _.InstanceId = instanceId
+
 [<Sealed>]
 type AgentInstanceReleased(instanceId: string, keptRunning: bool) =
     member _.InstanceId = instanceId

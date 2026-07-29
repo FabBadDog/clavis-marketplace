@@ -7,9 +7,10 @@ open Faqt.Operators
 open Xunit
 
 /// Shaped after the real `claude agents --json` output, not after a guess: startedAt is epoch milliseconds,
-/// kind is "background", and status is "busy"/"waiting" rather than "running".
+/// kind is "background", status is "busy"/"waiting" rather than "running", and `id` is a short handle that is
+/// unrelated to the session id (verified against the real listing, where a7683d47 addressed session 2b3bba05).
 let private row sessionId name =
-    $"""{{"pid":1234,"id":"a","sessionId":"{sessionId}","name":"{name}","cwd":"C:/work","kind":"background","status":"busy","startedAt":1784996640877,"state":"working"}}"""
+    $"""{{"pid":1234,"id":"a7683d47","sessionId":"{sessionId}","name":"{name}","cwd":"C:/work","kind":"background","status":"busy","startedAt":1784996640877,"state":"working"}}"""
 
 let private owned sessionId label = row sessionId $"clavis/{label}"
 
@@ -214,6 +215,35 @@ let ``a nameless session still carries the ownership marker`` (label: string) =
 
     // Act & Assert - without the marker the agent would be unreclaimable, so the marker is not optional
     %(AgentInstances.nameFor label).Should().Be("clavis")
+
+[<Fact>]
+let ``an agent carries the short handle it is addressed by, distinct from its session id`` () =
+
+    // Arrange - `claude stop` takes the short handle, and deriving it from the session id would be wrong: the
+    // real listing addressed session 2b3bba05-... as a7683d47
+    let single = owned "2b3bba05-b035-4d29-acf5-efa12f0dd652" "Clavis"
+
+    // Act
+    let instances = AgentInstances.parse $"[{single}]"
+
+    // Assert
+    %instances[0].AgentId.Should().Be("a7683d47")
+    %instances[0].SessionId.Should().Be("2b3bba05-b035-4d29-acf5-efa12f0dd652")
+
+[<Fact>]
+let ``an agent with no reported handle cannot be addressed`` () =
+
+    // Act - an empty handle is honest: the caller must not invent one to stop with
+    let instances = AgentInstances.parse """[{"sessionId":"s1","name":"clavis/x"}]"""
+
+    // Assert
+    %instances[0].AgentId.Should().Be("")
+
+[<Fact>]
+let ``stopping an agent addresses it by its short handle`` () =
+
+    // Act & Assert - the CLI refuses to resume a session while its agent runs, so adoption stops it first
+    %(AgentInstances.stopArguments "a7683d47").Should().SequenceEqual([ "stop"; "a7683d47" ])
 
 [<Fact>]
 let ``handing a session back resumes it as a background agent`` () =

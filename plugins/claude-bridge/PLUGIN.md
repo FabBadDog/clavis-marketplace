@@ -1,14 +1,14 @@
 ---
 name: claude-bridge
 pluginId: ClaudeBridge
-version: 2.2.0
+version: 2.3.0
 essential: true
 apiVersion: 1.0.0
 description: Wraps Claude sessions; maps stream events onto bus messages.
 dependencies:
   - { name: session-contracts, version: 3 }
   - { name: editor-contracts, version: 1 }
-  - { name: fabiosoft-claude, version: 3 }
+  - { name: fabiosoft-claude, version: 4 }
 language: csharp
 assemblyName: ClaudeBridge
 rootNamespace: FabioSoft.Nucleus.Plugins.ClaudeBridge
@@ -43,6 +43,8 @@ native-to-`Agent*` translation; `UsagePoller.cs` + `UsageReportMapping.cs` handl
   and so must not hang the caller.
 - `HandOffTurnWaitSeconds` (default `30`) - how long releasing an agent waits for a running turn before
   handing it back anyway.
+- `AdoptStopTimeoutSeconds` (default `20`) - how long adopting an agent waits for it to stop. The CLI
+  refuses to resume a session while its agent still holds it, so adoption cannot proceed until it has.
 
 ## Messages published
 
@@ -58,6 +60,7 @@ native-to-`Agent*` translation; `UsagePoller.cs` + `UsageReportMapping.cs` handl
   (confirmations after a `SetSession*` command was applied to the running session).
 - `LogEntry` (diagnostics).
 - Agent instances: `AgentInstancesAvailable` (answering a request), `AgentInstanceAdopted`,
+  `AgentInstanceAdoptionFailed` (the agent would not let go, so no session was started),
   `AgentInstanceReleased`.
 
 ## Messages subscribed

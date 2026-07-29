@@ -11,8 +11,14 @@ open FabioSoft.Json
 /// take it back. It is the safety gate on adoption: `claude agents --json` lists *every* live session on the
 /// machine, including the user's unrelated editors and terminals, and resuming one of those would hijack a
 /// conversation somebody else is holding open.
+///
+/// AgentId is the short handle the CLI addresses an agent by (`claude stop <id>`), and is *not* derivable from
+/// the session id: an agent whose session id starts 2b3bba05 can be addressed as a7683d47. Both are carried
+/// because adoption needs each - the short handle to stop the running agent, the session id to resume its
+/// conversation.
 type AgentInstanceInfo =
     { SessionId: string
+      AgentId: string
       Name: string
       IsOwned: bool
       WorkingDirectory: string
@@ -33,6 +39,12 @@ module AgentInstances =
 
     /// `claude agents --json` - list active sessions without needing a TTY.
     let listArguments = [ "agents"; "--json" ]
+
+    /// `claude stop <agent-id>` - the CLI's own way to end a background agent, addressed by its short handle
+    /// rather than its session id. This is the release half of a hand-over: while an agent is running, the CLI
+    /// refuses to resume its session at all ("currently running as a background agent"), so adoption has to ask
+    /// the agent to let go before it can pick the conversation up.
+    let stopArguments (agentId: string) = [ "stop"; agentId ]
 
     /// Hand a session back to a durable background agent, which carries on after Clavis exits. `--resume` starts
     /// a *new* process over the persisted transcript rather than joining the old one, which is why the owned
@@ -99,6 +111,7 @@ module AgentInstances =
 
             Some
                 { SessionId = sessionId
+                  AgentId = stringField "id" json |> Option.defaultValue ""
                   Name = name
                   IsOwned = isOwned
                   WorkingDirectory = workingDirectory

@@ -83,6 +83,10 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
         // was already living in; the adopt message carries only an id, and guessing would move somebody's agent.
         var discoveredDirectories = new ConcurrentDictionary<string, string>();
 
+        // The short handle the CLI addresses each agent by, which is not derivable from the session id and is
+        // only ever learned from a discovery pass. Adoption needs it to ask the agent to stop.
+        var discoveredAgentIds = new ConcurrentDictionary<string, string>();
+
         // Creating and adopting differ only in whether a transcript is resumed; everything after the spawn -
         // the stream wiring, the axis bookkeeping, the lifecycle messages - is identical, so it lives here once.
         void LaunchSession(Guid sessionId, string workingDirectory, string? model, string? label, string? resumeInstanceId)
@@ -419,6 +423,7 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             foreach (var instance in reclaimable)
             {
                 discoveredDirectories[instance.SessionId] = instance.WorkingDirectory;
+                discoveredAgentIds[instance.SessionId] = instance.AgentId;
             }
 
             var instances = reclaimable
@@ -443,14 +448,32 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             bus.Send(new AgentInstancesAvailable(instances));
         });
 
-        var adoptSubscription = bus.Subscribe<AdoptAgentInstance>(message =>
+        var adoptSubscription = bus.Subscribe<AdoptAgentInstance>(async message =>
         {
             // Claim before spawning: a refused claim costs nothing, whereas a second process on one transcript
             // corrupts it. This is also why the claim is not taken optimistically after the spawn.
             if (!registry.TryClaim(message.InstanceId, message.SessionId))
             {
                 bus.LogWarn("ClaudeBridge", $"refusing to adopt {message.InstanceId}: already held");
-                return Task.CompletedTask;
+                return;
+            }
+
+            // Adoption is a hand-over, not a join. While a background agent holds the session the CLI refuses to
+            // resume it at all, so the agent is asked to stop first and the conversation is only picked up once
+            // it has let go. Its history survives the stop - that is the whole point of resuming rather than
+            // starting fresh.
+            var agentId = discoveredAgentIds.TryGetValue(message.InstanceId, out var handle) ? handle : "";
+            if (!await AgentProcess.StopAsync(agentId, TimeSpan.FromSeconds(config.AdoptStopTimeoutSeconds)))
+            {
+                // Resuming anyway would fail on the CLI's own guard, so the claim is given back rather than left
+                // holding an instance nobody adopted.
+                registry.Forget(message.SessionId);
+                bus.LogError(
+                    "ClaudeBridge",
+                    $"cannot adopt {message.InstanceId}: its agent "
+                    + (agentId.Length == 0 ? "was never seen in a discovery pass" : $"({agentId}) did not stop"));
+                bus.Send(new AgentInstanceAdoptionFailed(message.SessionId, message.InstanceId));
+                return;
             }
 
             // Resume where the agent already lives. Falling back to the plugin's directory only happens when the
@@ -461,7 +484,6 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
 
             LaunchSession(message.SessionId, workingDirectory, config.Model, null, message.InstanceId);
             bus.Send(new AgentInstanceAdopted(message.SessionId, message.InstanceId));
-            return Task.CompletedTask;
         });
 
         var releaseSubscription = bus.Subscribe<ReleaseAgentInstance>(async message =>
