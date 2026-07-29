@@ -124,11 +124,11 @@ type SummaryResult(summary: string) =
 // Clavis spawns and owns a process - obtaining an instance is one way among several, and lifecycle is the
 // provider's business.
 //
-// The shape is constrained by what the CLI actually offers, verified rather than assumed: there is NO supported
-// local attach. The live channel for a background agent runs through a cloud bridge, and `--resume` does not
-// join a session - it starts a new process over the persisted transcript, and two processes on one session id
-// is not safe. So resume is *take over*, never *join*: Clavis owns the stream while it is open and hands the
-// session back when it closes.
+// The shape is constrained by what the CLI actually offers, verified rather than assumed: `--resume` does not
+// join a session - it starts a new process over the persisted transcript, and the CLI refuses it outright
+// while a background agent still holds that session. So resume is *take over*, never *join*: the agent is
+// asked to stop, Clavis owns the stream while it is open, and hands the session back when it closes. The
+// conversation survives that round trip; only one owner exists at a time.
 
 /// One agent instance the provider knows about, whether or not Clavis started it. InstanceId is the provider's
 /// own identifier for it (opaque here). IsAdopted is true when this Clavis has taken it over. IsOwned is true

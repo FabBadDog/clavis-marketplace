@@ -46,8 +46,8 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP9 the F12 overview panel | done, **not runtime-verified** | `dbbcfe7` |
 | WP10 docs + agent surface | marketplace side done; host repo docs remain | `39f3334` |
 | WP7 the bar | done, **not runtime-verified** | `f0c1dd6` |
-| WP5b agent instances | done (discover, adopt, hand off); no automatic release policy | `342e95d` + bridge |
-| WP5b, WP7 - WP10 | not started | - |
+| WP5b agent instances (bridge) | done, **hand-over runtime-verified**; no UI consumes it | `342e95d`, `d4d7604`, `045e671`, `820e67c`, `27a37a8` |
+| WP5b agent instances (UI: list + pick) | not started | - |
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
 >
@@ -815,12 +815,16 @@ workspace from the current directory.
 
 ---
 
-## WP5b - Agent instances: discover, adopt, hand off - DONE (no automatic release policy)
+## WP5b - Agent instances: discover, adopt, hand off - BRIDGE DONE AND VERIFIED, NO UI
 
-Landed in full: the provider-neutral contracts, the pure `AgentInstances` module, `ClaudeCommand.withBackground`,
-and the ClaudeBridge wiring (`AgentInstancesRequested` -> discovery, `AdoptAgentInstance` -> `--resume`,
-`ReleaseAgentInstance` -> stop or `--bg --resume`). Catalog gate green: 40/40 items, 24/24 suites,
-fabiosoft-claude 193 -> 205, claude-bridge 78 -> 93.
+The bridge half landed in full: the provider-neutral contracts, the pure `AgentInstances` module,
+`ClaudeCommand.withBackground`, and the ClaudeBridge wiring (`AgentInstancesRequested` -> discovery,
+`AdoptAgentInstance` -> stop-then-`--resume`, `ReleaseAgentInstance` -> stop or `--bg --resume`). Catalog
+gate green: 40/40 items, 24/24 suites, fabiosoft-claude 193 -> 222, claude-bridge 78 -> 93.
+
+**No UI consumes it**, so the feature is not reachable in the app - see Still open. The mechanism itself is
+no longer theoretical: the hand-over was verified end to end against real agents on 29.07, in both
+directions.
 
 ### What running the real CLI changed
 
@@ -858,9 +862,14 @@ Observed in the wild while investigating, which argues the exclusivity rule guar
 
 ### Still open
 
-- **The live round trip is unverified.** `--bg --resume` is implemented but was never exercised end to end: the
-  CLI cannot authenticate from a background job (credentials are bound to the interactive logon), so the
-  hand-off could only be built, not watched. First run in a real Clavis is the real test.
+- **No UI reaches any of this.** The whole family is unpublished and unsubscribed - `MESSAGE-MAP.md` shows
+  `AgentInstancesRequested` / `AdoptAgentInstance` / `ReleaseAgentInstance` with no publishers and
+  `AgentInstancesAvailable` / `...Adopted` / `...AdoptionFailed` / `...Released` with no subscribers. The
+  bridge works and is verified; nothing lists agents or offers a pick, so the feature is unreachable in the
+  app. This is the gap between "works" and "usable", and the next piece of WP5b.
+- **Taking over a *busy* foreign agent interrupts it mid-turn.** The bridge stops it without asking, which is
+  correct for a hand-over but wrong to do silently now that foreign agents are eligible. Whatever picker gets
+  built should confirm first; the bridge deliberately does not.
 - **The shutdown policy** above - who decides that closing Clavis parks agents rather than ending them.
 - **Two Clavis homes** still share the provider's session store. Exclusivity guards one home; cross-home
   coordination needs out-of-band state. Mitigated by adoption being an explicit user pick, never automatic.
@@ -883,21 +892,31 @@ back up on the next launch.
 - `--session-id <uuid>`, `--resume <sessionId>`, `--fork-session`, `--input-format/--output-format
   stream-json`, `-n <name>` are all documented.
 
-**There is no supported local attach.** The only Claude named pipe on the machine is
-`claude-mcp-browser-bridge` - nothing per agent - and the live channel for a background agent runs through
-a cloud bridge (`bridgeSessionId`). `peerProtocol` is undocumented internals of an auto-updating CLI.
-`--resume` does **not** attach: it starts a *new* process over the persisted transcript, and two processes
-on one session id is not safe. So resume is *take over*, never *join*.
+**Correction, 29.07: the earlier claim that no per-agent local channel exists was wrong.** It said the only
+Claude named pipe on the machine was `claude-mcp-browser-bridge`. That came from grepping the pipe list for
+`claude|anthropic|mcp` - the daemon's pipes are named `cc-daemon-*`, so the filter hid them. There is a
+supervisor daemon per Claude home (`claude daemon`, a hidden but real subcommand: `run`/`status`/`logs`/
+`stop`), it owns a pty per background agent, and it describes them in `<home>/daemon/roster.json`. Each
+agent is two processes: a `--bg-pty-host` wrapper (the roster's pid) and the agent CLI beneath it (the pid
+`sessions/<pid>.json` registers).
 
-Consequence, decided deliberately: **Clavis owns the stream while it is open, and hands the session back to
-a background agent when it closes.** Reverse-engineering the peer/bridge channel was rejected - it would
-break without warning on a CLI that updates itself.
+**There is still no local *attach* in the sense of joining.** `--resume` starts a new process over the
+persisted transcript, and the CLI refuses it outright while a background agent holds the session
+(`Session <id> is currently running as a background agent`). So the corruption this design feared was never
+reachable - the CLI already guards it - and resume remains *take over*, never *join*.
+
+**What makes take-over work is `claude stop <agent-id>`**, a documented top-level command that ends a
+background agent. Adoption stops the agent, then resumes its conversation, which survives intact. Verified
+end to end against a throwaway agent: told a marker, stopped, resumed through the stream-json path Clavis
+uses, still knew the marker. Reverse-engineering the daemon's control protocol was investigated and then
+abandoned as unnecessary - it exists only as compiled V8 bytecode, and `claude stop` is the supported way to
+do the one thing it was wanted for.
 
 ### The facade (provider-neutral - no `claude`, no `--bg`, no pid in any contract)
 
 ```fsharp
 type AgentInstance(instanceId: string, name: string, workingDirectory: string,
-                   status: string, startedAt: DateTimeOffset, isAdopted: bool)
+                   status: string, startedAt: DateTimeOffset, isAdopted: bool, isOwned: bool)
 type AgentInstancesRequested()
 type AgentInstancesAvailable(instances: IReadOnlyList<AgentInstance>)
 [<Description("Take over an existing agent instance")>]
@@ -905,6 +924,7 @@ type AdoptAgentInstance(instanceId: string, sessionId: Guid)
 /// mode: "keep-running" (hand back to the background) or "stop".
 type ReleaseAgentInstance(sessionId: Guid, mode: string)
 type AgentInstanceAdopted(sessionId: Guid, instanceId: string)
+type AgentInstanceAdoptionFailed(sessionId: Guid, instanceId: string)
 type AgentInstanceReleased(instanceId: string, keptRunning: bool)
 ```
 
@@ -913,17 +933,33 @@ stops assuming Clavis spawns and owns a process; lifecycle is the provider's bus
 
 ### What ClaudeBridge does underneath
 
-- **Adopt**: `claude --resume <sessionId> --input-format stream-json --output-format stream-json`, so the
-  existing transcript continues in a Clavis-owned process.
+- **Adopt**: `claude stop <agentId>` first - the CLI refuses to resume a session its agent still holds - then
+  `claude --resume <sessionId> --input-format stream-json --output-format stream-json`, so the existing
+  transcript continues in a Clavis-owned process. If the agent will not stop, the claim is released and
+  `AgentInstanceAdoptionFailed` says so, because a caller waiting on `AgentInstanceAdopted` would otherwise
+  wait for a session that never starts. Stopping needs the CLI's short handle (`id`), which is **not**
+  derivable from the session id - the real listing addressed session `2b3bba05` as `a7683d47` - so
+  `AgentInstanceInfo` carries both, learned from a discovery pass.
 - **Create**: as today but with `--session-id <uuid>` and `-n <workspace name>`, so the session is durable,
   identifiable, and visible in `claude agents`.
 - **Release (keep-running)**: end the owned stream, then `claude --bg --resume <sessionId>` so it carries on.
-- **Discover**: `claude agents --json`, mapping `sessionId`/`name`/`cwd`/`status` onto `AgentInstance`.
+- **Discover**: `claude agents --json`, mapping `sessionId`/`id`/`name`/`cwd`/`kind`/`status` onto
+  `AgentInstance`.
+
+**Ownership is a label, `kind` is the gate (29.07).** The `clavis/` marker originally decided who could be
+adopted, on the reasoning that resuming a foreign session would hijack it. Since adoption now stops first,
+that no longer holds: an agent started in the CLI's own agent view is a legitimate hand-over target, which is
+what the user asked for. The marker survives as `IsOwned` so the UI can show whose agent it is. The real gate
+is `kind`: **background** agents can be stopped and resumed; **interactive** sessions are somebody's terminal
+and stopping one is a hijack, not a hand-over, so they are filtered out - including Clavis-marked ones,
+because ownership was never what made it safe. A listing that stops reporting `kind` yields no targets rather
+than treating every terminal as one.
 
 Tests: the pure mapping from `claude agents --json` (malformed row, absent `name`, a `cwd` outside every
-workspace, epoch-millisecond and string timestamps, a foreign name kept but not owned), the release-mode
-decision table, the hand-off argument list, adoption refused when already held or when unmarked, plus the
-registry's exclusivity and the turn gate's wait/timeout behaviour.
+workspace, epoch-millisecond and string timestamps, a foreign name kept but not owned, the short handle being
+distinct from the session id), the release-mode decision table, the hand-off and stop argument lists,
+adoption refused when already held / interactive / of unreported kind but allowed for a foreign background
+agent, plus the registry's exclusivity and the turn gate's wait/timeout behaviour.
 
 ---
 
