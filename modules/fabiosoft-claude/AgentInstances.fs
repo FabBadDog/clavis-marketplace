@@ -7,10 +7,12 @@ open FabioSoft.Json
 /// session id, a peer protocol version); those are deliberately dropped here rather than carried up, because
 /// they are undocumented internals of a self-updating CLI and nothing above this line should depend on them.
 ///
-/// IsOwned says the reported name carried Clavis's ownership marker, i.e. Clavis started this agent and may
-/// take it back. It is the safety gate on adoption: `claude agents --json` lists *every* live session on the
-/// machine, including the user's unrelated editors and terminals, and resuming one of those would hijack a
-/// conversation somebody else is holding open.
+/// IsOwned says the reported name carried Clavis's ownership marker, i.e. Clavis started this agent. It is a
+/// label, not a permission: agents started in the CLI's own agent view can be taken over too.
+///
+/// IsBackground is the actual safety gate. The listing carries interactive sessions as well - the user's own
+/// terminals and editors - and those cannot be handed over: taking an agent over stops it first, and stopping
+/// somebody's terminal out from under them is not a hand-over but a hijack. Only background agents are offered.
 ///
 /// AgentId is the short handle the CLI addresses an agent by (`claude stop <id>`), and is *not* derivable from
 /// the session id: an agent whose session id starts 2b3bba05 can be addressed as a7683d47. Both are carried
@@ -21,6 +23,7 @@ type AgentInstanceInfo =
       AgentId: string
       Name: string
       IsOwned: bool
+      IsBackground: bool
       WorkingDirectory: string
       Status: string
       StartedAt: DateTimeOffset }
@@ -114,6 +117,9 @@ module AgentInstances =
                   AgentId = stringField "id" json |> Option.defaultValue ""
                   Name = name
                   IsOwned = isOwned
+                  IsBackground =
+                    stringField "kind" json
+                    |> Option.exists (fun kind -> String.Equals(kind, "background", StringComparison.OrdinalIgnoreCase))
                   WorkingDirectory = workingDirectory
                   Status = stringField "status" json |> Option.defaultValue "unknown"
                   StartedAt = timeField "startedAt" json }
@@ -129,17 +135,17 @@ module AgentInstances =
             | Ok (Json.Array rows) -> rows |> List.ofArray |> List.choose ofJson
             | _ -> []
 
-    /// The instances Clavis may offer to take over: only the ones it marked as its own. Everything else in the
-    /// listing belongs to a live session somebody is using, and resuming it would put two processes on one
-    /// transcript.
+    /// The instances Clavis may offer to take over: every background agent, including ones started in the CLI's
+    /// own agent view. Interactive sessions are excluded - taking an agent over stops it first, which is a
+    /// hand-over for a background agent but would pull a terminal out from under whoever is typing in it.
     let reclaimable (instances: AgentInstanceInfo list) =
-        instances |> List.filter _.IsOwned
+        instances |> List.filter _.IsBackground
 
     /// Whether an instance may be adopted. Adoption is exclusive: one already taken over is refused rather than
-    /// handed to a second owner, because two processes on one session id means two windows onto one transcript
-    /// and a corrupted conversation.
+    /// handed to a second owner, because two Clavis streams on one session id means two windows onto one
+    /// transcript.
     let canAdopt (adoptedSessionIds: Set<string>) (instance: AgentInstanceInfo) =
-        instance.IsOwned && not (adoptedSessionIds.Contains instance.SessionId)
+        instance.IsBackground && not (adoptedSessionIds.Contains instance.SessionId)
 
     /// Whether a release should leave the agent running. Anything that is not an explicit keep-running is a
     /// stop: the safe default when a caller sends something unrecognised is to end the session, not to leave a

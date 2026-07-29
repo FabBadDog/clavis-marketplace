@@ -53,18 +53,32 @@ let private collectEvents (session: Session) =
     session.Subscribe(events.Add) |> ignore
     events
 
-let private waitForMailbox () = Thread.Sleep(100)
+[<Literal>]
+let private PollIntervalMilliseconds = 10
 
-let private waitForAsync () = Thread.Sleep(200)
+let private WaitTimeout = TimeSpan.FromSeconds(5.0)
+
+/// A session runs its work on its own MailboxProcessor, so a test cannot know when it has caught up. Waiting
+/// for the effect the test is about to assert on is what makes that deterministic - a fixed sleep passes on an
+/// idle machine and fails under load, which is exactly how it behaved.
+let rec private waitUntil (deadline: DateTime) condition =
+    if not (condition ()) && DateTime.UtcNow < deadline then
+        Thread.Sleep(PollIntervalMilliseconds)
+        waitUntil deadline condition
+
+let private waitFor condition = waitUntil (DateTime.UtcNow.Add(WaitTimeout)) condition
 
 let private waitForEvent (events: ResizeArray<_>) predicate =
-
-    let deadline = DateTime.UtcNow.AddSeconds(5.0)
-    let found () =
+    waitFor (fun () ->
         try events.ToArray() |> Array.exists predicate
-        with :? InvalidOperationException -> false
-    while not (found ()) && DateTime.UtcNow < deadline do
-        Thread.Sleep(10)
+        with :? InvalidOperationException -> false)
+
+let private waitForLines (fake: FakeProcess.FakeProcessBridge) count =
+    waitFor (fun () -> fake.SentLines.Count >= count)
+
+/// For the one assertion that nothing is written: there is no effect to wait for, so this is a bounded pause
+/// giving a wrong implementation time to reveal itself rather than a synchronisation point.
+let private settle () = Thread.Sleep(100)
 
 [<Fact>]
 let ``stdout NDJSON line is parsed into StreamEvent`` () =
@@ -76,7 +90,7 @@ let ``stdout NDJSON line is parsed into StreamEvent`` () =
 
     // Act
     fake.PushStdout """{"type":"system","subtype":"init","session_id":"s1","model":"opus-4"}"""
-    waitForMailbox ()
+    waitForEvent events (function Ok (Init _) -> true | _ -> false)
 
     // Assert
     events |> Seq.exists (function Ok (Init (SessionId "s1", "opus-4", _)) -> true | _ -> false)
@@ -92,7 +106,7 @@ let ``stderr line triggers LogMessage event`` () =
 
     // Act
     fake.PushStderr "some warning"
-    waitForMailbox ()
+    waitForEvent events (function Ok (LogMessage _) -> true | _ -> false)
 
     // Assert
     events |> Seq.exists (function Ok (LogMessage "some warning") -> true | _ -> false)
@@ -140,7 +154,7 @@ let ``Send Initialize encodes an initialize control request to stdin`` () =
 
     // Act
     session.OnNext Initialize
-    waitForMailbox ()
+    waitForLines fake 1
 
     // Assert
     let sent = fake.SentLines[0]
@@ -158,7 +172,7 @@ let ``Send Initialize also sends the boot command to force the lazy provider boo
 
     // Act
     session.OnNext Initialize
-    waitForMailbox ()
+    waitForLines fake 2
 
     // Assert
     fake.SentLines.Count.Should().Be(2) |> ignore
@@ -175,7 +189,7 @@ let ``Send Prompt encodes user message to stdin`` () =
 
     // Act
     session.OnNext(Prompt "hello world")
-    waitForMailbox ()
+    waitForLines fake 1
 
     // Assert
     fake.SentLines.Count.Should().Be(1) |> ignore
@@ -192,7 +206,7 @@ let ``Send Prompt escapes special characters`` () =
 
     // Act
     session.OnNext(Prompt "say \"hi\" and use \\backslash")
-    waitForMailbox ()
+    waitForLines fake 1
 
     // Assert
     fake.SentLines.Count.Should().Be(1) |> ignore
@@ -209,7 +223,7 @@ let ``Send PermissionResponse Allow encodes correctly`` () =
 
     // Act
     session.OnNext(PermissionResponse ("req-1", Allow []))
-    waitForMailbox ()
+    waitForLines fake 1
 
     // Assert
     fake.SentLines.Count.Should().Be(1) |> ignore
@@ -227,7 +241,7 @@ let ``Send PermissionResponse Deny encodes correctly`` () =
 
     // Act
     session.OnNext(PermissionResponse ("req-2", Deny))
-    waitForMailbox ()
+    waitForLines fake 1
 
     // Assert
     fake.SentLines.Count.Should().Be(1) |> ignore
@@ -245,7 +259,7 @@ let ``Send PermissionResponse Allow encodes updatedPermissions`` () =
 
     // Act
     session.OnNext(PermissionResponse ("req-3", Allow updates))
-    waitForMailbox ()
+    waitForLines fake 1
 
     // Assert
     let sent = fake.SentLines[0]
@@ -264,7 +278,7 @@ let ``Send SetModel encodes a set_model control request to stdin`` () =
 
     // Act
     session.OnNext(SetModel "claude-opus-4-8")
-    waitForMailbox ()
+    waitForLines fake 1
 
     // Assert
     fake.SentLines.Count.Should().Be(1) |> ignore
@@ -282,7 +296,7 @@ let ``Send SetPermissionMode encodes a set_permission_mode control request to st
 
     // Act
     session.OnNext(SetPermissionMode "plan")
-    waitForMailbox ()
+    waitForLines fake 1
 
     // Assert
     fake.SentLines.Count.Should().Be(1) |> ignore
@@ -299,7 +313,7 @@ let ``Send SetEffort encodes the non-interactive effort command as a user messag
 
     // Act
     session.OnNext(SetEffort "xhigh")
-    waitForMailbox ()
+    waitForLines fake 1
 
     // Assert
     fake.SentLines.Count.Should().Be(1) |> ignore
@@ -319,7 +333,7 @@ let ``Send SetModel after process exit sends nothing`` () =
 
     // Act
     session.OnNext(SetModel "claude-opus-4-8")
-    waitForMailbox ()
+    settle ()
 
     // Assert
     fake.SentLines.Count.Should().Be(0)
@@ -336,7 +350,7 @@ let ``Send Prompt after process exit triggers SessionAlreadyExited`` () =
 
     // Act
     session.OnNext(Prompt "too late")
-    waitForMailbox ()
+    waitForEvent events (function Ok SessionAlreadyExited -> true | _ -> false)
 
     // Assert
     events |> Seq.exists (function Ok SessionAlreadyExited -> true | _ -> false)
@@ -352,7 +366,7 @@ let ``Send Interrupt triggers Aborted event and calls bridge Interrupt`` () =
 
     // Act
     session.OnNext Interrupt
-    waitForMailbox ()
+    waitForEvent events (function Ok Aborted -> true | _ -> false)
 
     // Assert
     events |> Seq.exists (function Ok Aborted -> true | _ -> false)
@@ -410,7 +424,7 @@ let ``invalid NDJSON triggers Status with parsing error`` () =
 
     // Act
     fake.PushStdout "not valid json at all"
-    waitForMailbox ()
+    waitForEvent events (function Error (JsonError (MalformedJson _)) -> true | _ -> false)
 
     // Assert
     events |> Seq.exists (function
@@ -429,7 +443,7 @@ let ``multiple stdout lines produce multiple events`` () =
     // Act
     fake.PushStdout """{"type":"system","subtype":"init","session_id":"s1","model":"opus-4"}"""
     fake.PushStdout """{"type":"result","duration_ms":1500,"duration_api_ms":1200,"num_turns":1,"result":"done","session_id":"s1","cost_usd":0.05,"model":"opus-4"}"""
-    waitForMailbox ()
+    waitForEvent events (function Ok (Result _) -> true | _ -> false)
 
     // Assert
     events |> Seq.exists (function Ok (Init _) -> true | _ -> false)

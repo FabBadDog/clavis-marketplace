@@ -1,7 +1,7 @@
 ---
 name: fabiosoft-claude
 assemblyName: FabioSoft.Claude
-version: 4.0.0
+version: 5.0.0
 apiVersion: 1.0.0
 description: Standalone Claude Code bridge library.
 produces: [ FabioSoft.Claude.dll ]

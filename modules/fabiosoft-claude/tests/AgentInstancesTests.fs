@@ -153,25 +153,50 @@ let ``output that is not an array of agents yields no instances`` (output: strin
     %(AgentInstances.parse output).Should().BeEmpty()
 
 [<Fact>]
-let ``only Clavis's own agents are offered for reclaiming`` () =
+let ``agents started outside Clavis are offered for reclaiming too`` () =
 
-    // Arrange - the listing carries every live session on the machine, including editors and terminals nobody
-    // asked us to touch
+    // Arrange - an agent started in the CLI's own agent view is a legitimate hand-over target: taking it over
+    // stops it first, so there is never a second process on its transcript
     let foreign = row "foreign" "API Contract"
     let mine = owned "mine" "Reviews"
-    let json = $"""[{foreign},{mine},{{"sessionId":"unnamed"}}]"""
+    let json = $"[{foreign},{mine}]"
 
     // Act
     let reclaimable = AgentInstances.parse json |> AgentInstances.reclaimable
 
-    // Assert
+    // Assert - both, and ownership survives as a label so the caller can say which is which
+    %reclaimable.Length.Should().Be(2)
+    %(reclaimable |> List.map _.IsOwned).Should().SequenceEqual([ false; true ])
+
+[<Fact>]
+let ``an interactive session is never offered`` () =
+
+    // Arrange - somebody's own terminal. Adoption stops what it takes over, and stopping a terminal out from
+    // under the person typing in it is a hijack, not a hand-over.
+    let terminal = """{"id":"i1","sessionId":"s1","name":"clavis/mine","kind":"interactive","status":"busy"}"""
+    let agent = owned "background" "Reviews"
+
+    // Act
+    let reclaimable = AgentInstances.parse $"[{terminal},{agent}]" |> AgentInstances.reclaimable
+
+    // Assert - not even the Clavis-marked one, because ownership is not what makes it safe
     %reclaimable.Length.Should().Be(1)
-    %reclaimable[0].SessionId.Should().Be("mine")
+    %reclaimable[0].SessionId.Should().Be("background")
+
+[<Fact>]
+let ``a session of unreported kind is not offered`` () =
+
+    // Act - a listing that stopped reporting kind must not silently turn every terminal into a target
+    let instances = AgentInstances.parse """[{"sessionId":"s1","name":"clavis/mine"}]"""
+
+    // Assert
+    %instances[0].IsBackground.Should().BeFalse()
+    %(AgentInstances.canAdopt Set.empty instances[0]).Should().BeFalse()
 
 [<Fact>]
 let ``an already adopted instance cannot be adopted again`` () =
 
-    // Arrange - two processes on one session id means two windows onto one transcript
+    // Arrange - two Clavis streams on one session id means two windows onto one transcript
     let taken = owned "taken" "n"
     let instance = (AgentInstances.parse $"[{taken}]").Head
 
@@ -180,14 +205,15 @@ let ``an already adopted instance cannot be adopted again`` () =
     %(AgentInstances.canAdopt (Set.ofList [ "other" ]) instance).Should().BeTrue()
 
 [<Fact>]
-let ``an instance Clavis does not own cannot be adopted at all`` () =
+let ``an instance Clavis does not own can still be adopted`` () =
 
-    // Arrange - resuming somebody else's live session would hijack it
+    // Arrange - this is the point of the hand-over: an agent started in the agent view can move into Clavis
     let foreign = row "foreign" "API Contract"
     let instance = (AgentInstances.parse $"[{foreign}]").Head
 
     // Act & Assert
-    %(AgentInstances.canAdopt Set.empty instance).Should().BeFalse()
+    %instance.IsOwned.Should().BeFalse()
+    %(AgentInstances.canAdopt Set.empty instance).Should().BeTrue()
 
 [<Theory>]
 [<InlineData("keep-running", true)>]

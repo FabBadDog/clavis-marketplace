@@ -25,7 +25,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 ### FabioSoft.Contracts.Host
 
 - **CycleSessionMode** - pub: _none found_ - sub: Selection
-- **ExitApplication** - pub: _none found_ - sub: WpfHost
+- **ExitApplication** - pub: Workspaces - sub: WpfHost
 - **FocusInputRequested** - pub: AgentGateway, EventsPanel - sub: Conversation
 - **SelectEffort** - pub: _none found_ - sub: Selection
 - **SelectionCompleted** - pub: Selection - sub: AgentGateway
@@ -34,11 +34,11 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **SelectModel** - pub: _none found_ - sub: Selection
 - **SelectPanel** - pub: _none found_ - sub: Selection
 - **StatusBarAvailability** - pub: Conversation - sub: WpfHost
-- **SummonClavis** - pub: AgentGateway, WpfHost - sub: WpfHost
+- **SummonClavis** - pub: AgentGateway, Workspaces, WpfHost - sub: WpfHost
 - **ToggleClavis** - pub: _none found_ - sub: WpfHost
 - **ToggleCommandPalette** - pub: AgentGateway - sub: CommandPalette
 - **ToggleShortcutHelp** - pub: AgentGateway - sub: WpfHost
-- **UiRegionContribution** - pub: Conversation, TaskTracker - sub: WpfHost
+- **UiRegionContribution** - pub: Conversation, TaskTracker, Workspaces - sub: WpfHost
 - **UiRegionRemoved** - pub: _none found_ - sub: WpfHost
 - **UserAborted** - pub: AgentGateway, Conversation - sub: Conversation
 - **UserCancelledQueued** - pub: Conversation - sub: Conversation
@@ -128,7 +128,13 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 
 ### FabioSoft.Contracts.Session
 
+- **AdoptAgentInstance** - pub: _none found_ - sub: ClaudeBridge
 - **AgentEffortChanged** - pub: ClaudeBridge - sub: _none found_
+- **AgentInstanceAdopted** - pub: ClaudeBridge - sub: _none found_
+- **AgentInstanceAdoptionFailed** - pub: ClaudeBridge - sub: _none found_
+- **AgentInstanceReleased** - pub: ClaudeBridge - sub: _none found_
+- **AgentInstancesAvailable** - pub: ClaudeBridge - sub: _none found_
+- **AgentInstancesRequested** - pub: _none found_ - sub: ClaudeBridge
 - **AgentModeChanged** - pub: ClaudeBridge - sub: _none found_
 - **AgentModelChanged** - pub: ClaudeBridge - sub: _none found_
 - **AgentParsingError** - pub: _none found_ - sub: Conversation
@@ -139,6 +145,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **FullRestartRequested** - pub: _none found_ - sub: Conversation
 - **InterruptSession** - pub: Conversation - sub: ClaudeBridge
 - **PermissionDecided** - pub: Conversation - sub: Conversation
+- **ReleaseAgentInstance** - pub: _none found_ - sub: ClaudeBridge
 - **SendPermissionResponse** - pub: Conversation - sub: ClaudeBridge
 - **SendPrompt** - pub: Conversation - sub: ClaudeBridge
 - **SessionActivityChanged** - pub: _none found_ - sub: Workspaces
@@ -157,7 +164,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - **ActivateWorkspaceSlot** - pub: _none found_ - sub: Workspaces
 - **CloseActiveWorkspace** - pub: _none found_ - sub: Workspaces
 - **CloseWorkspace** - pub: _none found_ - sub: Workspaces
-- **CreateWorkspace** - pub: _none found_ - sub: Workspaces
+- **CreateWorkspace** - pub: Workspaces - sub: Workspaces
 - **RenameWorkspace** - pub: _none found_ - sub: Workspaces
 - **RequestWorkspaces** - pub: AgentGateway, Workspaces - sub: Workspaces
 - **WorkspaceActivated** - pub: Workspaces - sub: Conversation, Selection, WpfHost
@@ -199,8 +206,8 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - subscribes: SelectionCompleted
 
 ### ClaudeBridge
-- publishes: AgentEffortChanged, AgentModeChanged, AgentModelChanged, LogEntry, SessionReady, SessionStarted, SummaryResult
-- subscribes: ClavisMcpAvailable, DisposeSession, EditorClosed, EditorStateChanged, InterruptSession, SendPermissionResponse, SendPrompt, SetSessionEffort, SetSessionMode, SetSessionModel, StartNewSession, Summarize
+- publishes: AgentEffortChanged, AgentInstanceAdopted, AgentInstanceAdoptionFailed, AgentInstanceReleased, AgentInstancesAvailable, AgentModeChanged, AgentModelChanged, LogEntry, SessionReady, SessionStarted, SummaryResult
+- subscribes: AdoptAgentInstance, AgentInstancesRequested, ClavisMcpAvailable, DisposeSession, EditorClosed, EditorStateChanged, InterruptSession, ReleaseAgentInstance, SendPermissionResponse, SendPrompt, SetSessionEffort, SetSessionMode, SetSessionModel, StartNewSession, Summarize
 
 ### CodeEditorPanel
 - publishes: EditorStateChanged, LogEntry, PanelKindRegistration
@@ -291,7 +298,7 @@ the clavis core repo) are attributed only when the script is run with `-CoreSrc 
 - subscribes: AgentUsageReport, PanelKindsRequested
 
 ### Workspaces
-- publishes: ActivateWorkspace, DefaultBindingsDeclared, DisposeSession, GetConfig, LogEntry, PanelKindRegistration, RequestWorkspaces, SaveConfig, StartNewSession, WorkspaceActivated, WorkspaceClosed, WorkspaceListChanged, WorkspaceSessionStarted
+- publishes: ActivateWorkspace, CreateWorkspace, DefaultBindingsDeclared, DisposeSession, ExitApplication, GetConfig, LogEntry, PanelKindRegistration, RequestWorkspaces, SaveConfig, StartNewSession, SummonClavis, UiRegionContribution, WorkspaceActivated, WorkspaceClosed, WorkspaceListChanged, WorkspaceSessionStarted
 - subscribes: ActivateWorkspace, ActivateWorkspaceSlot, CloseActiveWorkspace, CloseWorkspace, ConfigResult, CreateWorkspace, PanelKindsRequested, RenameWorkspace, RequestDefaultBindings, RequestWorkspaces, SessionActivityChanged, WorkspaceListChanged
 
 ### WpfHost

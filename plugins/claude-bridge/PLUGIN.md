@@ -1,14 +1,14 @@
 ---
 name: claude-bridge
 pluginId: ClaudeBridge
-version: 2.3.0
+version: 2.4.0
 essential: true
 apiVersion: 1.0.0
 description: Wraps Claude sessions; maps stream events onto bus messages.
 dependencies:
   - { name: session-contracts, version: 3 }
   - { name: editor-contracts, version: 1 }
-  - { name: fabiosoft-claude, version: 4 }
+  - { name: fabiosoft-claude, version: 5 }
 language: csharp
 assemblyName: ClaudeBridge
 rootNamespace: FabioSoft.Nucleus.Plugins.ClaudeBridge
@@ -88,10 +88,15 @@ native-to-`Agent*` translation; `UsagePoller.cs` + `UsageReportMapping.cs` handl
   (not at activation) so it never races gateway startup; absent files degrade to no attachment.
 - **Usage is account-global**, independent of any session, polled on its own timer by `UsagePoller`.
 - **Agent instances outlive Clavis.** Every session Clavis starts is named `clavis/<label>` (the workspace
-  name, else the working directory's last segment). That marker is not decoration: `claude agents --json`
-  lists *every* live session on the machine - the user's own editors and terminals included - and only the
-  marked ones are offered for adoption, because `--resume` starts a second process over a transcript rather
-  than joining the first. Adopting an unmarked session would hijack a conversation somebody is holding open.
+  name, else the working directory's last segment). The marker is a *label*, surfaced as `IsOwned` so the UI
+  can say which agents are Clavis's own - it is not a permission. An agent started in the CLI's own agent
+  view can be taken over too.
+- **Adoption is a hand-over, and the gate is `kind`.** `--resume` starts a second process over a transcript
+  rather than joining the first, and the CLI refuses it outright while a background agent still holds the
+  session. So adoption first runs `claude stop <agent-id>`, and only resumes once the agent has let go; the
+  conversation survives the stop. That is why *background* agents are safe targets and interactive sessions
+  are filtered out of the listing entirely: stopping somebody's terminal is not a hand-over. A listing that
+  stops reporting `kind` yields no targets rather than treating every terminal as one.
 - **Adoption is exclusive**, enforced by `AgentInstanceRegistry` and claimed *before* the spawn: a refused
   claim costs nothing, two owners corrupt the transcript. This guards one Clavis home; two homes on one
   machine share the provider's session store and would need out-of-band state to coordinate.

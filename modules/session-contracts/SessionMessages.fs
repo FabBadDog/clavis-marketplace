@@ -131,7 +131,9 @@ type SummaryResult(summary: string) =
 // session back when it closes.
 
 /// One agent instance the provider knows about, whether or not Clavis started it. InstanceId is the provider's
-/// own identifier for it (opaque here). IsAdopted is true when this Clavis has taken it over.
+/// own identifier for it (opaque here). IsAdopted is true when this Clavis has taken it over. IsOwned is true
+/// when Clavis started it in the first place - taking over an agent somebody started elsewhere is allowed, but
+/// it stops a session they may still be watching, so the distinction is worth showing them.
 [<Sealed>]
 type AgentInstance
     (instanceId: string,
@@ -139,7 +141,11 @@ type AgentInstance
      workingDirectory: string,
      status: string,
      startedAt: DateTimeOffset,
-     isAdopted: bool) =
+     isAdopted: bool,
+     isOwned: bool) =
+
+    new(instanceId, name, workingDirectory, status, startedAt, isAdopted) =
+        AgentInstance(instanceId, name, workingDirectory, status, startedAt, isAdopted, false)
 
     member _.InstanceId = instanceId
     member _.Name = name
@@ -147,6 +153,7 @@ type AgentInstance
     member _.Status = status
     member _.StartedAt = startedAt
     member _.IsAdopted = isAdopted
+    member _.IsOwned = isOwned
 
 /// Ask the provider bridge which agent instances exist. Answered with AgentInstancesAvailable, so a caller uses
 /// IBus.Request.

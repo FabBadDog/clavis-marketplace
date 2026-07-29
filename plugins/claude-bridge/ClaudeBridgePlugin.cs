@@ -413,9 +413,9 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             bus.Send(new SummaryResult(summary));
         });
 
-        // What is running, including agents Clavis did not start. Only instances carrying Clavis's ownership
-        // marker are offered: the listing also contains the user's editors and terminals, and resuming one of
-        // those would take over a conversation somebody is in the middle of.
+        // What is running, including agents Clavis did not start - those can be taken over too, because taking
+        // one over stops it first. Interactive sessions are filtered out: the listing also carries the user's
+        // own terminals, and stopping one of those would not be a hand-over.
         var instancesSubscription = bus.Subscribe<AgentInstancesRequested>(async _ =>
         {
             var output = await AgentProcess.ListAsync(TimeSpan.FromSeconds(config.DiscoveryTimeoutSeconds));
@@ -433,7 +433,8 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                     instance.WorkingDirectory,
                     instance.Status,
                     instance.StartedAt,
-                    registry.IsAdopted(instance.SessionId)))
+                    registry.IsAdopted(instance.SessionId),
+                    instance.IsOwned))
                 .ToArray();
 
             // The supervisor daemon knows things the listing does not - which process backs each agent, and the
