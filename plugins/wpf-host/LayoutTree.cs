@@ -126,4 +126,36 @@ public static class LayoutTree
             && centerY >= desktopTop
             && centerY <= desktopTop + desktopHeight;
     }
+
+    /// Pull a window's position back onto the desktop, leaving its size alone.
+    ///
+    /// Applied when *saving*, not only when restoring. Summoning and banishing animate a window through a
+    /// position above the screen, so a layout captured mid-animation - or while the window is banished - records
+    /// somewhere the window can never be seen again. Restoring already refuses such bounds, but writing them down
+    /// still loses wherever the window actually was, and a window that reopens centred every launch is a quieter
+    /// bug than one that vanishes.
+    ///
+    /// Clamping so the whole window fits keeps the title bar reachable, which is the part that matters: a window
+    /// whose title bar is off-screen cannot be dragged back.
+    public static PersistedWindowState ClampToDesktop(
+        PersistedWindowState state, double desktopLeft, double desktopTop, double desktopWidth, double desktopHeight)
+    {
+        // A degenerate desktop (no monitor reported yet) would clamp everything to a point; leave it alone.
+        if (desktopWidth <= 0 || desktopHeight <= 0)
+        {
+            return state;
+        }
+
+        var left = Math.Min(Math.Max(state.Left, desktopLeft), desktopLeft + desktopWidth - state.Width);
+        var top = Math.Min(Math.Max(state.Top, desktopTop), desktopTop + desktopHeight - state.Height);
+
+        // A window larger than the desktop cannot satisfy both edges; prefer the top-left one, so its chrome
+        // stays reachable rather than its bottom-right corner.
+        left = Math.Max(left, desktopLeft);
+        top = Math.Max(top, desktopTop);
+
+        return left == state.Left && top == state.Top
+            ? state
+            : new PersistedWindowState(left, top, state.Width, state.Height, state.IsMaximized);
+    }
 }

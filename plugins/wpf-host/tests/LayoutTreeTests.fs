@@ -176,3 +176,59 @@ let ``an empty rename map returns the tree untouched`` () =
 
     // Assert
     %Object.ReferenceEquals(result, tree).Should().BeTrue()
+
+[<Fact>]
+let ``a window parked above the screen is pulled back on`` () =
+
+    // Arrange - summon and banish animate the window through a position above the desktop, so a snapshot taken
+    // mid-animation records somewhere it can never be seen again. These are the real observed bounds.
+    let banished = PersistedWindowState(3470.0, -680.0, 740.0, 640.0, false)
+
+    // Act
+    let clamped = LayoutTree.ClampToDesktop(banished, -2560.0, 0.0, 7680.0, 1440.0)
+
+    // Assert - back on the desktop, same size
+    %clamped.Top.Should().Be(0.0)
+    %clamped.Width.Should().Be(740.0)
+    %clamped.Height.Should().Be(640.0)
+
+[<Fact>]
+let ``a window already on the desktop is left exactly as it is`` () =
+
+    // Arrange
+    let placed = PersistedWindowState(400.0, 120.0, 740.0, 640.0, false)
+
+    // Act
+    let clamped = LayoutTree.ClampToDesktop(placed, 0.0, 0.0, 2560.0, 1440.0)
+
+    // Assert
+    %clamped.Left.Should().Be(400.0)
+    %clamped.Top.Should().Be(120.0)
+
+[<Fact>]
+let ``a window hanging off the right edge is pulled fully into view`` () =
+
+    // Act - the whole window is brought on, not just its centre, so the title bar stays draggable
+    let clamped = LayoutTree.ClampToDesktop(PersistedWindowState(2400.0, 100.0, 740.0, 640.0, false), 0.0, 0.0, 2560.0, 1440.0)
+
+    // Assert
+    %clamped.Left.Should().Be(1820.0)
+
+[<Fact>]
+let ``a window larger than the desktop keeps its top-left corner reachable`` () =
+
+    // Act - both edges cannot be satisfied; the chrome matters more than the bottom-right corner
+    let clamped = LayoutTree.ClampToDesktop(PersistedWindowState(-500.0, -500.0, 4000.0, 3000.0, false), 0.0, 0.0, 2560.0, 1440.0)
+
+    // Assert
+    %clamped.Left.Should().Be(0.0)
+    %clamped.Top.Should().Be(0.0)
+
+[<Fact>]
+let ``a desktop that reports no size clamps nothing`` () =
+
+    // Arrange - no monitor known yet; clamping against that would collapse every window onto a point
+    let placed = PersistedWindowState(400.0, 120.0, 740.0, 640.0, false)
+
+    // Act & Assert
+    %LayoutTree.ClampToDesktop(placed, 0.0, 0.0, 0.0, 0.0).Left.Should().Be(400.0)

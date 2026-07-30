@@ -1,7 +1,7 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 7.1.2
+version: 7.2.0
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
@@ -114,6 +114,16 @@ unit-tested.
   via `RestorePanel` (deferred until `BootstrapComplete` so the registry can resolve their kinds) - docked
   panels swap into their slot, and slide-ins are re-anchored parked (hidden) on their saved edge, so a panel
   that was a slide-in or lived in an extra window comes back the same rather than as a default tab.
+- **Transient workspaces are never persisted.** A workspace flagged `IsFleetAgent` stands for an agent running
+  outside Clavis; its owner deliberately does not write it down, so neither does the layout. Activating one must
+  not record it as `activeWorkspaceId` or give it a docking tree - the layout stores one tree per workspace, so a
+  saved reference to a workspace that no longer exists restores an **empty surface on every tab**, with nothing
+  in the UI able to explain or undo it. The last non-transient workspace is saved as active instead.
+- **Window bounds are clamped on save, not only on restore.** `IsCenterWithin` already refuses to restore
+  off-desktop bounds, but summon and banish animate a window through a position above the screen, so a snapshot
+  taken while it is banished or mid-animation records somewhere it can never be seen again - and loses wherever
+  it actually was. `LayoutTree.ClampToDesktop` pulls the whole window back on, so the title bar stays draggable;
+  a window that reopens centred is a far quieter failure than one that reopens invisible.
 - **Declared cardinality, not app-wide dedupe.** The host used to treat every panel kind as an
   application-wide singleton. It now enforces the kind's *declared* `PanelCardinality`, carried from its
   registration onto `PanelInstanceReady`: `many` never reuses, `one-per-application` reuses an instance in any

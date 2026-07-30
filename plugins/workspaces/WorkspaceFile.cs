@@ -89,9 +89,17 @@ public static class WorkspaceFile
             .WithNamingConvention(CamelCaseNamingConvention.Instance)
             .Build();
 
+        // The active workspace is only written when it is one of the workspaces being written. Activating a fleet
+        // agent makes it active, and those are deliberately not persisted, so recording it would leave `active`
+        // naming an entry that is not in the file. Parse already falls back in that case, but writing a dangling
+        // id loses which workspace was really yours - so the last persisted one is kept instead.
+        var persistedActive = set.InSlotOrder()
+            .FirstOrDefault(workspace => !workspace.IsFleetAgent && workspace.WorkspaceId == set.ActiveWorkspaceId)
+            ?.WorkspaceId ?? Guid.Empty;
+
         return serializer.Serialize(new WorkspacesDocument
         {
-            Active = set.ActiveWorkspaceId == Guid.Empty ? null : set.ActiveWorkspaceId.ToString(),
+            Active = persistedActive == Guid.Empty ? null : persistedActive.ToString(),
             // Fleet tabs are excluded: they stand for agents discovered running outside Clavis, so writing them
             // down would resurrect a tab for an agent that has since stopped, with no conversation behind it.
             Workspaces = set.InSlotOrder()

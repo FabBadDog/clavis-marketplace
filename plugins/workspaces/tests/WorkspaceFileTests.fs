@@ -211,3 +211,24 @@ let ``fleet tabs are never written to the config`` () =
     // Assert
     %restored.Workspaces.Should().HaveLength(1)
     %(Seq.head restored.Workspaces).Name.Should().Be("Reviews")
+
+[<Fact>]
+let ``a fleet agent is never written as the active workspace`` () =
+
+    // Arrange - activating an agent running outside Clavis makes it active, but it is not persisted. Recording it
+    // as `active` would name an entry that is not in the file, losing which workspace was really yours.
+    let instances =
+        [| FabioSoft.Contracts.Session.AgentInstance(
+               "foreign", "API Contract", "C:\\other", "idle", DateTimeOffset.UnixEpoch, false, false) |]
+    let set = WorkspaceSet.Empty |> create "Reviews" "C:\\reviews" 1
+    let struct (withTab, _) = WorkspaceUpdate.MergeFleetAgents(set, instances)
+    let tabId = (withTab.Workspaces |> Seq.find _.IsFleetAgent).WorkspaceId
+    let struct (activated, _) = WorkspaceUpdate.Activate(withTab, tabId)
+
+    // Act
+    let restored = WorkspaceFile.Parse(WorkspaceFile.Serialize activated, fallbackDirectory)
+
+    // Assert - the real workspace is what comes back, not a dangling id
+    %restored.Workspaces.Should().HaveLength(1)
+    %(Seq.head restored.Workspaces).Name.Should().Be("Reviews")
+    %restored.ActiveWorkspaceId.Should().Be((Seq.head restored.Workspaces).WorkspaceId)

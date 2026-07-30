@@ -186,14 +186,27 @@ internal sealed partial class WindowManager
     private PersistedLayout CaptureLayout()
     {
         var windows = _windows.Values.Select(CaptureWindow).ToList();
-        var live = _windows.Values.Select(CaptureWorkspaceLayout).ToList();
+
+        // A workspace standing for an agent running outside Clavis is not persisted by its owner, so persisting a
+        // layout for it - or recording it as the workspace to restore - would point the next launch at something
+        // that no longer exists. The last workspace that was really yours is saved as active instead.
+        var live = _windows.Values
+            .Select(CaptureWorkspaceLayout)
+            .Where(entry => !_transientWorkspaces.Contains(entry.WorkspaceId))
+            .ToList();
+
+        var activeWorkspaceId = _transientWorkspaces.Contains(_activeWorkspaceId)
+            ? _persistableWorkspaceId
+            : _activeWorkspaceId;
+
         var carriedOver = (_restoredLayout?.Layouts ?? [])
             .Where(entry => !live.Any(current =>
                 current.WindowId == entry.WindowId && current.WorkspaceId == entry.WorkspaceId))
-            .Where(entry => entry.WorkspaceId != _activeWorkspaceId);
+            .Where(entry => !_transientWorkspaces.Contains(entry.WorkspaceId))
+            .Where(entry => entry.WorkspaceId != activeWorkspaceId);
 
         return new PersistedLayout(
-            LayoutFile.CurrentVersion, _activeWorkspaceId, windows, [.. live, .. carriedOver]);
+            LayoutFile.CurrentVersion, activeWorkspaceId, windows, [.. live, .. carriedOver]);
     }
 
     private PersistedWindow CaptureWindow(WindowHost host) =>
@@ -256,6 +269,15 @@ internal sealed partial class WindowManager
         var bounds = isMaximized
             ? window.RestoreBounds
             : new Rect(window.Left, window.Top, window.Width, window.Height);
-        return new PersistedWindowState(bounds.X, bounds.Y, bounds.Width, bounds.Height, isMaximized);
+
+        // Clamped on the way out, because summon and banish animate the window through a position above the
+        // screen: a snapshot taken while it is banished or mid-animation would otherwise record somewhere it can
+        // never be seen again, and the real position is lost with it.
+        return LayoutTree.ClampToDesktop(
+            new PersistedWindowState(bounds.X, bounds.Y, bounds.Width, bounds.Height, isMaximized),
+            SystemParameters.VirtualScreenLeft,
+            SystemParameters.VirtualScreenTop,
+            SystemParameters.VirtualScreenWidth,
+            SystemParameters.VirtualScreenHeight);
     }
 }

@@ -99,6 +99,15 @@ internal sealed partial class WindowManager : IDisposable
     // a capture can carry over the arrangements of workspaces that are not currently shown - otherwise
     // switching away from a workspace and saving would erase what it had.
     private Guid _activeWorkspaceId;
+
+    /// Workspaces that stand for agents running outside Clavis. They exist so such an agent can be shown and
+    /// taken over, but they are not workspaces of yours and their owner never writes them down - so nothing in
+    /// the layout may be keyed to one either.
+    private readonly HashSet<Guid> _transientWorkspaces = [];
+
+    /// The last workspace that was really yours, saved as the one to restore when the active one is transient.
+    /// Without it, quitting while looking at a fleet agent would record a workspace the next launch cannot find.
+    private Guid _persistableWorkspaceId;
     private PersistedLayout? _restoredLayout;
 
     // Orphan pruning is one-shot on the first workspace list: later lists reflect workspaces being created and

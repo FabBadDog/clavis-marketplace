@@ -221,6 +221,22 @@ internal sealed partial class WindowManager
         {
             Application.Current.Dispatcher.InvokeAsync(() =>
             {
+                // Agents running outside Clavis appear in the list as workspaces so they can be shown and
+                // activated, but they are not workspaces of yours and are never persisted by their owner. The
+                // layout must not persist them either: it stores one docking tree per workspace, so recording
+                // one leaves the next launch restoring against a workspace that no longer exists - an empty
+                // surface on every tab, with nothing in the UI able to explain or undo it.
+                _transientWorkspaces.Clear();
+                foreach (var workspace in message.Workspaces.Where(workspace => workspace.IsFleetAgent))
+                {
+                    _transientWorkspaces.Add(workspace.WorkspaceId);
+                }
+
+                if (!_transientWorkspaces.Contains(message.ActiveWorkspaceId))
+                {
+                    _persistableWorkspaceId = message.ActiveWorkspaceId;
+                }
+
                 if (_orphansDropped || _restoredLayout is not { } restored)
                 {
                     return;
