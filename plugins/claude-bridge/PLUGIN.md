@@ -1,7 +1,7 @@
 ---
 name: claude-bridge
 pluginId: ClaudeBridge
-version: 2.4.0
+version: 2.5.0
 essential: true
 apiVersion: 1.0.0
 description: Wraps Claude sessions; maps stream events onto bus messages.
@@ -45,6 +45,10 @@ native-to-`Agent*` translation; `UsagePoller.cs` + `UsageReportMapping.cs` handl
   handing it back anyway.
 - `AdoptStopTimeoutSeconds` (default `20`) - how long adopting an agent waits for it to stop. The CLI
   refuses to resume a session while its agent still holds it, so adoption cannot proceed until it has.
+- `AdoptBusyPollSeconds` (default `3`) - how often adoption re-checks whether a busy agent has finished.
+- `AdoptBusyWaitSeconds` (default `0` = as long as it takes) - a ceiling on that wait. Stopping an agent
+  mid-turn discards the turn, so adoption waits it out; a timeout would eventually do the interrupting
+  silently, which is the user's call to make. They make it by adopting with `Force` set.
 
 ## Messages published
 
@@ -61,6 +65,7 @@ native-to-`Agent*` translation; `UsagePoller.cs` + `UsageReportMapping.cs` handl
 - `LogEntry` (diagnostics).
 - Agent instances: `AgentInstancesAvailable` (answering a request), `AgentInstanceAdopted`,
   `AgentInstanceAdoptionFailed` (the agent would not let go, so no session was started),
+  `AgentInstanceAdoptionWaiting` (repeated while waiting for a busy agent to finish its turn),
   `AgentInstanceReleased`.
 
 ## Messages subscribed
@@ -68,6 +73,8 @@ native-to-`Agent*` translation; `UsagePoller.cs` + `UsageReportMapping.cs` handl
 - `StartNewSession`, `SendPrompt`, `SendPermissionResponse`, `InterruptSession`, `DisposeSession`.
 - `AgentInstancesRequested`, `AdoptAgentInstance`, `ReleaseAgentInstance` - the instance lifecycle
   (see Notes).
+- `ResumeSession` - pick a conversation back up that no live agent holds. A plain `--resume`: there is
+  nothing to stop and nothing to wait for, so it deliberately does not go through the adoption path.
 - `SetSessionModel`, `SetSessionMode`, `SetSessionEffort` - runtime axis switches: validated against
   `ClaudeCatalog`, applied to the running session (`set_model` / `set_permission_mode` control requests;
   effort via the provider's non-interactive `/effort` command), then confirmed with the `Agent*Changed`
@@ -100,6 +107,25 @@ native-to-`Agent*` translation; `UsagePoller.cs` + `UsageReportMapping.cs` handl
 - **Adoption is exclusive**, enforced by `AgentInstanceRegistry` and claimed *before* the spawn: a refused
   claim costs nothing, two owners corrupt the transcript. This guards one Clavis home; two homes on one
   machine share the provider's session store and would need out-of-band state to coordinate.
+- **A working agent is waited out, not interrupted.** Stopping an agent mid-turn discards that turn, so
+  adoption polls the listing until the target stops reporting `busy`, publishing
+  `AgentInstanceAdoptionWaiting` meanwhile so a consumer can show what it is waiting for. `Force` on the
+  adoption skips the wait - that is the user overriding it, which is why the bridge never decides it itself.
+  An agent that has vanished from the listing counts as ready: the stop that follows reports the
+  disappearance far more precisely than a timeout would.
+- **An adopted agent keeps its name.** Reclaiming a parked agent later matches on the name, so adoption
+  reuses the name discovery reported rather than deriving one from the directory - otherwise taking an agent
+  over would quietly make it unreclaimable. A foreign agent gains the `clavis/` marker in front of its label,
+  because adopting it does make it Clavis's.
+- **A parked agent cannot be found again by id.** Handing a session back gives the new background agent a
+  *new* session id, and the spawn is fire-and-forget, so Clavis never learns it. Nothing may persist an
+  instance id expecting to find that agent later; reclaiming matches on name plus working directory
+  (`AgentInstances.parkedFor`), the two things Clavis does control. An ambiguous match reclaims nothing
+  rather than attaching a workspace to somebody else's conversation.
+- **A session Clavis holds cannot be taken over from the other side.** Clavis streams over a print-mode
+  session, which the listing reports as `interactive` and without the short handle every take-over command
+  needs. So visibility is symmetric but ownership is not: the other side can see a Clavis session and can
+  only take it over once Clavis has handed it back.
 - **Releasing waits for the turn.** `TurnGate` tracks whether a turn is in flight (started on `SendPrompt`,
   cleared on `AgentResult`). Handing back restarts the process over the persisted transcript, so an
   unfinished turn is lost; the release waits `HandOffTurnWaitSeconds` for it, then proceeds anyway and logs

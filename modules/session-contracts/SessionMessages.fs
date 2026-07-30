@@ -129,6 +129,17 @@ type SummaryResult(summary: string) =
 // while a background agent still holds that session. So resume is *take over*, never *join*: the agent is
 // asked to stop, Clavis owns the stream while it is open, and hands the session back when it closes. The
 // conversation survives that round trip; only one owner exists at a time.
+//
+// Two further verified facts shape the messages below, and both cost more than they look:
+//
+// A session Clavis holds is listed by the provider but cannot be taken over *from* the other side. Clavis
+// streams over a print-mode session, which the listing reports as interactive and - decisively - without the
+// short handle every take-over command needs. So visibility is symmetric while ownership is not: the other side
+// can see a Clavis session but can only take it over after Clavis has handed it back.
+//
+// Handing a session back does not preserve its identity: the parked agent comes up under a *new* session id.
+// Nothing may therefore persist an instance id expecting to find that same agent later, which is why reclaiming
+// matches on what Clavis does control - the name it wrote and the directory it ran in - rather than on an id.
 
 /// One agent instance the provider knows about, whether or not Clavis started it. InstanceId is the provider's
 /// own identifier for it (opaque here). IsAdopted is true when this Clavis has taken it over. IsOwned is true
@@ -170,9 +181,49 @@ type AgentInstancesAvailable(instances: IReadOnlyList<AgentInstance>) =
 /// Clavis homes adopting one instance would give two windows onto one transcript.
 [<Sealed>]
 [<Description("Take over an existing agent instance")>]
-type AdoptAgentInstance(instanceId: string, sessionId: Guid) =
+type AdoptAgentInstance(instanceId: string, sessionId: Guid, force: bool) =
+
+    new(instanceId, sessionId) = AdoptAgentInstance(instanceId, sessionId, false)
+
     member _.InstanceId = instanceId
     member _.SessionId = sessionId
+
+    /// Take the instance over even while it is mid-turn. Adoption stops the agent before resuming it, so taking
+    /// over a working agent throws its unfinished turn away; by default the bridge therefore waits for the turn
+    /// to end and reports AgentInstanceAdoptionWaiting meanwhile. Force is the user overriding that wait, which
+    /// only they can decide - so it is never the bridge's own default.
+    member _.Force = force
+
+/// The instance cannot be taken over yet because it is still working, and Clavis is waiting for it to finish.
+/// Published repeatedly while the wait lasts, so a consumer can show what it is waiting for without polling the
+/// provider itself. Adoption still ends in AgentInstanceAdopted or AgentInstanceAdoptionFailed.
+[<Sealed>]
+type AgentInstanceAdoptionWaiting(sessionId: Guid, instanceId: string, status: string, waitedFor: TimeSpan) =
+    member _.SessionId = sessionId
+    member _.InstanceId = instanceId
+
+    /// What the provider reports the instance is doing, so the wait can say why it is waiting.
+    member _.Status = status
+
+    /// How long the wait has lasted so far, so a consumer renders elapsed time without keeping its own clock.
+    member _.WaitedFor = waitedFor
+
+/// Resume a conversation that no live agent holds - the workspace's own session from a previous run, picked back
+/// up from its persisted transcript. Distinct from AdoptAgentInstance, which takes over a *running* agent and so
+/// has to stop it first: there is nothing here to stop, and requiring one would fail every resume of a session
+/// whose agent is simply gone.
+[<Sealed>]
+[<Description("Resume a session from its persisted transcript")>]
+type ResumeSession(sessionId: Guid, workingDirectory: string, agentSessionId: string, name: string) =
+    member _.SessionId = sessionId
+    member _.WorkingDirectory = workingDirectory
+
+    /// The provider's own session id, which is what identifies the transcript to resume.
+    member _.AgentSessionId = agentSessionId
+
+    /// A human label for the session, as StartNewSession takes one, so a resumed agent keeps the name it is
+    /// recognised by rather than reverting to a directory-derived one.
+    member _.Name = name
 
 /// Give an instance back. Mode is a ReleaseMode literal: hand it to the background so it keeps running, or stop
 /// it outright.

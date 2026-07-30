@@ -7,8 +7,10 @@ open Faqt.Operators
 open Xunit
 
 /// Shaped after the real `claude agents --json` output, not after a guess: startedAt is epoch milliseconds,
-/// kind is "background", status is "busy"/"waiting" rather than "running", and `id` is a short handle that is
-/// unrelated to the session id (verified against the real listing, where a7683d47 addressed session 2b3bba05).
+/// kind is "background", and `id` is a short handle unrelated to the session id (verified against the real
+/// listing, where a7683d47 addressed session 2b3bba05). The status vocabulary is "busy" while a turn runs and
+/// "idle" once it is done, alongside a separate `state` of working/done/blocked; a blocked agent reports no
+/// status field at all.
 let private row sessionId name =
     $"""{{"pid":1234,"id":"a7683d47","sessionId":"{sessionId}","name":"{name}","cwd":"C:/work","kind":"background","status":"busy","startedAt":1784996640877,"state":"working"}}"""
 
@@ -285,3 +287,106 @@ let ``handing back without a name omits the name flag`` () =
 
     // Act & Assert - an empty -n would be a provider argument error, not a nameless agent
     %(AgentInstances.handOffArguments "abc-123" "").Should().SequenceEqual([ "--bg"; "--resume"; "abc-123" ])
+
+[<Theory>]
+[<InlineData("busy", true)>]
+[<InlineData("BUSY", true)>]
+[<InlineData("idle", false)>]
+[<InlineData("unknown", false)>]
+let ``an agent is working only while it positively reports busy`` (status: string) (expected: bool) =
+
+    // Arrange - the real vocabulary is busy while a turn runs and idle once it is done; a blocked agent reports
+    // no status at all, which parse() surfaces as "unknown"
+    let json = $"""[{{"sessionId":"s1","name":"clavis/x","kind":"background","status":"{status}"}}]"""
+
+    // Act
+    let instances = AgentInstances.parse json
+
+    // Assert
+    %(AgentInstances.isWorking instances[0]).Should().Be(expected)
+
+[<Fact>]
+let ``an agent that reports no status is not treated as working`` () =
+
+    // Arrange - waiting on a status the provider never reports would wait forever and never hand over
+    let instances = AgentInstances.parse """[{"sessionId":"s1","name":"clavis/x","kind":"background"}]"""
+
+    // Act & Assert
+    %instances[0].Status.Should().Be("unknown")
+    %(AgentInstances.isWorking instances[0]).Should().BeFalse()
+
+[<Fact>]
+let ``a parked agent is found again by its label and directory`` () =
+
+    // Arrange - handing a session back gives the parked agent a NEW session id, so the name Clavis wrote plus
+    // the directory it ran in are the only durable link back to it
+    let json =
+        """[{"sessionId":"new-id","id":"h1","name":"clavis/Reviews","cwd":"C:/work","kind":"background"},
+            {"sessionId":"other","id":"h2","name":"clavis/Notes","cwd":"C:/work","kind":"background"}]"""
+
+    // Act
+    let found = AgentInstances.parse json |> AgentInstances.parkedFor "Reviews" "C:/work"
+
+    // Assert
+    %found.Should().BeSome().WhoseValue.SessionId.Should().Be("new-id")
+
+[<Fact>]
+let ``a trailing separator does not stop a parked agent being recognised`` () =
+
+    // Arrange - the provider echoes the directory back as given, so one side may carry a trailing slash
+    let json = """[{"sessionId":"s1","name":"clavis/Reviews","cwd":"C:/work/","kind":"background"}]"""
+
+    // Act & Assert
+    %(AgentInstances.parse json |> AgentInstances.parkedFor "Reviews" "C:/work").Should().BeSome()
+
+[<Fact>]
+let ``an agent in a different directory is not this workspace's`` () =
+
+    // Arrange - two workspaces may share a label; the directory is what tells their agents apart
+    let json = """[{"sessionId":"s1","name":"clavis/Reviews","cwd":"C:/elsewhere","kind":"background"}]"""
+
+    // Act & Assert
+    %(AgentInstances.parse json |> AgentInstances.parkedFor "Reviews" "C:/work").Should().BeNone()
+
+[<Fact>]
+let ``an ambiguous label reclaims nothing rather than guessing`` () =
+
+    // Arrange - two agents answering to one label means Clavis cannot tell which conversation is the
+    // workspace's, and attaching it to the wrong one is worse than attaching it to neither
+    let json =
+        """[{"sessionId":"s1","name":"clavis/Reviews","cwd":"C:/work","kind":"background"},
+            {"sessionId":"s2","name":"clavis/Reviews","cwd":"C:/work","kind":"background"}]"""
+
+    // Act & Assert
+    %(AgentInstances.parse json |> AgentInstances.parkedFor "Reviews" "C:/work").Should().BeNone()
+
+[<Fact>]
+let ``an agent Clavis did not park is never reclaimed as a workspace's own`` () =
+
+    // Arrange - a foreign agent may coincidentally share a label and directory. It is still adoptable by an
+    // explicit pick; it is just not silently claimed as this workspace's own conversation.
+    let json = """[{"sessionId":"s1","name":"Reviews","cwd":"C:/work","kind":"background"}]"""
+
+    // Act & Assert
+    %(AgentInstances.parse json |> AgentInstances.parkedFor "Reviews" "C:/work").Should().BeNone()
+
+[<Fact>]
+let ``an interactive session is never reclaimed as a parked agent`` () =
+
+    // Arrange - a session Clavis is currently streaming over is reported as interactive; reclaiming it would
+    // mean taking over the conversation this very Clavis already holds
+    let json = """[{"sessionId":"s1","name":"clavis/Reviews","cwd":"C:/work","kind":"interactive"}]"""
+
+    // Act & Assert
+    %(AgentInstances.parse json |> AgentInstances.parkedFor "Reviews" "C:/work").Should().BeNone()
+
+[<Theory>]
+[<InlineData("")>]
+[<InlineData("   ")>]
+let ``a workspace with no label reclaims nothing`` (label: string) =
+
+    // Arrange - every parked agent carries the bare marker as its name, so an empty label would match all of them
+    let json = """[{"sessionId":"s1","name":"clavis/Reviews","cwd":"C:/work","kind":"background"}]"""
+
+    // Act & Assert
+    %(AgentInstances.parse json |> AgentInstances.parkedFor label "C:/work").Should().BeNone()

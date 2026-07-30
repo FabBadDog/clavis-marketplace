@@ -87,6 +87,11 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
         // only ever learned from a discovery pass. Adoption needs it to ask the agent to stop.
         var discoveredAgentIds = new ConcurrentDictionary<string, string>();
 
+        // The name each discovered instance answers to. An adopted agent must keep it: reclaiming a parked agent
+        // later matches on the name, so letting adoption rename the session to something directory-derived would
+        // quietly make it unreclaimable.
+        var discoveredNames = new ConcurrentDictionary<string, string>();
+
         // Creating and adopting differ only in whether a transcript is resumed; everything after the spawn -
         // the stream wiring, the axis bookkeeping, the lifecycle messages - is identical, so it lives here once.
         void LaunchSession(Guid sessionId, string workingDirectory, string? model, string? label, string? resumeInstanceId)
@@ -424,6 +429,7 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             {
                 discoveredDirectories[instance.SessionId] = instance.WorkingDirectory;
                 discoveredAgentIds[instance.SessionId] = instance.AgentId;
+                discoveredNames[instance.SessionId] = instance.Name;
             }
 
             var instances = reclaimable
@@ -449,6 +455,78 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             bus.Send(new AgentInstancesAvailable(instances));
         });
 
+        // Wait until the instance is not mid-turn, reporting the wait so a consumer can show what it is waiting
+        // for. False means the wait ran out of patience and the caller must not stop the agent.
+        //
+        // An instance that has vanished from the listing reads as ready rather than as an error: it is no longer
+        // working, and the stop that follows reports the disappearance far more precisely than a timeout would.
+        async Task<bool> WaitForIdleInstanceAsync(Guid sessionId, string instanceId)
+        {
+            var pollInterval = TimeSpan.FromSeconds(Math.Max(1, config.AdoptBusyPollSeconds));
+
+            // Zero means wait as long as it takes. Taking a turn away from a foreign agent is the user's call,
+            // and a timeout would make it silently, which is the one outcome nobody asked for.
+            var limit = config.AdoptBusyWaitSeconds <= 0
+                ? Timeout.InfiniteTimeSpan
+                : TimeSpan.FromSeconds(config.AdoptBusyWaitSeconds);
+
+            var startedWaiting = DateTimeOffset.UtcNow;
+            var announced = false;
+
+            while (true)
+            {
+                var output = await AgentProcess.ListAsync(TimeSpan.FromSeconds(config.DiscoveryTimeoutSeconds));
+                var instance = AgentInstances
+                    .parse(output)
+                    .FirstOrDefault(candidate => candidate.SessionId == instanceId);
+
+                if (instance is null || !AgentInstances.isWorking(instance))
+                {
+                    if (announced)
+                    {
+                        bus.LogInfo("ClaudeBridge", $"{instanceId} finished its turn; taking it over now");
+                    }
+
+                    return true;
+                }
+
+                var waited = DateTimeOffset.UtcNow - startedWaiting;
+                if (limit != Timeout.InfiniteTimeSpan && waited >= limit)
+                {
+                    bus.LogWarn(
+                        "ClaudeBridge",
+                        $"gave up waiting for {instanceId} to finish after {waited.TotalSeconds:F0}s; not taking it over");
+                    return false;
+                }
+
+                if (!announced)
+                {
+                    bus.LogInfo("ClaudeBridge", $"{instanceId} is still working; waiting for its turn to finish");
+                    announced = true;
+                }
+
+                bus.Send(new AgentInstanceAdoptionWaiting(sessionId, instanceId, instance.Status, waited));
+                await Task.Delay(pollInterval);
+            }
+        }
+
+        // Pick a conversation back up that no live agent holds - a workspace's own session from a previous run.
+        // Unlike adoption there is nothing to stop and nothing to wait for, so this is a plain resume; requiring
+        // an agent to stop first would fail every resume of a session whose agent is simply gone.
+        var resumeSubscription = bus.Subscribe<ResumeSession>(message =>
+        {
+            if (string.IsNullOrWhiteSpace(message.AgentSessionId))
+            {
+                bus.LogWarn("ClaudeBridge", $"cannot resume session {message.SessionId}: no provider session id given");
+                bus.Send(new AgentInstanceAdoptionFailed(message.SessionId, ""));
+                return Task.CompletedTask;
+            }
+
+            LaunchSession(
+                message.SessionId, message.WorkingDirectory, config.Model, message.Name, message.AgentSessionId);
+            return Task.CompletedTask;
+        });
+
         var adoptSubscription = bus.Subscribe<AdoptAgentInstance>(async message =>
         {
             // Claim before spawning: a refused claim costs nothing, whereas a second process on one transcript
@@ -456,6 +534,15 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             if (!registry.TryClaim(message.InstanceId, message.SessionId))
             {
                 bus.LogWarn("ClaudeBridge", $"refusing to adopt {message.InstanceId}: already held");
+                return;
+            }
+
+            // Stopping an agent mid-turn throws that turn away, so a working agent is waited out rather than
+            // interrupted. Only the user can decide the wait is not worth it, which is what Force carries.
+            if (!message.Force && !await WaitForIdleInstanceAsync(message.SessionId, message.InstanceId))
+            {
+                registry.Forget(message.SessionId);
+                bus.Send(new AgentInstanceAdoptionFailed(message.SessionId, message.InstanceId));
                 return;
             }
 
@@ -483,7 +570,14 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                 ? known
                 : config.WorkingDirectory;
 
-            LaunchSession(message.SessionId, workingDirectory, config.Model, null, message.InstanceId);
+            // Keep the name the agent already answers to. A foreign agent gains the ownership marker in front of
+            // it - adopting it does make it Clavis's - but the label itself is preserved, because that label is
+            // what identifies the conversation the next time Clavis looks for it.
+            var label = discoveredNames.TryGetValue(message.InstanceId, out var name) && name.Length > 0
+                ? name
+                : null;
+
+            LaunchSession(message.SessionId, workingDirectory, config.Model, label, message.InstanceId);
             bus.Send(new AgentInstanceAdopted(message.SessionId, message.InstanceId));
         });
 
@@ -551,6 +645,7 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             clavisMcpSubscription,
             summarizeSubscription,
             instancesSubscription,
+            resumeSubscription,
             adoptSubscription,
             releaseSubscription);
 

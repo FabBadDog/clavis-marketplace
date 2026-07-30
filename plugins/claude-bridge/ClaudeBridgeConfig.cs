@@ -8,10 +8,17 @@ namespace FabioSoft.Nucleus.Plugins.ClaudeBridge;
 /// handing it back anyway - handing back restarts the process over the transcript, so an unfinished turn is
 /// lost, but a wedged one must not block shutdown forever. AdoptStopTimeoutSeconds bounds the other half of that
 /// exchange: taking an agent over first asks it to stop, and the conversation cannot be resumed until it has.
+///
+/// AdoptBusyPollSeconds and AdoptBusyWaitSeconds govern taking over an agent that is mid-turn. Stopping one
+/// discards its unfinished turn, so adoption waits for the turn to end instead, re-checking on the poll interval.
+/// AdoptBusyWaitSeconds of 0 waits as long as it takes: a timeout would eventually interrupt somebody's work
+/// silently, and only the user can decide that trade - which they do by adopting with Force set.
 public sealed record ClaudeBridgeConfig(
     string WorkingDirectory = ".",
     string? Model = null,
     bool AttachClavisMcp = true,
     int DiscoveryTimeoutSeconds = 15,
     int HandOffTurnWaitSeconds = 30,
-    int AdoptStopTimeoutSeconds = 20);
+    int AdoptStopTimeoutSeconds = 20,
+    int AdoptBusyPollSeconds = 3,
+    int AdoptBusyWaitSeconds = 0);

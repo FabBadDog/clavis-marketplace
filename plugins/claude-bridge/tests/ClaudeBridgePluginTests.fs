@@ -227,3 +227,102 @@ let ``DisposeSession forwards Dispose to session`` () =
 
         handle.Dispose()
     }
+
+[<Fact>]
+let ``ResumeSession starts a session over the given transcript`` () =
+
+    task {
+        // Arrange - a workspace picking its own conversation back up on the next launch. Nothing holds the
+        // session, so unlike adoption there is nothing to stop first.
+        use bus = new Bus(BusConfig.defaultConfig)
+        let plugin = ClaudeBridgePlugin()
+        let mockSession, _, _ = createMockSession ()
+        let launched = TaskCompletionSource<SessionConfig>()
+        plugin.SessionFactory <- Func<_, _>(fun config ->
+            launched.TrySetResult(config) |> ignore
+            mockSession)
+        plugin.UsageFetcher <- Func<_>(fun () -> Task.FromResult Array.empty<UsageWindow>)
+
+        // Act
+        let! handle = plugin.ActivateAsync(bus, ClaudeBridgeConfig())
+        bus.FlushBootstrapBuffer()
+        bus.Send(ResumeSession(Guid.NewGuid(), ".", "provider-session-7", "Reviews"))
+
+        let! config = launched.Task.WaitAsync(timeout)
+
+        // Assert - resumed by the provider's own session id, and still named so it stays reclaimable
+        %config.ResumeSessionId.Should().BeSome().WhoseValue.Should().Be("provider-session-7")
+        %config.Name.Should().BeSome().WhoseValue.Should().Be("clavis/Reviews")
+
+        handle.Dispose()
+    }
+
+[<Fact>]
+let ``ResumeSession without a provider session id fails rather than starting a fresh conversation`` () =
+
+    task {
+        // Arrange - resuming nothing would silently give the user an empty chat where their history should be,
+        // which is worse than saying it could not be done
+        use bus = new Bus(BusConfig.defaultConfig)
+        let plugin = ClaudeBridgePlugin()
+        let mockSession, _, _ = createMockSession ()
+        let mutable launches = 0
+        plugin.SessionFactory <- Func<_, _>(fun _ ->
+            launches <- launches + 1
+            mockSession)
+        plugin.UsageFetcher <- Func<_>(fun () -> Task.FromResult Array.empty<UsageWindow>)
+
+        let failed = TaskCompletionSource<AgentInstanceAdoptionFailed>()
+        let sub = bus.Subscribe<AgentInstanceAdoptionFailed>(Func<_, _>(fun msg ->
+            failed.TrySetResult(msg) |> ignore
+            Task.CompletedTask))
+
+        // Act
+        let! handle = plugin.ActivateAsync(bus, ClaudeBridgeConfig())
+        bus.FlushBootstrapBuffer()
+        let sessionId = Guid.NewGuid()
+        bus.Send(ResumeSession(sessionId, ".", "", "Reviews"))
+
+        let! reported = failed.Task.WaitAsync(timeout)
+
+        // Assert
+        %reported.SessionId.Should().Be(sessionId)
+        %launches.Should().Be(0)
+
+        sub.Dispose()
+        handle.Dispose()
+    }
+
+[<Fact>]
+let ``adopting an instance nothing discovered fails and releases the claim`` () =
+
+    task {
+        // Arrange - the short handle needed to stop an agent is only ever learned from a discovery pass, so an
+        // instance that was never discovered cannot be stopped and therefore cannot be taken over. Force skips
+        // the wait for a busy turn, not the stop - there is no way to resume a session another process holds.
+        use bus = new Bus(BusConfig.defaultConfig)
+        let plugin = ClaudeBridgePlugin()
+        let mockSession, _, _ = createMockSession ()
+        plugin.SessionFactory <- Func<_, _>(fun _ -> mockSession)
+        plugin.UsageFetcher <- Func<_>(fun () -> Task.FromResult Array.empty<UsageWindow>)
+
+        let failed = TaskCompletionSource<AgentInstanceAdoptionFailed>()
+        let sub = bus.Subscribe<AgentInstanceAdoptionFailed>(Func<_, _>(fun msg ->
+            failed.TrySetResult(msg) |> ignore
+            Task.CompletedTask))
+
+        // Act
+        let! handle = plugin.ActivateAsync(bus, ClaudeBridgeConfig())
+        bus.FlushBootstrapBuffer()
+        let sessionId = Guid.NewGuid()
+        bus.Send(AdoptAgentInstance("never-seen", sessionId, true))
+
+        let! reported = failed.Task.WaitAsync(TimeSpan.FromSeconds(30.0))
+
+        // Assert
+        %reported.InstanceId.Should().Be("never-seen")
+        %reported.SessionId.Should().Be(sessionId)
+
+        sub.Dispose()
+        handle.Dispose()
+    }

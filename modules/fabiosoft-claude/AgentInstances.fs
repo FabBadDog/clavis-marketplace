@@ -147,8 +147,54 @@ module AgentInstances =
     let canAdopt (adoptedSessionIds: Set<string>) (instance: AgentInstanceInfo) =
         instance.IsBackground && not (adoptedSessionIds.Contains instance.SessionId)
 
+    /// The status the CLI reports for an agent that is mid-turn. Verified against the real listing, which reports
+    /// `busy` while working, `idle` once done, and omits the field entirely for an agent that is blocked.
+    [<Literal>]
+    let BusyStatus = "busy"
+
+    /// Whether the instance is working on something right now. Taking an agent over stops it first, so an
+    /// unfinished turn is lost; a caller waits for this to go false rather than interrupting.
+    ///
+    /// Only a positively reported busy counts. An absent or unrecognised status reads as *not* working, because
+    /// the alternative - waiting on a status the provider never reports - would wait forever and never hand over
+    /// at all. Losing a turn is recoverable; a take-over that can never happen is not.
+    let isWorking (instance: AgentInstanceInfo) =
+        String.Equals(instance.Status, BusyStatus, StringComparison.OrdinalIgnoreCase)
+
     /// Whether a release should leave the agent running. Anything that is not an explicit keep-running is a
     /// stop: the safe default when a caller sends something unrecognised is to end the session, not to leave a
     /// detached process behind that nobody is tracking.
     let keepsRunning (mode: string) =
         String.Equals(mode, "keep-running", StringComparison.OrdinalIgnoreCase)
+
+    let private sameDirectory left right =
+        String.Equals(
+            (left: string).TrimEnd('\\', '/'),
+            (right: string).TrimEnd('\\', '/'),
+            StringComparison.OrdinalIgnoreCase)
+
+    /// Find the agent Clavis parked for a given label and directory, so a workspace picks its own conversation
+    /// back up on the next launch.
+    ///
+    /// Matching is by name and directory rather than by a remembered id, because handing a session back gives the
+    /// parked agent a *new* session id that Clavis never sees - it spawns the agent and exits. The name is the one
+    /// field Clavis writes and the provider preserves, which makes it the only durable link back.
+    ///
+    /// An ambiguous match yields None. Two agents answering to one label means Clavis cannot tell which
+    /// conversation belongs to the workspace, and silently picking either would attach it to somebody else's work;
+    /// the caller surfaces both as reclaimable instead and lets the user choose.
+    let parkedFor (label: string) (workingDirectory: string) (instances: AgentInstanceInfo list) =
+        if String.IsNullOrWhiteSpace label then
+            None
+        else
+            let matches =
+                instances
+                |> List.filter (fun instance ->
+                    instance.IsOwned
+                    && instance.IsBackground
+                    && String.Equals(instance.Name, label.Trim(), StringComparison.OrdinalIgnoreCase)
+                    && sameDirectory instance.WorkingDirectory workingDirectory)
+
+            match matches with
+            | [ single ] -> Some single
+            | _ -> None
