@@ -257,9 +257,22 @@ internal sealed partial class WindowManager
 
         _subscriptions.Add(_bus.Subscribe<ShutdownPrepared>(message =>
         {
-            if (_shutdown.Ready(message.PluginId) && _shutdown.IsPreparing)
+            if (!_shutdown.Ready(message.PluginId) || !_shutdown.IsPreparing)
             {
-                Application.Current.Dispatcher.InvokeAsync(CompleteShutdown);
+                return Task.CompletedTask;
+            }
+
+            // An answer can arrive after the application has already gone (the grace period expiring first is
+            // exactly that case), and by then Application.Current is null. Completing directly is correct there:
+            // there is no dispatcher left to marshal onto, and CompleteShutdown is idempotent.
+            var application = Application.Current;
+            if (application is null)
+            {
+                CompleteShutdown();
+            }
+            else
+            {
+                application.Dispatcher.InvokeAsync(CompleteShutdown);
             }
 
             return Task.CompletedTask;

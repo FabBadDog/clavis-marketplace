@@ -10,7 +10,12 @@ public sealed record WpfHostConfig(
     /// How long quitting waits for plugins that declared work to finish on the way out (handing sessions back to
     /// background agents, chiefly). A backstop, not a schedule: they normally answer in well under it, and it
     /// exists so a plugin that never answers delays the quit rather than making the application unquittable.
-    int ShutdownGraceSeconds = 12)
+    ///
+    /// It has to absorb more than the work itself. The clock starts when `ShutdownPreparing` is *sent*, and each
+    /// subscriber processes its messages serially, so a participant whose channel is busy may not even see the
+    /// broadcast for several seconds - measured at nearly twelve on a four-workspace quit. Sized for that queue
+    /// latency plus the work, which is why it looks generous for what is really a handful of process spawns.
+    int ShutdownGraceSeconds = 30)
 {
     /// Panel kinds to register as edge slide-ins by default, so opening one (e.g. via its status-bar glyph
     /// or the command palette) reveals it as a slide-in rather than a docked tab. Any number of panels can

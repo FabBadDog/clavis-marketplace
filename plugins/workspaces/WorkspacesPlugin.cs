@@ -46,9 +46,9 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
         // mid-turn) and can fail, so the workspace and session it was for have to survive the wait.
         var adopting = new Dictionary<string, (Guid WorkspaceId, Guid SessionId)>();
 
-        // The workspace the persisted list said was active, held until the first discovery answer makes it safe to
-        // decide how to obtain its session. Null once it has been activated.
-        Guid? restoredWorkspaceId = null;
+        // Workspaces that were activated before it was known what is running, and so still need their session.
+        // Ordered, and normally holds exactly one entry: the workspace the persisted list said was active.
+        var deferredSessions = new List<Guid>();
 
         // Whether the question "what is running?" has been settled - by an answer, by the wait running out, or by
         // discovery being switched off. Only then can a session be obtained without guessing.
@@ -76,7 +76,22 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
                     case ObtainSessionEffect obtain:
                         // Lazy: a workspace's session is obtained on its first activation, never at creation or
                         // at load, so restoring eight workspaces does not spawn eight agents.
-                        ObtainSession(obtain.WorkspaceId);
+                        //
+                        // Held - and *only* this, never the activation itself - until it is known what is
+                        // running. Delaying the activation instead was a real regression: consumers bind their
+                        // per-workspace state (the window layout above all) to the workspace that is active when
+                        // they restore, so with none active yet they restored against nothing and every panel
+                        // vanished. Which route the session takes needs the discovery answer; being the active
+                        // workspace does not.
+                        if (discoveryResolved)
+                        {
+                            ObtainSession(obtain.WorkspaceId);
+                        }
+                        else if (!deferredSessions.Contains(obtain.WorkspaceId))
+                        {
+                            deferredSessions.Add(obtain.WorkspaceId);
+                        }
+
                         break;
 
                     case DisposeSessionEffect dispose:
@@ -172,26 +187,25 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
 
         void Persist() => bus.Send(new SaveConfig(Id, WorkspaceFile.Serialize(set)));
 
-        // Activate the workspace the persisted list says was active - which is what obtains the first session, so
-        // the boot path is "load, learn what is running, activate one, obtain one session".
+        // Obtain the sessions of workspaces that were activated before it was known what is running.
         //
-        // It waits for that middle step deliberately. Which route a workspace takes to its session depends on
-        // whether an agent is already running its conversation, and activating before the first discovery answer
-        // arrives would always look like "nothing is running": a parked agent would be left running while its
-        // transcript was reopened separately, giving one conversation two lives and orphaning the agent.
-        //
-        // Runs at most once, whichever of the two triggers gets here first.
-        void ActivateRestoredWorkspace()
+        // The wait exists because which route a workspace takes to its session depends on whether an agent is
+        // already running its conversation. Deciding that before the first discovery answer would always read as
+        // "nothing is running": a parked agent would be left running while its transcript was reopened
+        // separately, giving one conversation two lives and orphaning the agent.
+        void FlushDeferredSessions()
         {
-            if (!loaded || !discoveryResolved || restoredWorkspaceId is null)
+            if (!discoveryResolved || deferredSessions.Count == 0)
             {
                 return;
             }
 
-            var target = restoredWorkspaceId.Value;
-            restoredWorkspaceId = null;
-            Apply(WorkspaceUpdate.MergeFleetAgents(set, instances), persist: false);
-            Apply(WorkspaceUpdate.Activate(set, target));
+            var pending = deferredSessions.ToArray();
+            deferredSessions.Clear();
+            foreach (var workspaceId in pending)
+            {
+                ObtainSession(workspaceId);
+            }
         }
 
         void Load(string? rawConfig)
@@ -221,12 +235,10 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
 
                 loaded = true;
                 set = parsed with { ActiveWorkspaceId = Guid.Empty };
-                restoredWorkspaceId = parsed.ActiveWorkspaceId;
 
-                // Announce the list right away so the bar is populated during the wait for discovery, then
-                // activate as soon as that answer is in.
-                Announce();
-                ActivateRestoredWorkspace();
+                // Activate immediately. Consumers bind their per-workspace state to whichever workspace is active
+                // when they restore, so there must be one from the outset; only the session waits.
+                Apply(WorkspaceUpdate.Activate(set, parsed.ActiveWorkspaceId));
             }
         }
 
@@ -342,7 +354,7 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
                 instances = message.Instances;
                 discoveryResolved = true;
                 Apply(WorkspaceUpdate.MergeFleetAgents(set, instances), persist: false);
-                ActivateRestoredWorkspace();
+                FlushDeferredSessions();
             }
 
             return Task.CompletedTask;
@@ -569,8 +581,8 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
                         }
 
                         discoveryResolved = true;
-                        bus.LogWarn(Id, "no answer about running agents; activating without taking any over");
-                        ActivateRestoredWorkspace();
+                        bus.LogWarn(Id, "no answer about running agents; starting sessions without taking any over");
+                        FlushDeferredSessions();
                     }
                 },
                 null,

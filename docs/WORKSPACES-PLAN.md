@@ -1044,10 +1044,49 @@ sessions are `interactive`.
   something directory-derived would quietly make it unreclaimable. A foreign agent gains the `clavis/` marker in
   front of its label, because adopting it does make it Clavis's.
 
+### Launch verification, 30.07 - three of four mechanisms confirmed, one regression found and fixed
+
+Launched against the real `~/.clavis` (config + state backed up as `*.bak-wp5c-20260730`).
+
+Confirmed working:
+
+- **The discovery gate**: `discovered 5 reclaimable agent instance(s)` at +29.8s, session obtained at +30.5s -
+  the answer really does precede the decision.
+- **Persistence**: every workspace gained an `agentSessionId`. The resume path itself only proves out on a
+  *second* launch.
+- **Park on close**: all four sessions handed back and confirmed `kept running: True`; `claude agents` then
+  listed `clavis/Workspace 1…4` as live background agents.
+- **The busy-wait, on a live target that mattered.** A fleet tab for the *developing session itself* was clicked;
+  the log reads `2b3bba05… is still working; waiting for its turn to finish` and the agent survived. Had
+  `isWorking` been wrong in the other direction it would have stopped the session doing the work.
+
+**Regression found: every tab showed no panels.** Layouts are stored per *(window, workspace)*, and the saved
+layout was keyed to the empty workspace id while the live workspace was `26e32960` - so nothing matched and every
+surface came up bare. Cause: this package delayed the first `WorkspaceActivated` until discovery resolved, so
+`wpf-host` restored its layout while no workspace was active yet. Fixed by deferring **only** the
+`ObtainSessionEffect` and activating immediately - the two were already separate effects, and delaying both was
+the error. Being the active workspace needs no discovery answer; choosing a session route does.
+
+Two smaller defects fixed with it:
+
+- The `ShutdownPrepared` handler dead-lettered with an NRE: an answer can arrive after `Application.Current` is
+  already null, and it marshalled onto the dispatcher unconditionally.
+- **The grace period was consumed by queue latency, not by the work.** The clock starts when `ShutdownPreparing`
+  is *sent*, and the Workspaces subscriber channel took nearly twelve seconds to reach the broadcast (the
+  window closed at 11:51:05.8; the 12s timer fired at 11:51:17.806, 326ms after parking began). Parking survived
+  only because the hand-off is a fire-and-forget spawn that outlived the process - luck, not design. Grace raised
+  to 30s, sized for latency plus work, and the elapsed wait is now logged.
+
+Also observed, not a defect: pressing an unused F-key **creates** a workspace (activate-or-create, by design), so
+switching to empty slots minted Workspaces 2-4 and spawned an agent each.
+
 ### Still open
 
-- **Nothing here has been runtime-verified.** It is the largest behavioural change since WP5 and it touches the
-  boot path, so it wants a launch before anything is built on top of it.
+- **The resume path is still unverified** - it needs a second launch against the now-parked agents. The other
+  three mechanisms are confirmed.
+- **Persist churn.** The quit exposed repeated `SaveConfig` round trips (`dead-letter ConfigSaved` five times in
+  one second), which is the likeliest reason the Workspaces channel ran twelve seconds behind. Worth a look: the
+  grace period is currently absorbing a symptom.
 - **`FleetPollSeconds` costs a provider process per poll** (15s default). Fine for one machine; worth revisiting
   if the listing ever gets expensive.
 - **Two fleet tabs for one conversation** are possible if the provider ever lists an agent twice under different

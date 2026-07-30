@@ -1,7 +1,7 @@
 ---
 name: workspaces
 pluginId: Workspaces
-version: 1.4.0
+version: 1.4.1
 essential: true
 apiVersion: 1.0.0
 description: The single authority for workspace identity, activation, and the workspace list.
@@ -109,11 +109,15 @@ they work off what `AgentInstance` carries, so this plugin names no provider.
   conversation, it is **reopened** from its transcript; else one is **started fresh**. A running agent always
   wins, because resuming a conversation an agent still holds is refused by the provider outright - and if it
   were not, it would fork the conversation and lose whatever the agent has done since.
-- **The first activation waits to learn what is running.** Which of the three applies depends on the answer, and
-  activating before it arrives would always look like "nothing is running": the parked agent would be left
-  running while its transcript was reopened separately, giving one conversation two lives and orphaning the
-  agent. The wait is bounded (`InitialDiscoveryWaitSeconds`), because a provider that never answers must not
-  leave Clavis with no chat - and giving up early only costs a take-over.
+- **Obtaining the first session waits to learn what is running - the activation does not.** Which of the three
+  applies depends on the answer, and deciding before it arrives would always read as "nothing is running": the
+  parked agent would be left running while its transcript was reopened separately, giving one conversation two
+  lives and orphaning the agent. The wait is bounded (`InitialDiscoveryWaitSeconds`), because a provider that
+  never answers must not leave Clavis with no chat, and giving up early only costs a take-over.
+  **Only the session is held.** Delaying the activation too was a real regression, found on the first launch:
+  consumers bind their per-workspace state to whichever workspace is active when they restore, so with none
+  active yet `wpf-host` restored its layout against the empty workspace id and every panel silently vanished
+  from every tab. Being the active workspace needs no discovery answer; choosing a session route does.
 - **A parked agent is found by name, not by id.** Handing a session back gives the new background agent a *new*
   provider id, and the spawn is fire-and-forget, so that id is never observed. Reclaiming therefore matches on
   the workspace's name plus its working directory (`FleetAgents.ParkedFor`), the two things Clavis controls. An

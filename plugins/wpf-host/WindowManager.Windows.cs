@@ -49,14 +49,20 @@ internal sealed partial class WindowManager
             return;
         }
 
+        var interval = TimeSpan.FromSeconds(Math.Max(1, _config.ShutdownGraceSeconds));
+        _bus.LogInfo(
+            "WpfHost",
+            $"quitting; waiting up to {interval.TotalSeconds:F0}s for: {string.Join(", ", _shutdown.Outstanding)}");
         _bus.Send(new ShutdownPreparing());
 
         // The grace period is a backstop, not a schedule: participants normally answer in well under it. It
         // exists so a participant that never answers delays the quit rather than preventing it.
-        var grace = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(Math.Max(1, _config.ShutdownGraceSeconds))
-        };
+        //
+        // Note what the clock actually measures. It starts here, at the *send*, and a participant whose subscriber
+        // channel is busy may not process the broadcast for seconds - so the window covers queue latency as well
+        // as the work, and the elapsed time is logged to keep that visible rather than guessable.
+        var startedWaiting = DateTimeOffset.UtcNow;
+        var grace = new DispatcherTimer { Interval = interval };
         grace.Tick += (_, _) =>
         {
             grace.Stop();
@@ -64,7 +70,8 @@ internal sealed partial class WindowManager
             {
                 _bus.LogWarn(
                     "WpfHost",
-                    $"quitting without waiting further for: {string.Join(", ", _shutdown.Outstanding)}");
+                    $"quitting without waiting further after {(DateTimeOffset.UtcNow - startedWaiting).TotalSeconds:F1}s"
+                    + $" for: {string.Join(", ", _shutdown.Outstanding)}");
             }
 
             CompleteShutdown();
