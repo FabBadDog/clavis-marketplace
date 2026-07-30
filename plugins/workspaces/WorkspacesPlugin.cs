@@ -345,6 +345,28 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
             return Task.CompletedTask;
         }));
 
+        // The session never came up - resuming a conversation the provider no longer has is how this happens.
+        // Forget the dead conversation and start the workspace over, rather than asking for it again on every
+        // future launch and failing identically each time.
+        subscriptions.Add(bus.Subscribe<SessionStartFailed>(message =>
+        {
+            lock (gate)
+            {
+                if (set.BySession(message.SessionId) is not { } owner)
+                {
+                    return Task.CompletedTask;
+                }
+
+                bus.LogWarn(
+                    Id,
+                    $"the conversation of workspace '{owner.Name}' could not be reopened ({message.Reason}); "
+                    + "starting a new one");
+                Apply(WorkspaceUpdate.ConversationLost(set, message.SessionId));
+            }
+
+            return Task.CompletedTask;
+        }));
+
         // What is running outside Clavis, refreshed on a timer. Agents no workspace claims become slotless tabs,
         // so work started in the provider's own agent view is visible and reachable here too.
         subscriptions.Add(bus.Subscribe<AgentInstancesAvailable>(message =>

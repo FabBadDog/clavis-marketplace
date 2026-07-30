@@ -178,6 +178,28 @@ public static class WorkspaceUpdate
             NoEffects);
     }
 
+    /// The conversation a workspace remembered is gone - the provider no longer has it - so forget it and let the
+    /// workspace start over. Returns the workspace to obtain a session for, or an empty effect list if the
+    /// session belonged to nothing here.
+    ///
+    /// Forgetting is the point: leaving the id in place would make every future activation ask for a
+    /// conversation that will never resolve, so the workspace would fail the same way on every launch.
+    public static (WorkspaceSet Set, WorkspaceEffect[] Effects) ConversationLost(WorkspaceSet set, Guid sessionId)
+    {
+        if (set.BySession(sessionId) is not { } owner)
+        {
+            return (set, NoEffects);
+        }
+
+        var cleared = set.With(owner.WorkspaceId, workspace => workspace with
+        {
+            AgentSessionId = "",
+            SessionId = Guid.Empty
+        });
+
+        return (cleared, [new ObtainSessionEffect(owner.WorkspaceId, owner.WorkingDirectory)]);
+    }
+
     /// Fold the agents running outside Clavis into the set as slotless tabs, and drop the ones that are gone.
     ///
     /// Real workspaces are never touched here - only fleet tabs are added and removed - so a discovery pass can

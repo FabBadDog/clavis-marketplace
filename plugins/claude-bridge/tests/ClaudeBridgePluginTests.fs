@@ -326,3 +326,57 @@ let ``adopting an instance nothing discovered fails and releases the claim`` () 
         sub.Dispose()
         handle.Dispose()
     }
+
+[<Fact>]
+let ``a session that fails before reporting ready is surfaced, not swallowed`` () =
+
+    task {
+        // Arrange - resuming a conversation the provider no longer has ends exactly this way. Without a message
+        // the failure is total and silent: no SessionReady means no prompt input, and the user is left with a
+        // chat that cannot be typed into and nothing explaining why.
+        use bus = new Bus(BusConfig.defaultConfig)
+        let plugin = ClaudeBridgePlugin()
+        let mockSession, output, _ = createMockSession ()
+        plugin.SessionFactory <- Func<_, _>(fun _ -> mockSession)
+        plugin.UsageFetcher <- Func<_>(fun () -> Task.FromResult Array.empty<UsageWindow>)
+
+        let failed = TaskCompletionSource<SessionStartFailed>()
+        let sub = bus.Subscribe<SessionStartFailed>(Func<_, _>(fun msg ->
+            failed.TrySetResult(msg) |> ignore
+            Task.CompletedTask))
+
+        let started = TaskCompletionSource<SessionStarted>()
+        let startedSub = bus.Subscribe<SessionStarted>(Func<_, _>(fun msg ->
+            started.TrySetResult(msg) |> ignore
+            Task.CompletedTask))
+
+        let! handle = plugin.ActivateAsync(bus, ClaudeBridgeConfig())
+        bus.FlushBootstrapBuffer()
+        let sessionId = Guid.NewGuid()
+        bus.Send(ResumeSession(sessionId, ".", "gone-forever", "Reviews"))
+
+        // The bus delivers asynchronously, so wait until the session actually exists before feeding its stream
+        let! _ = started.Task.WaitAsync(timeout)
+
+        // Act - an error result arrives having never reported the session ready
+        let resultEvent =
+            StreamEvent.Result
+                { SessionId = SessionId "gone-forever"
+                  CostUsd = 0.0
+                  Duration = TimeSpan.Zero
+                  Model = ""
+                  ResultText = "No conversation found with session ID: gone-forever"
+                  IsError = true
+                  NumTurns = 0 }
+        output.OnNext(Ok resultEvent)
+
+        let! reported = failed.Task.WaitAsync(timeout)
+
+        // Assert
+        %reported.SessionId.Should().Be(sessionId)
+        %reported.Reason.Should().Contain("No conversation found")
+
+        startedSub.Dispose()
+        sub.Dispose()
+        handle.Dispose()
+    }

@@ -80,6 +80,20 @@ type SessionReady(sessionId: Guid, agentSessionId: string, model: string) =
     member _.AgentSessionId = agentSessionId
     member _.Model = model
 
+/// The session never came up: it ended before reporting itself ready, so nothing can be sent to it.
+///
+/// Worth a message of its own because the failure is otherwise silent and total. A session that dies at launch
+/// publishes no SessionReady, so nothing makes the prompt input appear and nothing renders an error - the user
+/// is left with a chat that looks fine and cannot be typed into. Resuming a conversation the provider no longer
+/// has is the way this actually happens: parking a session that never ran a turn leaves an id with no transcript
+/// behind it, and resuming that id fails outright.
+///
+/// A consumer that asked for a specific conversation should stop asking for it and start a fresh one.
+[<Sealed>]
+type SessionStartFailed(sessionId: Guid, reason: string) =
+    member _.SessionId = sessionId
+    member _.Reason = reason
+
 /// A permission prompt was answered. SessionId says which session it belongs to, so an observer can react
 /// without assuming there is only one; the requester correlates by RequestId as before.
 [<Sealed>]

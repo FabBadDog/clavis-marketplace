@@ -11,11 +11,13 @@ public sealed record WpfHostConfig(
     /// background agents, chiefly). A backstop, not a schedule: they normally answer in well under it, and it
     /// exists so a plugin that never answers delays the quit rather than making the application unquittable.
     ///
-    /// It has to absorb more than the work itself. The clock starts when `ShutdownPreparing` is *sent*, and each
-    /// subscriber processes its messages serially, so a participant whose channel is busy may not even see the
-    /// broadcast for several seconds - measured at nearly twelve on a four-workspace quit. Sized for that queue
-    /// latency plus the work, which is why it looks generous for what is really a handful of process spawns.
-    int ShutdownGraceSeconds = 30)
+    /// It also has to absorb bus latency: the clock starts when `ShutdownPreparing` is *sent*, and each subscriber
+    /// processes serially, so a participant whose channel is busy may not see the broadcast immediately.
+    ///
+    /// It was briefly raised to 30s after a quit burned the whole window, which was treating a symptom - the real
+    /// cause was a release path that answered nothing when it had no instance recorded, so the barrier was always
+    /// going to wait out the full period no matter how long it was.
+    int ShutdownGraceSeconds = 15)
 {
     /// Panel kinds to register as edge slide-ins by default, so opening one (e.g. via its status-bar glyph
     /// or the command palette) reveals it as a slide-in rather than a docked tab. Any number of panels can

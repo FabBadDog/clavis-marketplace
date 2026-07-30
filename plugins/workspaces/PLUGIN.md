@@ -1,7 +1,7 @@
 ---
 name: workspaces
 pluginId: Workspaces
-version: 1.4.1
+version: 1.5.0
 essential: true
 apiVersion: 1.0.0
 description: The single authority for workspace identity, activation, and the workspace list.

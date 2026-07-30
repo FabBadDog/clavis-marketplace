@@ -1,7 +1,7 @@
 ---
 name: session-contracts
 assemblyName: FabioSoft.Contracts.Session
-version: 3.5.0
+version: 3.6.0
 apiVersion: 1.0.0
 description: Session commands, the provider-neutral AgentStreamEvent family, and conversation messages.
 produces: [ FabioSoft.Contracts.Session.dll ]

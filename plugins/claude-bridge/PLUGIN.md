@@ -1,7 +1,7 @@
 ---
 name: claude-bridge
 pluginId: ClaudeBridge
-version: 2.5.0
+version: 2.6.0
 essential: true
 apiVersion: 1.0.0
 description: Wraps Claude sessions; maps stream events onto bus messages.

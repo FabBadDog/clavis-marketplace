@@ -107,6 +107,18 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
         // for an instance that was successfully taken over by the adoption which replaced it.
         var adoptionWaits = new ConcurrentDictionary<string, CancellationTokenSource>();
 
+        // Two facts about each session that outlive any single message, guarded together because both are
+        // written from stream subscribers (one per session) and read from bus handlers.
+        //
+        // Ready: it reported itself ready, so a failing result can be told apart from a session that never came
+        // up at all. Prompted: a turn has actually been sent, which is the only thing that gives it a
+        // conversation worth preserving - the provider writes no transcript until a turn runs, so handing an
+        // unprompted session back parks an agent whose id resolves to nothing, and reclaiming it later fails
+        // outright with "no conversation found".
+        var readySessions = new HashSet<Guid>();
+        var promptedSessions = new HashSet<Guid>();
+        var sessionFacts = new object();
+
         // Creating and adopting differ only in whether a transcript is resumed; everything after the spawn -
         // the stream wiring, the axis bookkeeping, the lifecycle messages - is identical, so it lives here once.
         void LaunchSession(Guid sessionId, string workingDirectory, string? model, string? label, string? resumeInstanceId)
@@ -181,9 +193,28 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                 .Subscribe(mapped =>
                 {
                     bus.Send(mapped!);
-                    if (mapped is AgentResult)
+                    if (mapped is AgentResult result)
                     {
                         turnGate.Finished(sessionId);
+
+                        // A failing result before the session ever reported itself ready means it never came up
+                        // at all - resuming a conversation the provider no longer has is exactly this. Left
+                        // unsaid it is a silent total failure: no SessionReady means no prompt input, and the
+                        // user is looking at a chat that cannot be typed into with nothing explaining why.
+                        bool everReady;
+                        lock (sessionFacts)
+                        {
+                            everReady = readySessions.Contains(sessionId);
+                        }
+
+                        if (result.IsError && !everReady)
+                        {
+                            var reason = result.ResultText.Length > 0
+                                ? result.ResultText
+                                : "the session ended before it was ready";
+                            bus.LogError("ClaudeBridge", $"session {sessionId} failed to start: {reason}");
+                            bus.Send(new SessionStartFailed(sessionId, reason));
+                        }
                     }
 
                     if (mapped is AgentInit init)
@@ -195,6 +226,11 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                             bus.LogWarn(
                                 "ClaudeBridge",
                                 $"session {sessionId} reports instance {init.AgentSessionId}, which is already held");
+                        }
+
+                        lock (sessionFacts)
+                        {
+                            readySessions.Add(sessionId);
                         }
 
                         bus.Send(new SessionReady(sessionId, init.AgentSessionId, init.Model));
@@ -240,7 +276,7 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             session.OnNext(SessionInput.Initialize);
 
             bus.Send(new SessionStarted(sessionId));
-            var origin = resumeInstanceId is null ? "started" : $"adopted {resumeInstanceId} into";
+            var origin = resumeInstanceId is null ? "started" : $"resumed {resumeInstanceId} into";
             bus.LogInfo("ClaudeBridge", $"session {origin}: {sessionId} ({workingDirectory}) as '{sessionName}'");
         }
 
@@ -264,6 +300,13 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             }
 
             turnGate.Started(message.SessionId);
+
+            // From here the session has a conversation worth preserving, which is what makes it worth parking.
+            lock (sessionFacts)
+            {
+                promptedSessions.Add(message.SessionId);
+            }
+
             session.OnNext(SessionInput.NewPrompt(EditorContext.Decorate(message.Text, snapshot)));
 
             return Task.CompletedTask;
@@ -644,13 +687,42 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             var instanceId = registry.InstanceOf(message.SessionId);
             if (instanceId is null)
             {
+                // Still answer. A caller waiting on the confirmation - the shutdown barrier above all - would
+                // otherwise wait out its whole grace period for a release that was never going to report, which
+                // is the same "every terminal path must publish a terminal message" rule adoption already learned.
                 bus.LogWarn("ClaudeBridge", $"cannot release session {message.SessionId}: no instance recorded");
+                if (sessions.TryRemove(message.SessionId, out var orphan))
+                {
+                    axesBySession.TryRemove(message.SessionId, out _);
+                    orphan.OnNext(SessionInput.Dispose);
+                }
+
+                turnGate.Finished(message.SessionId);
+                bus.Send(new AgentInstanceReleased("", false));
                 return;
             }
 
             // Handing back starts a fresh process over the persisted transcript, so anything the running turn
             // has not written yet is lost. Wait for it, but not forever - a wedged turn must not block shutdown.
             var keepRunning = AgentInstances.keepsRunning(message.Mode);
+
+            // A session nobody ever prompted has no conversation to keep. Parking it would spawn an agent whose
+            // id resolves to nothing - the provider writes no transcript until a turn runs - and reclaiming that
+            // id on the next launch fails outright with "no conversation found", leaving a dead session with no
+            // prompt input and nothing on screen explaining why. So there is nothing to preserve here: stop it.
+            bool everPrompted;
+            lock (sessionFacts)
+            {
+                everPrompted = promptedSessions.Contains(message.SessionId);
+            }
+
+            if (keepRunning && !everPrompted)
+            {
+                bus.LogInfo(
+                    "ClaudeBridge",
+                    $"not parking {instanceId}: it was never prompted, so there is no conversation to keep");
+                keepRunning = false;
+            }
             if (keepRunning && !await turnGate.WaitForIdleAsync(message.SessionId, TimeSpan.FromSeconds(config.HandOffTurnWaitSeconds)))
             {
                 bus.LogWarn(

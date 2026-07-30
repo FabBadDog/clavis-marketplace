@@ -425,3 +425,31 @@ let ``a workspace with no session has nothing to park`` () =
 
     // Assert
     %effects.Should().BeEmpty()
+
+[<Fact>]
+let ``a conversation the provider no longer has is forgotten and started over`` () =
+
+    // Arrange - resuming a session with no transcript fails outright. Leaving the id in place would make every
+    // future activation ask for a conversation that can never resolve.
+    let sessionId = Guid.NewGuid()
+    let set = sized 1 |> withSession "w1" sessionId
+    let struct (remembered, _) = WorkspaceUpdate.ConversationKnown(set, sessionId, "gone-forever")
+
+    // Act
+    let struct (updated, effects) = WorkspaceUpdate.ConversationLost(remembered, sessionId)
+
+    // Assert - forgotten, and asked to obtain a session again
+    let workspace = updated.Workspaces |> Seq.find (fun w -> w.Name = "w1")
+    %workspace.AgentSessionId.Should().Be("")
+    %workspace.SessionId.Should().Be(Guid.Empty)
+    %(effects |> Seq.exists (fun (e: WorkspaceEffect) -> e :? ObtainSessionEffect)).Should().BeTrue()
+
+[<Fact>]
+let ``a failed session belonging to no workspace changes nothing`` () =
+
+    // Act - another plugin's session, or one from a workspace already closed
+    let struct (updated, effects) = WorkspaceUpdate.ConversationLost(sized 2, Guid.NewGuid())
+
+    // Assert
+    %effects.Should().BeEmpty()
+    %updated.Workspaces.Should().HaveLength(2)

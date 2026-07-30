@@ -1,7 +1,7 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 7.1.1
+version: 7.1.2
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
