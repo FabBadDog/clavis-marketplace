@@ -86,7 +86,9 @@ public static class WorkspaceBarView
                 Activity = workspace.Activity,
                 ActivityDetail = workspace.ActivityDetail,
                 ActivitySince = workspace.ActivitySince,
-                Slot = workspace.Slot
+                Slot = workspace.Slot,
+                IsFleetAgent = workspace.IsFleetAgent,
+                IsAdopting = workspace.IsAdopting
             };
         }
     }
@@ -95,14 +97,18 @@ public static class WorkspaceBarView
     {
         // Identity: a 2px tick of constant length. Its geometry never changes with selection - a workspace does
         // not become more or less itself because you are looking at it - only its opacity lifts.
+        //
+        // A fleet agent has no identity here yet: it is somebody's running work, not one of your places, so it
+        // gets no accent. That absence is the signal - the tick is what says "this is a place of yours".
         var tick = new Border { Width = 2, VerticalAlignment = VerticalAlignment.Stretch, Margin = new Thickness(0, 6, 10, 6) };
-        tick.SetResourceReference(Border.BackgroundProperty, row.AccentKey);
-        tick.Opacity = row.IsActive ? 1.0 : 0.55;
+        tick.SetResourceReference(Border.BackgroundProperty, row.IsFleetAgent ? "TextDimBrush" : row.AccentKey);
+        tick.Opacity = row.IsFleetAgent ? 0.3 : row.IsActive ? 1.0 : 0.55;
 
-        // Position: the slot number, in the primary blue.
+        // Position: the slot number, in the primary blue. A fleet agent holds no slot, so it shows a mark in that
+        // column instead of a number - the column stays aligned, and the missing number is the point.
         var number = new TextBlock
         {
-            Text = row.SlotNumber,
+            Text = row.IsFleetAgent ? "~" : row.SlotNumber,
             FontSize = 15,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
@@ -110,7 +116,8 @@ public static class WorkspaceBarView
             Opacity = row.IsActive ? 1.0 : 0.55
         };
         number.SetResourceReference(TextBlock.FontFamilyProperty, "UiFont");
-        number.SetResourceReference(TextBlock.ForegroundProperty, "ClavisBrush");
+        number.SetResourceReference(
+            TextBlock.ForegroundProperty, row.IsFleetAgent ? "TextDimBrush" : "ClavisBrush");
 
         // State: a circle, never a box.
         var dot = new Ellipse { Width = 8, Height = 8, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };

@@ -45,7 +45,7 @@ let ``create activates the new workspace and asks for its session`` () =
 
     // Assert
     %set.Active.Name.Should().Be("first")
-    %(effects |> Seq.exists (fun (e: WorkspaceEffect) -> e :? StartSessionEffect)).Should().BeTrue()
+    %(effects |> Seq.exists (fun (e: WorkspaceEffect) -> e :? ObtainSessionEffect)).Should().BeTrue()
     %(effects |> Seq.exists (fun (e: WorkspaceEffect) -> e :? ActivatedEffect)).Should().BeTrue()
 
 [<Fact>]
@@ -210,8 +210,8 @@ let ``a session starts exactly once per workspace`` () =
     let struct (_, secondEffects) = WorkspaceUpdate.Activate(started, target)
 
     // Assert
-    %(firstEffects |> Seq.exists (fun (e: WorkspaceEffect) -> e :? StartSessionEffect)).Should().BeTrue()
-    %(secondEffects |> Seq.exists (fun (e: WorkspaceEffect) -> e :? StartSessionEffect)).Should().BeFalse()
+    %(firstEffects |> Seq.exists (fun (e: WorkspaceEffect) -> e :? ObtainSessionEffect)).Should().BeTrue()
+    %(secondEffects |> Seq.exists (fun (e: WorkspaceEffect) -> e :? ObtainSessionEffect)).Should().BeFalse()
 
 [<Fact>]
 let ``re-activating the already active workspace changes nothing`` () =
@@ -285,3 +285,143 @@ let ``rename trims the name and ignores an empty one`` () =
     // Assert
     %renamed.Active.Name.Should().Be("Reviews")
     %Object.ReferenceEquals(untouched, renamed).Should().BeTrue()
+
+let private fleetInstance instanceId name directory isOwned =
+    FabioSoft.Contracts.Session.AgentInstance(
+        instanceId, name, directory, "idle", DateTimeOffset.UnixEpoch, false, isOwned)
+
+[<Fact>]
+let ``merging brings in a tab for every agent no workspace claims`` () =
+
+    // Arrange
+    let set = sized 1
+    let instances = [| fleetInstance "foreign" "API Contract" "C:\\other" false |]
+
+    // Act
+    let struct (merged, _) = WorkspaceUpdate.MergeFleetAgents(set, instances)
+
+    // Assert - slotless, so it takes no F-key from the real workspaces
+    %merged.Workspaces.Count.Should().Be(2)
+    let tab = merged.Workspaces |> Seq.find _.IsFleetAgent
+    %tab.Slot.Should().Be(0)
+    %tab.Name.Should().Be("API Contract")
+
+[<Fact>]
+let ``merging never disturbs the real workspaces`` () =
+
+    // Arrange
+    let set = sized 3
+
+    // Act - an empty listing means every fleet tab is gone, and nothing else may follow it
+    let struct (merged, _) = WorkspaceUpdate.MergeFleetAgents(set, Array.empty)
+
+    // Assert
+    %(merged.Workspaces |> Seq.filter (fun w -> not w.IsFleetAgent) |> Seq.length).Should().Be(3)
+
+[<Fact>]
+let ``an unchanged listing is not reported as a change`` () =
+
+    // Arrange - discovery runs on a timer, so re-announcing an identical list on every poll would rebuild the bar
+    // and re-persist the config for nothing
+    let instances = [| fleetInstance "foreign" "API Contract" "C:\\other" false |]
+    let struct (once, _) = WorkspaceUpdate.MergeFleetAgents(sized 1, instances)
+
+    // Act
+    let struct (twice, _) = WorkspaceUpdate.MergeFleetAgents(once, instances)
+
+    // Assert - the same instance, so a consumer can tell nothing moved
+    %obj.ReferenceEquals(once, twice).Should().BeTrue()
+
+[<Fact>]
+let ``a vanished agent loses its tab`` () =
+
+    // Arrange
+    let instances = [| fleetInstance "foreign" "API Contract" "C:\\other" false |]
+    let struct (withTab, _) = WorkspaceUpdate.MergeFleetAgents(sized 1, instances)
+
+    // Act
+    let struct (afterwards, _) = WorkspaceUpdate.MergeFleetAgents(withTab, Array.empty)
+
+    // Assert
+    %(afterwards.Workspaces |> Seq.filter _.IsFleetAgent).Should().BeEmpty()
+
+[<Fact>]
+let ``the tab being taken over survives disappearing from the listing`` () =
+
+    // Arrange - taking an agent over stops it, so it leaves the listing mid-adoption. Dropping its tab then would
+    // leave the user looking at nothing while they wait.
+    let instances = [| fleetInstance "foreign" "API Contract" "C:\\other" false |]
+    let struct (withTab, _) = WorkspaceUpdate.MergeFleetAgents(sized 1, instances)
+    let tabId = (withTab.Workspaces |> Seq.find _.IsFleetAgent).WorkspaceId
+    let struct (active, _) = WorkspaceUpdate.Activate(withTab, tabId)
+
+    // Act
+    let struct (afterwards, _) = WorkspaceUpdate.MergeFleetAgents(active, Array.empty)
+
+    // Assert
+    %afterwards.ById(tabId).Should().NotBeNull()
+
+[<Fact>]
+let ``promoting a taken-over agent gives it a slot and stops it being a fleet tab`` () =
+
+    // Arrange - slots 1 and 2 are taken, so the promoted tab must land on 3
+    let instances = [| fleetInstance "foreign" "API Contract" "C:\\other" false |]
+    let struct (withTab, _) = WorkspaceUpdate.MergeFleetAgents(sized 2, instances)
+    let tabId = (withTab.Workspaces |> Seq.find _.IsFleetAgent).WorkspaceId
+
+    // Act
+    let struct (promoted, _) = WorkspaceUpdate.PromoteFleetAgent(withTab, tabId, accent)
+
+    // Assert
+    let workspace = promoted.ById(tabId)
+    %workspace.IsFleetAgent.Should().BeFalse()
+    %workspace.Slot.Should().Be(3)
+    %workspace.AccentKey.Should().Be(accent)
+
+[<Fact>]
+let ``a workspace remembers the provider session id of its conversation`` () =
+
+    // Arrange
+    let sessionId = Guid.NewGuid()
+    let set = sized 1 |> withSession "w1" sessionId
+
+    // Act
+    let struct (updated, _) = WorkspaceUpdate.ConversationKnown(set, sessionId, "provider-7")
+
+    // Assert
+    %(updated.BySession sessionId).AgentSessionId.Should().Be("provider-7")
+
+[<Fact>]
+let ``a session no workspace owns is ignored`` () =
+
+    // Act - another plugin's session, or one from a workspace already closed
+    let struct (updated, _) = WorkspaceUpdate.ConversationKnown(sized 1, Guid.NewGuid(), "provider-7")
+
+    // Assert
+    %(updated.Workspaces |> Seq.forall (fun w -> w.AgentSessionId = "")).Should().BeTrue()
+
+[<Fact>]
+let ``parking hands back every live session and skips the fleet tabs`` () =
+
+    // Arrange - a fleet agent was never Clavis's to hand back, and is already running without it
+    let instances = [| fleetInstance "foreign" "API Contract" "C:\\other" false |]
+    let set =
+        sized 2
+        |> withSession "w1" (Guid.NewGuid())
+        |> withSession "w2" (Guid.NewGuid())
+    let struct (withTab, _) = WorkspaceUpdate.MergeFleetAgents(set, instances)
+
+    // Act
+    let struct (_, effects) = WorkspaceUpdate.ParkAll(withTab)
+
+    // Assert
+    %(effects |> Seq.filter (fun (e: WorkspaceEffect) -> e :? ParkSessionEffect)).Should().HaveLength(2)
+
+[<Fact>]
+let ``a workspace with no session has nothing to park`` () =
+
+    // Act - lazy start means a restored workspace you never visited has no agent at all
+    let struct (_, effects) = WorkspaceUpdate.ParkAll(sized 3)
+
+    // Assert
+    %effects.Should().BeEmpty()

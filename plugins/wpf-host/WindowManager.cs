@@ -59,6 +59,11 @@ internal sealed partial class WindowManager : IDisposable
     // The persisted layout lives under this plugin's id in the Configuration plugin (the WpfHost section of state.yaml).
     private const string PluginId = "WpfHost";
 
+    /// Who still has to finish before the application exits. Quitting is two-phase because some work only
+    /// *starts* on the way out - handing a session back to a background agent spawns a process that must be
+    /// running before Clavis stops existing, and ApplicationShutdown takes effect immediately.
+    private readonly ShutdownBarrier _shutdown = new();
+
     private readonly DispatcherTimer _saveTimer;
     private readonly FocusTraversal _focusTraversal;
     private readonly TearOffPreview _tearOffPreview = new();

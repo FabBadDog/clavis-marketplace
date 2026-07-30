@@ -21,6 +21,24 @@ public sealed record Workspace
     /// activation - so restoring eight workspaces does not spawn eight agent processes at launch.
     public Guid SessionId { get; init; }
 
+    /// The provider's own session id for this workspace's conversation, remembered across launches so the
+    /// workspace reopens the conversation it had rather than an empty one. Durable, unlike SessionId, which is
+    /// only a correlation id for the current run.
+    ///
+    /// It is a fallback, not the primary route back: a *parked* agent comes up under a new provider id that
+    /// Clavis never observes, so a running agent is found by name instead. This id is what resumes the
+    /// conversation when no agent is running at all.
+    public string AgentSessionId { get; init; } = "";
+
+    /// This "workspace" is really an agent running outside Clavis, shown as a slotless tab so it is visible and
+    /// reachable. It is not persisted and holds no slot; activating it takes it over and turns it into a real
+    /// workspace.
+    public bool IsFleetAgent { get; init; }
+
+    /// A take-over is in progress and the agent is still finishing its turn. Transient, never persisted: it is
+    /// what the waiting screen renders, and a restart has nothing to wait for.
+    public bool IsAdopting { get; init; }
+
     public string Activity { get; init; } = WorkspaceActivity.Idle;
     public string ActivityDetail { get; init; } = "";
 
@@ -28,6 +46,9 @@ public sealed record Workspace
     public DateTimeOffset ActivitySince { get; init; } = DateTimeOffset.UtcNow;
 
     public bool HasSession => SessionId != Guid.Empty;
+
+    /// Whether this workspace knows of a conversation to reopen.
+    public bool HasConversation => !string.IsNullOrWhiteSpace(AgentSessionId);
 }
 
 /// The three activity states a workspace can be in, mirroring the session activity it is derived from. String

@@ -26,6 +26,7 @@
     <Compile Include="SessionActivityTrackerTests.fs" />
     <Compile Include="JsonPrettyTests.fs" />
     <Compile Include="ChatPanelStateTests.fs" />
+    <Compile Include="AdoptionNoticeTests.fs" />
     <Compile Include="PromptHistoryTests.fs" />
     <Compile Include="ChatAggregateTests.fs" />
     <Compile Include="ConversationUpdateTests.fs" />

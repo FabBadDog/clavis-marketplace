@@ -26,10 +26,58 @@ internal sealed partial class WindowManager
         host.Window.Closing += (_, _) =>
         {
             SaveLayout();
-            _bus.Send(new ApplicationShutdown());
+            BeginShutdown();
         };
 
         return host;
+    }
+
+    /// Start quitting, giving every declared participant a chance to finish first.
+    ///
+    /// With nothing declared this is exactly the old behaviour - one ApplicationShutdown, immediately - so the
+    /// barrier costs nothing when nobody needs it.
+    private void BeginShutdown()
+    {
+        if (!_shutdown.BeginPreparing())
+        {
+            return;
+        }
+
+        if (_shutdown.IsSatisfied)
+        {
+            CompleteShutdown();
+            return;
+        }
+
+        _bus.Send(new ShutdownPreparing());
+
+        // The grace period is a backstop, not a schedule: participants normally answer in well under it. It
+        // exists so a participant that never answers delays the quit rather than preventing it.
+        var grace = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(Math.Max(1, _config.ShutdownGraceSeconds))
+        };
+        grace.Tick += (_, _) =>
+        {
+            grace.Stop();
+            if (!_shutdown.IsSatisfied)
+            {
+                _bus.LogWarn(
+                    "WpfHost",
+                    $"quitting without waiting further for: {string.Join(", ", _shutdown.Outstanding)}");
+            }
+
+            CompleteShutdown();
+        };
+        grace.Start();
+    }
+
+    private void CompleteShutdown()
+    {
+        if (_shutdown.TryExit())
+        {
+            _bus.Send(new ApplicationShutdown());
+        }
     }
 
     private void RecreateSecondaryWindow(PersistedWindow entry, PersistedWorkspaceLayout? layout)

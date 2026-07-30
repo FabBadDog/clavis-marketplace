@@ -30,6 +30,16 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
     /// every Set* command, so it is the source of truth the facade reports - the agent never does.
     private sealed record SessionAxes(string Model, string Mode, string Effort);
 
+    /// How waiting for a busy agent ended. Superseded is the one that matters: a later adoption of the same
+    /// instance now owns it, so the superseded attempt must report nothing and release nothing - otherwise it
+    /// would undo a take-over that succeeded.
+    private enum WaitOutcome
+    {
+        Ready,
+        GaveUp,
+        Superseded
+    }
+
     public ClaudeBridgeConfig DefaultConfig => new();
 
     public Func<SessionConfig, Session>? SessionFactory { get; set; }
@@ -91,6 +101,11 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
         // later matches on the name, so letting adoption rename the session to something directory-derived would
         // quietly make it unreclaimable.
         var discoveredNames = new ConcurrentDictionary<string, string>();
+
+        // The in-flight wait for each instance being taken over, so a second adoption of the same instance can
+        // cancel the first. Without that, the superseded wait would keep polling and eventually report a failure
+        // for an instance that was successfully taken over by the adoption which replaced it.
+        var adoptionWaits = new ConcurrentDictionary<string, CancellationTokenSource>();
 
         // Creating and adopting differ only in whether a transcript is resumed; everything after the spawn -
         // the stream wiring, the axis bookkeeping, the lifecycle messages - is identical, so it lives here once.
@@ -456,11 +471,12 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
         });
 
         // Wait until the instance is not mid-turn, reporting the wait so a consumer can show what it is waiting
-        // for. False means the wait ran out of patience and the caller must not stop the agent.
+        // for. Ready means the caller may stop the agent; GaveUp means it must not; Superseded means a later
+        // adoption of the same instance has taken responsibility and this one must touch nothing at all.
         //
         // An instance that has vanished from the listing reads as ready rather than as an error: it is no longer
         // working, and the stop that follows reports the disappearance far more precisely than a timeout would.
-        async Task<bool> WaitForIdleInstanceAsync(Guid sessionId, string instanceId)
+        async Task<WaitOutcome> WaitForIdleInstanceAsync(Guid sessionId, string instanceId, CancellationToken cancel)
         {
             var pollInterval = TimeSpan.FromSeconds(Math.Max(1, config.AdoptBusyPollSeconds));
 
@@ -475,6 +491,11 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
 
             while (true)
             {
+                if (cancel.IsCancellationRequested)
+                {
+                    return WaitOutcome.Superseded;
+                }
+
                 var output = await AgentProcess.ListAsync(TimeSpan.FromSeconds(config.DiscoveryTimeoutSeconds));
                 var instance = AgentInstances
                     .parse(output)
@@ -487,7 +508,7 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                         bus.LogInfo("ClaudeBridge", $"{instanceId} finished its turn; taking it over now");
                     }
 
-                    return true;
+                    return WaitOutcome.Ready;
                 }
 
                 var waited = DateTimeOffset.UtcNow - startedWaiting;
@@ -496,7 +517,7 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                     bus.LogWarn(
                         "ClaudeBridge",
                         $"gave up waiting for {instanceId} to finish after {waited.TotalSeconds:F0}s; not taking it over");
-                    return false;
+                    return WaitOutcome.GaveUp;
                 }
 
                 if (!announced)
@@ -506,7 +527,15 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                 }
 
                 bus.Send(new AgentInstanceAdoptionWaiting(sessionId, instanceId, instance.Status, waited));
-                await Task.Delay(pollInterval);
+
+                try
+                {
+                    await Task.Delay(pollInterval, cancel);
+                }
+                catch (OperationCanceledException)
+                {
+                    return WaitOutcome.Superseded;
+                }
             }
         }
 
@@ -537,14 +566,43 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                 return;
             }
 
+            // A second adoption of the same instance supersedes the first - which is exactly what forcing is: the
+            // same adoption re-issued without the wait. Cancelling the earlier wait matters, because otherwise it
+            // would still be polling, would eventually find the agent gone, and would report a failure that
+            // undoes the take-over that actually succeeded.
+            var wait = new CancellationTokenSource();
+            if (adoptionWaits.TryRemove(message.InstanceId, out var superseded))
+            {
+                superseded.Cancel();
+                superseded.Dispose();
+            }
+
+            adoptionWaits[message.InstanceId] = wait;
+
             // Stopping an agent mid-turn throws that turn away, so a working agent is waited out rather than
             // interrupted. Only the user can decide the wait is not worth it, which is what Force carries.
-            if (!message.Force && !await WaitForIdleInstanceAsync(message.SessionId, message.InstanceId))
+            if (!message.Force)
             {
-                registry.Forget(message.SessionId);
-                bus.Send(new AgentInstanceAdoptionFailed(message.SessionId, message.InstanceId));
-                return;
+                var outcome = await WaitForIdleInstanceAsync(message.SessionId, message.InstanceId, wait.Token);
+                if (outcome == WaitOutcome.Superseded)
+                {
+                    // A later adoption owns this instance now. Touching the claim or reporting anything here would
+                    // interfere with it, so this one simply stops existing.
+                    return;
+                }
+
+                if (outcome == WaitOutcome.GaveUp)
+                {
+                    adoptionWaits.TryRemove(message.InstanceId, out _);
+                    wait.Dispose();
+                    registry.Forget(message.SessionId);
+                    bus.Send(new AgentInstanceAdoptionFailed(message.SessionId, message.InstanceId));
+                    return;
+                }
             }
+
+            adoptionWaits.TryRemove(message.InstanceId, out _);
+            wait.Dispose();
 
             // Adoption is a hand-over, not a join. While a background agent holds the session the CLI refuses to
             // resume it at all, so the agent is asked to stop first and the conversation is only picked up once

@@ -164,3 +164,50 @@ let ``the default set is one workspace in slot one in the launch directory`` () 
     %defaulted.Active.Slot.Should().Be(1)
     %defaulted.Active.WorkingDirectory.Should().Be(fallbackDirectory)
     %defaulted.Active.SessionId.Should().Be(Guid.Empty)
+
+[<Fact>]
+let ``a round trip preserves the conversation each workspace should reopen`` () =
+
+    // Arrange - this is what makes a workspace a continuing conversation rather than a fresh chat every launch
+    let original = WorkspaceSet.Empty |> create "Reviews" "C:\\reviews" 1
+    let sessionId = Guid.NewGuid()
+    let struct (withSession, _) =
+        WorkspaceUpdate.SessionStarted(original, (Seq.head original.Workspaces).WorkspaceId, sessionId)
+    let struct (withConversation, _) = WorkspaceUpdate.ConversationKnown(withSession, sessionId, "provider-7")
+
+    // Act
+    let restored = WorkspaceFile.Parse(WorkspaceFile.Serialize withConversation, fallbackDirectory)
+
+    // Assert - the provider session id survives; the run's own correlation id deliberately does not
+    %(Seq.head restored.Workspaces).AgentSessionId.Should().Be("provider-7")
+    %(Seq.head restored.Workspaces).SessionId.Should().Be(Guid.Empty)
+
+[<Fact>]
+let ``a file written before conversations were remembered still loads`` () =
+
+    // Arrange - every existing configuration.yaml is missing the field
+    let yaml = "active: null\nworkspaces:\n- id: " + Guid.NewGuid().ToString() + "\n  name: Reviews\n  slot: 1\n"
+
+    // Act
+    let restored = WorkspaceFile.Parse(yaml, fallbackDirectory)
+
+    // Assert
+    %(Seq.head restored.Workspaces).AgentSessionId.Should().Be("")
+
+[<Fact>]
+let ``fleet tabs are never written to the config`` () =
+
+    // Arrange - they stand for agents discovered running outside Clavis, so persisting one would resurrect a tab
+    // for an agent that has since stopped, with no conversation behind it
+    let instances =
+        [| FabioSoft.Contracts.Session.AgentInstance(
+               "foreign", "API Contract", "C:\\other", "idle", DateTimeOffset.UnixEpoch, false, false) |]
+    let set = WorkspaceSet.Empty |> create "Reviews" "C:\\reviews" 1
+    let struct (withTab, _) = WorkspaceUpdate.MergeFleetAgents(set, instances)
+
+    // Act
+    let restored = WorkspaceFile.Parse(WorkspaceFile.Serialize withTab, fallbackDirectory)
+
+    // Assert
+    %restored.Workspaces.Should().HaveLength(1)
+    %(Seq.head restored.Workspaces).Name.Should().Be("Reviews")

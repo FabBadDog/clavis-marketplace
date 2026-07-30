@@ -98,6 +98,36 @@ type SummonClavis() =
 type ExitApplication() =
     do ()
 
+// --- Shutdown barrier ---
+//
+// The framework's ApplicationShutdown takes effect immediately: the host shuts the WPF application down as soon
+// as it sees it, with no drain. That is fine for anything whose work is already on disk, but not for work that
+// has to *start* on the way out - handing a session back to a background agent, for instance, which spawns a
+// process that must be running before Clavis stops existing.
+//
+// So quitting is two-phase. A plugin that needs a moment declares itself a participant, and the window owner
+// broadcasts ShutdownPreparing and holds ApplicationShutdown until every participant has answered - or until a
+// grace period expires, because a plugin that never answers must not be able to make the application unquittable.
+
+/// Declare that this plugin has work to do before the application exits, so quitting waits for it. Declared at
+/// activation, not at shutdown: by then the broadcast has already gone out.
+[<Sealed>]
+type ShutdownParticipant(pluginId: string) =
+    member _.PluginId = pluginId
+
+/// The application is quitting. Every participant should do what it must and answer with ShutdownPrepared.
+/// Deliberately not a request/response: participants are independent, and one that fails must not prevent the
+/// others from being asked.
+[<Sealed>]
+type ShutdownPreparing() =
+    do ()
+
+/// This participant is done and the application may exit as far as it is concerned. Sending it early is always
+/// safe; not sending it only costs the grace period.
+[<Sealed>]
+type ShutdownPrepared(pluginId: string) =
+    member _.PluginId = pluginId
+
 /// Toggle Clavis visibility: when no application window is focused, bring them all to the foreground
 /// (windows that were hidden fall in from the top); when one is focused, hide them all (they rise out
 /// the top). Bound to the system-scope global hotkey, so one gesture both summons and banishes the

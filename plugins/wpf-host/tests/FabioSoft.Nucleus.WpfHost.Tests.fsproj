@@ -24,5 +24,6 @@
     <Compile Include="LayoutMigrationTests.fs" />
     <Compile Include="LivePanelsTests.fs" />
     <Compile Include="BarPlacementTests.fs" />
+    <Compile Include="ShutdownBarrierTests.fs" />
   </ItemGroup>
 </Project>

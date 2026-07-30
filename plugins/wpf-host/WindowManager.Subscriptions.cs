@@ -241,8 +241,27 @@ internal sealed partial class WindowManager
             Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 SaveLayout();
-                _bus.Send(new ApplicationShutdown());
+                BeginShutdown();
             });
+            return Task.CompletedTask;
+        }));
+
+        // A plugin with work to do on the way out declares itself here, at its own activation. The bus's
+        // bootstrap buffer replays declarations made before this subscription existed, so activation order
+        // between the participant and this plugin does not matter.
+        _subscriptions.Add(_bus.Subscribe<ShutdownParticipant>(message =>
+        {
+            _shutdown.Declare(message.PluginId);
+            return Task.CompletedTask;
+        }));
+
+        _subscriptions.Add(_bus.Subscribe<ShutdownPrepared>(message =>
+        {
+            if (_shutdown.Ready(message.PluginId) && _shutdown.IsPreparing)
+            {
+                Application.Current.Dispatcher.InvokeAsync(CompleteShutdown);
+            }
+
             return Task.CompletedTask;
         }));
 

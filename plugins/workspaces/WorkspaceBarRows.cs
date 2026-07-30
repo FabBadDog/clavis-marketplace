@@ -13,7 +13,8 @@ public sealed record WorkspaceBarRow(
     string AccentKey,
     string ActivityBrushKey,
     bool IsBreathing,
-    bool IsActive);
+    bool IsActive,
+    bool IsFleetAgent = false);
 
 /// The pure projection from the workspace list to bar tabs. Kept out of the view so the ordering, the truncation
 /// and - most importantly - the activity mapping are testable.
@@ -35,15 +36,24 @@ public static class WorkspaceBarRows
                 workspace.WorkspaceId,
                 workspace.Slot > 0 ? workspace.Slot.ToString() : "",
                 Truncate(workspace.Name),
-                workspace.Name,
+                Tooltip(workspace),
                 AccentPalette.OrDefault(workspace.AccentKey),
                 ActivityBrushKey(workspace.Activity),
                 // Pulsing is reserved for work in progress. "Waiting" is the more urgent state and deliberately
                 // does NOT pulse - it draws the eye by colour instead, so it stays legible next to a breathing
                 // neighbour rather than competing with it.
                 workspace.Activity == WorkspaceActivity.Working,
-                workspace.WorkspaceId == activeWorkspaceId))
+                workspace.WorkspaceId == activeWorkspaceId,
+                workspace.IsFleetAgent))
     ];
+
+    /// A fleet tab says what it is. Its title is the agent's own name, which on its own gives no hint that the
+    /// agent is running outside Clavis or that clicking takes it over - so the tooltip carries that, and the
+    /// tab is drawn distinctly.
+    private static string Tooltip(Workspace workspace) =>
+        workspace.IsFleetAgent
+            ? $"{workspace.Name}\nRunning outside Clavis - click to take it over"
+            : workspace.Name;
 
     /// The dot's colour by activity. The dot carries **state** only: it is never tinted with the workspace
     /// accent, which carries identity - doing so would destroy the activity signal the dot exists for.

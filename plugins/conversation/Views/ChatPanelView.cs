@@ -37,6 +37,10 @@ public static class ChatPanelView
         panel.Children.Add(prompt.Row);
         prompt.CapHeightTo(panel);
 
+        // Added last so it covers the chat and the prompt both: while a take-over is waiting there is no session
+        // to send a prompt to, so accepting one would silently drop it.
+        panel.Children.Add(AdoptionOverlay.Create(bus, binding.Identity.WorkspaceId));
+
         panel.PreviewKeyDown += (_, args) => HandlePermissionKeys(bus, viewModel, args);
         ApplyViewModel(viewModel, prompt);
         WirePromptFocusRequests(bus, panel, prompt);

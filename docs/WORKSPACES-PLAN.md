@@ -46,8 +46,8 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP9 the F12 overview panel | done, **not runtime-verified** | `dbbcfe7` |
 | WP10 docs + agent surface | marketplace side done; host repo docs remain | `39f3334` |
 | WP7 the bar | done, **not runtime-verified** | `f0c1dd6` |
-| WP5b agent instances (bridge) | done, **hand-over runtime-verified**; no UI consumes it | `342e95d`, `d4d7604`, `045e671`, `820e67c`, `27a37a8` |
-| WP5b agent instances (UI: list + pick) | not started | - |
+| WP5b agent instances (bridge) | done, **hand-over runtime-verified** | `342e95d`, `d4d7604`, `045e671`, `820e67c`, `27a37a8`, `c481c33` |
+| WP5c continuous sessions: resume, fleet tabs, take-over, park on close | done, **not runtime-verified** | this pass |
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
 >
@@ -815,16 +815,16 @@ workspace from the current directory.
 
 ---
 
-## WP5b - Agent instances: discover, adopt, hand off - BRIDGE DONE AND VERIFIED, NO UI
+## WP5b - Agent instances: discover, adopt, hand off - BRIDGE DONE AND VERIFIED (consumed by WP5c)
 
 The bridge half landed in full: the provider-neutral contracts, the pure `AgentInstances` module,
 `ClaudeCommand.withBackground`, and the ClaudeBridge wiring (`AgentInstancesRequested` -> discovery,
 `AdoptAgentInstance` -> stop-then-`--resume`, `ReleaseAgentInstance` -> stop or `--bg --resume`). Catalog
 gate green: 40/40 items, 24/24 suites, fabiosoft-claude 193 -> 222, claude-bridge 78 -> 93.
 
-**No UI consumes it**, so the feature is not reachable in the app - see Still open. The mechanism itself is
-no longer theoretical: the hand-over was verified end to end against real agents on 29.07, in both
-directions.
+The mechanism itself is not theoretical: the hand-over was verified end to end against real agents on 29.07, in
+both directions. It had **no consumer** when it landed, which WP5c below fixes - and WP5c's requirements changed
+two decisions recorded here, so read that section too before trusting this one's Still-open list.
 
 ### What running the real CLI changed
 
@@ -856,25 +856,22 @@ Observed in the wild while investigating, which argues the exclusivity rule guar
 - **The owned stream is always disposed before the background agent spawns.** The two must never overlap.
 - **Adoption resumes in the instance's own directory**, cached from the last discovery pass, so taking over an
   agent never silently moves it.
-- **Nothing releases automatically.** `DisposeSession` still ends an agent; keeping one alive needs an explicit
-  `ReleaseAgentInstance(keep-running)`. Making shutdown hand every session back would leave detached agents on
-  the machine that nobody tracks, so that policy belongs to whoever owns the workspace lifecycle, not the bridge.
+- **Nothing releases automatically - *in the bridge*.** `DisposeSession` still ends an agent; keeping one alive
+  needs an explicit `ReleaseAgentInstance(keep-running)`. The bridge deliberately holds no shutdown policy: it
+  belongs to whoever owns the workspace lifecycle. WP5c is that owner deciding - `Workspaces` parks every session
+  on the way out - so the detached-agents-nobody-tracks concern is answered by the same launch reclaiming them,
+  not by refusing to park.
 
 ### Still open
 
-- **No UI reaches any of this.** The whole family is unpublished and unsubscribed - `MESSAGE-MAP.md` shows
-  `AgentInstancesRequested` / `AdoptAgentInstance` / `ReleaseAgentInstance` with no publishers and
-  `AgentInstancesAvailable` / `...Adopted` / `...AdoptionFailed` / `...Released` with no subscribers. The
-  bridge works and is verified; nothing lists agents or offers a pick, so the feature is unreachable in the
-  app. This is the gap between "works" and "usable", and the next piece of WP5b.
-- **Taking over a *busy* foreign agent interrupts it mid-turn.** The bridge stops it without asking, which is
-  correct for a hand-over but wrong to do silently now that foreign agents are eligible. Whatever picker gets
-  built should confirm first; the bridge deliberately does not.
-- **The shutdown policy** above - who decides that closing Clavis parks agents rather than ending them.
+Three items that were open here are now closed by WP5c below: nothing consuming the family, the busy-agent
+interrupt, and the shutdown policy. What remains:
+
 - **Two Clavis homes** still share the provider's session store. Exclusivity guards one home; cross-home
   coordination needs out-of-band state. Mitigated by adoption being an explicit user pick, never automatic.
 - **Crash** leaves no hand-off: the session stays resumable but is not still running, and the bar must not
-  claim otherwise.
+  claim otherwise. Note WP5c narrows this - a crashed run's conversation is still reopened from its persisted
+  session id, so the loss is the *running* agent, not the conversation.
 - **Orphans** - marked agents nobody reclaimed - surface in the overview panel (WP9).
 
 ### Original scope
@@ -960,6 +957,110 @@ workspace, epoch-millisecond and string timestamps, a foreign name kept but not 
 distinct from the session id), the release-mode decision table, the hand-off and stop argument lists,
 adoption refused when already held / interactive / of unreported kind but allowed for a foreign background
 agent, plus the registry's exclusivity and the turn gate's wait/timeout behaviour.
+
+---
+
+## WP5c - Continuous sessions: resume, fleet tabs, take-over on switch, park on close - DONE, NOT RUNTIME-VERIFIED
+
+The bridge from WP5b was correct and unreachable. This package is what reaches it, from four requirements:
+sessions listed in both Clavis's tabs and the provider's own agent view; the last session active again on
+launch; switching to a tab whose agent is running elsewhere takes it over; and a take-over that has to wait
+says so rather than interrupting.
+
+### Three more verified CLI facts, each of which changed the design
+
+Probed directly rather than assumed, and all three cost more than they look:
+
+- **A session Clavis holds is listed as `interactive`, with no short handle.** Spawning with Clavis's exact
+  argument shape (`--print --input-format stream-json -n clavis/...`) appears in `claude agents --json` as
+  `kind: interactive`, `entrypoint: sdk-cli`, and **no `id` field**. The short handle is what every take-over
+  command takes, so **visibility is symmetric while ownership is not**: the other side can see a Clavis session
+  and can only take it over after Clavis has handed it back. The first requirement is therefore already half
+  satisfied by doing nothing, and its other half is not achievable at all - worth knowing before building
+  toward a shared-ownership model that cannot exist. (Incidentally this is also why the `kind` gate correctly
+  excludes Clavis's own live sessions from adoption, for a reason WP5b had not actually verified.)
+- **Parking mints a *new* session id.** `--bg --resume f7f4dd65…` came up as `f293c646…`. The spawn is
+  fire-and-forget, so Clavis never observes the new id. **Nothing may persist an instance id expecting to find
+  that agent later**, which is why reclaiming matches on name plus working directory instead. `--bg` does print
+  the new short handle (`backgrounded · f293c646 · clavis/probe-park`), and an earlier draft persisted that -
+  dropped, because the handle is only meaningful while that exact agent lives, and name matching needs nothing
+  extra written down at all.
+- **The status vocabulary is `busy` / `idle` / absent**, with a separate `state` of `working`/`done`/`blocked`;
+  a blocked agent reports no `status` at all. So `isWorking` requires a *positively* reported `busy`: waiting on
+  a status the provider never sends would wait forever and never hand over, and a lost turn is recoverable where
+  a take-over that can never happen is not.
+
+Also corrected: WP5b's claim that `kind` is `background` for every listed session. It is not - print-mode
+sessions are `interactive`.
+
+### The shape
+
+- **Three ways to obtain a session, with a priority that matters** (`SessionPlan`). An agent running this
+  workspace's conversation is **taken over**; else a remembered conversation is **reopened** from its
+  transcript; else one is **started fresh**. A running agent always wins, because resuming a session an agent
+  still holds is refused by the provider - and were it not, it would fork the conversation and lose whatever
+  the agent had done since.
+- **`ResumeSession`** is a plain `--resume`, deliberately *not* the adoption path: there is nothing to stop, and
+  requiring an agent to let go first would fail every resume of a session whose agent is simply gone.
+- **The first activation waits for the first discovery answer.** This is the subtle one. Activation used to
+  happen the moment config arrived; deciding the plan before knowing what is running would always read as
+  "nothing is running", so a parked agent would be left running while its transcript was reopened separately -
+  one conversation with two lives, plus an orphaned agent. Bounded (`InitialDiscoveryWaitSeconds`, 6s) because a
+  missing provider must not leave Clavis with no chat; giving up early only costs a take-over.
+- **Fleet tabs**: every background agent no workspace claims becomes a **slotless, unpersisted** tab, drawn with
+  a `~` where the slot number goes and a dim tick instead of an accent. Activating one takes it over and
+  **promotes** it to a real workspace. Slotless on purpose - a short-lived agent somebody spawned must not
+  consume one of eleven F-keys, and it is not a place of yours until you adopt it.
+- **A busy agent is waited out, not interrupted.** Adoption polls until the target stops reporting `busy`,
+  publishing `AgentInstanceAdoptionWaiting`; the chat shows the notice and one gesture, `ForceTakeOver`, whose
+  wording says what it costs. The default wait is unbounded on purpose: a timeout would eventually interrupt
+  somebody's work silently, which is the single decision that belongs to the user. This replaces WP5b's
+  "the picker should confirm first" - waiting is the better answer, and it needed no dialog.
+- **A superseded wait must report nothing.** Forcing re-issues the same adoption without the wait, and the
+  original wait loop is still polling. Left alone it would find the agent gone, conclude failure, and undo the
+  take-over that had just succeeded. A second adoption of an instance now cancels the first wait, which returns
+  `Superseded` and touches neither the claim nor the bus.
+- **Quitting parks every agent, behind a shutdown barrier.** `ApplicationShutdown` calls `app.Shutdown()`
+  immediately with no drain, so parking would have raced process exit - and parking has to *spawn* a process
+  while Clavis is still alive to spawn it. Hence two-phase quitting in `host-contracts` +
+  `wpf-host` (`ShutdownParticipant` / `ShutdownPreparing` / `ShutdownPrepared`, `ShutdownGraceSeconds`).
+  **The barrier always opens**: a participant that never answers delays the quit, never prevents it. With
+  nothing declared the behaviour is byte-for-byte what it was.
+
+### Decisions
+
+- **The provider session id is durable config, not disposable state.** It sits in the `Workspaces` section of
+  `configuration.yaml` beside name and slot, because losing your layout must not lose your conversations. This
+  reverses WP5's "nothing live is persisted" - a transcript id is closer to "this workspace is a continuing
+  conversation" than to a docking position.
+- **An ambiguous reclaim reclaims nothing.** Two agents answering to one name in one directory means there is no
+  way to tell which conversation is the workspace's; attaching it to the wrong one is worse than to neither, and
+  both still appear as fleet tabs so nothing is hidden.
+- **The workspace↔agent pairing lives in `workspaces`, not in `fabiosoft-claude`.** It was written in the module
+  first and moved: it needs a workspace's name and directory (workspace knowledge) and nothing provider-specific
+  beyond what `AgentInstance` already carries, and a UI plugin must never reference a provider assembly. What
+  *is* provider knowledge - the status vocabulary - stayed.
+- **An adopted agent keeps its name.** Reclaiming matches on the name, so letting adoption rename a session to
+  something directory-derived would quietly make it unreclaimable. A foreign agent gains the `clavis/` marker in
+  front of its label, because adopting it does make it Clavis's.
+
+### Still open
+
+- **Nothing here has been runtime-verified.** It is the largest behavioural change since WP5 and it touches the
+  boot path, so it wants a launch before anything is built on top of it.
+- **`FleetPollSeconds` costs a provider process per poll** (15s default). Fine for one machine; worth revisiting
+  if the listing ever gets expensive.
+- **Two fleet tabs for one conversation** are possible if the provider ever lists an agent twice under different
+  ids; the synthetic workspace id is derived per instance id, so they would not collide, they would just both
+  appear.
+
+### Tooling
+
+`tools/Install-Module.ps1` closes a real gap rather than working around one: items compile in alphabetical order
+against whatever is already installed in `~/.clavis/modules`, and neither the host nor the CompileTest harness
+leaves an updated module there - so a contract added alongside its consumer fails with CS0246 (`claude-bridge`
+sorts before `session-contracts`). It synthesizes the project from `PLUGIN.md` frontmatter, builds against the
+same three reference roots the kernel probes, and deletes the project again so the marketplace stays pure source.
 
 ---
 

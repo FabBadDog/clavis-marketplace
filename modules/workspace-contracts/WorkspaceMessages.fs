@@ -20,7 +20,14 @@ type WorkspaceInfo
      activity: string,
      activityDetail: string,
      activitySince: DateTimeOffset,
-     slot: int) =
+     slot: int,
+     isFleetAgent: bool,
+     isAdopting: bool) =
+
+    new(workspaceId, name, accentKey, workingDirectory, sessionId, activity, activityDetail, activitySince, slot) =
+        WorkspaceInfo(
+            workspaceId, name, accentKey, workingDirectory, sessionId, activity, activityDetail, activitySince,
+            slot, false, false)
 
     member _.WorkspaceId = workspaceId
     member _.Name = name
@@ -40,6 +47,16 @@ type WorkspaceInfo
     member _.ActivitySince = activitySince
 
     member _.Slot = slot
+
+    /// This entry is not a workspace of yours but an agent running outside Clavis, surfaced so it is visible and
+    /// reachable. It holds no slot and is not persisted; activating it takes the agent over, and it becomes an
+    /// ordinary workspace at that point. A consumer should render it as distinct from the real ones.
+    member _.IsFleetAgent = isFleetAgent
+
+    /// A take-over is in progress and the agent has not let go yet - it is finishing the turn it was mid-way
+    /// through, because stopping it earlier would discard that work. There is no session to show until it does,
+    /// so a consumer showing conversations should say what is being waited for rather than show an empty one.
+    member _.IsAdopting = isAdopting
 
 /// The whole workspace list, broadcast whenever anything in it changes (created, closed, renamed, activated,
 /// activity moved). One message rather than a set of deltas: the list is small, consumers render all of it,
@@ -110,4 +127,14 @@ type RenameWorkspace(workspaceId: Guid, name: string) =
 
 [<Sealed>]
 type WorkspaceClosed(workspaceId: Guid) =
+    member _.WorkspaceId = workspaceId
+
+/// Stop waiting for the agent this workspace is taking over, and take it over now.
+///
+/// The wait exists because taking an agent over stops it, discarding whatever turn it was mid-way through. That
+/// trade is the user's to make, not the application's - which is why waiting is the default and this is a
+/// deliberate gesture rather than a timeout.
+[<Sealed>]
+[<Description("Take over this workspace's agent now, without waiting for its turn to finish")>]
+type ForceTakeOver(workspaceId: Guid) =
     member _.WorkspaceId = workspaceId

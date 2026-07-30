@@ -5,7 +5,12 @@ public sealed record WpfHostConfig(
     double DefaultWidth = 740,
     double DefaultHeight = 640,
     double MinWidth = 400,
-    double MinHeight = 260)
+    double MinHeight = 260,
+
+    /// How long quitting waits for plugins that declared work to finish on the way out (handing sessions back to
+    /// background agents, chiefly). A backstop, not a schedule: they normally answer in well under it, and it
+    /// exists so a plugin that never answers delays the quit rather than making the application unquittable.
+    int ShutdownGraceSeconds = 12)
 {
     /// Panel kinds to register as edge slide-ins by default, so opening one (e.g. via its status-bar glyph
     /// or the command palette) reveals it as a slide-in rather than a docked tab. Any number of panels can

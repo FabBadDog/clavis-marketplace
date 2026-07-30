@@ -167,34 +167,7 @@ module AgentInstances =
     let keepsRunning (mode: string) =
         String.Equals(mode, "keep-running", StringComparison.OrdinalIgnoreCase)
 
-    let private sameDirectory left right =
-        String.Equals(
-            (left: string).TrimEnd('\\', '/'),
-            (right: string).TrimEnd('\\', '/'),
-            StringComparison.OrdinalIgnoreCase)
-
-    /// Find the agent Clavis parked for a given label and directory, so a workspace picks its own conversation
-    /// back up on the next launch.
-    ///
-    /// Matching is by name and directory rather than by a remembered id, because handing a session back gives the
-    /// parked agent a *new* session id that Clavis never sees - it spawns the agent and exits. The name is the one
-    /// field Clavis writes and the provider preserves, which makes it the only durable link back.
-    ///
-    /// An ambiguous match yields None. Two agents answering to one label means Clavis cannot tell which
-    /// conversation belongs to the workspace, and silently picking either would attach it to somebody else's work;
-    /// the caller surfaces both as reclaimable instead and lets the user choose.
-    let parkedFor (label: string) (workingDirectory: string) (instances: AgentInstanceInfo list) =
-        if String.IsNullOrWhiteSpace label then
-            None
-        else
-            let matches =
-                instances
-                |> List.filter (fun instance ->
-                    instance.IsOwned
-                    && instance.IsBackground
-                    && String.Equals(instance.Name, label.Trim(), StringComparison.OrdinalIgnoreCase)
-                    && sameDirectory instance.WorkingDirectory workingDirectory)
-
-            match matches with
-            | [ single ] -> Some single
-            | _ -> None
+// Pairing a parked agent back to the workspace it belongs to deliberately does NOT live here. It needs a
+// workspace's name and directory, which is workspace knowledge, and it needs nothing provider-specific beyond
+// what AgentInstance already carries - so it lives in the Workspaces plugin, which must never reference a
+// provider assembly. What is provider knowledge, and does live here, is the status vocabulary above.

@@ -21,5 +21,7 @@
     <Compile Include="WorkspaceFileTests.fs" />
     <Compile Include="WorkspaceOverviewRowsTests.fs" />
     <Compile Include="WorkspaceBarRowsTests.fs" />
+    <Compile Include="FleetAgentsTests.fs" />
+    <Compile Include="SessionPlanTests.fs" />
   </ItemGroup>
 </Project>

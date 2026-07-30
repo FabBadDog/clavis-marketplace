@@ -1,7 +1,7 @@
 ---
 name: conversation
 pluginId: Conversation
-version: 10.0.0
+version: 10.1.0
 essential: true
 apiVersion: 1.0.0
 description: The elm/flux conversation state, update, and view models.
@@ -78,10 +78,17 @@ WpfHost's `title-bar-left`, `title-bar-right`, and `status-bar` chrome regions.
 - Panels: `PanelKindsRequested`, `PanelKindRegistration` (to learn other kinds' chrome), `ActivePanelChanged`,
   `RequestPanelCommands`, `FocusInputRequested` (the prompt lives here, so this panel answers it).
 - Workspaces: `WorkspaceSessionStarted` (a chat comes into being here), `WorkspaceActivated` (switch which
-  chat is visible), `WorkspaceClosed` (drop its chat).
+  chat is visible), `WorkspaceClosed` (drop its chat), `WorkspaceListChanged` (whether the panel's workspace is
+  mid-take-over, which is what the adoption notice renders).
 
 ## Notes
 
+- **A chat covered by a take-over says so** (`AdoptionNotice` + `Views/AdoptionOverlay`). While a workspace is
+  taking an agent over there is genuinely nothing to render - the agent has not let go, so no session and no
+  transcript exist yet - and a blank chat would read as a fault. The overlay covers the prompt too, because a
+  prompt sent with no session would be silently dropped. It offers one gesture, `ForceTakeOver`, and its wording
+  says what that costs: taking over stops the agent, discarding the turn it is running. Waiting is the default
+  precisely because that trade is the user's to make.
 - **Pure core, impure shell.** Every bus handler locks shared state, runs the matching
   `ConversationUpdate.Handle*`, then applies the returned effects (each mapped 1:1 to a session bus send).
   Effect types (`SendPromptEffect`, `StartNewSessionEffect`, `ScheduleInitTimeoutEffect`, ...) are

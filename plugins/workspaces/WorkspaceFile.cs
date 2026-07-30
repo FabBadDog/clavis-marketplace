@@ -11,7 +11,13 @@ namespace FabioSoft.Nucleus.Plugins.Workspaces;
 /// disposable `state.yaml` the layout lives in. Only then does the documented contract actually hold: deleting
 /// `state.yaml` loses your dockings and keeps your workspaces.
 ///
-/// Nothing live is persisted: sessions and activity are runtime facts that are re-derived on the next launch.
+/// The provider's session id is persisted with it, which is what makes a workspace a continuing conversation
+/// rather than a fresh chat each launch. It sits here rather than in `state.yaml` on purpose: losing your layout
+/// must not lose your conversations.
+///
+/// Everything else live is still derived fresh - the run's own session correlation id, the activity, and the
+/// tabs for agents running outside Clavis, which are discovered rather than remembered and so are deliberately
+/// never written here.
 public static class WorkspaceFile
 {
     /// Parse the section into a set. Unreadable YAML throws (the caller logs and falls back to a default set);
@@ -57,7 +63,8 @@ public static class WorkspaceFile
                 WorkingDirectory = string.IsNullOrWhiteSpace(entry.WorkingDirectory)
                     ? defaultWorkingDirectory
                     : entry.WorkingDirectory!,
-                Slot = slot
+                Slot = slot,
+                AgentSessionId = entry.AgentSessionId?.Trim() ?? ""
             });
         }
 
@@ -85,14 +92,18 @@ public static class WorkspaceFile
         return serializer.Serialize(new WorkspacesDocument
         {
             Active = set.ActiveWorkspaceId == Guid.Empty ? null : set.ActiveWorkspaceId.ToString(),
+            // Fleet tabs are excluded: they stand for agents discovered running outside Clavis, so writing them
+            // down would resurrect a tab for an agent that has since stopped, with no conversation behind it.
             Workspaces = set.InSlotOrder()
+                .Where(workspace => !workspace.IsFleetAgent)
                 .Select(workspace => new WorkspaceEntry
                 {
                     Id = workspace.WorkspaceId.ToString(),
                     Name = workspace.Name,
                     Accent = workspace.AccentKey,
                     WorkingDirectory = workspace.WorkingDirectory,
-                    Slot = workspace.Slot
+                    Slot = workspace.Slot,
+                    AgentSessionId = workspace.AgentSessionId.Length == 0 ? null : workspace.AgentSessionId
                 })
                 .ToList()
         });
@@ -120,5 +131,9 @@ public static class WorkspaceFile
         public string? Accent { get; set; }
         public string? WorkingDirectory { get; set; }
         public int Slot { get; set; }
+
+        /// The provider's session id for this workspace's conversation. Absent on a workspace that has never
+        /// started one, and on every file written before conversations were remembered.
+        public string? AgentSessionId { get; set; }
     }
 }

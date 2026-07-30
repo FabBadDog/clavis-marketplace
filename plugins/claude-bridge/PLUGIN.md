@@ -131,7 +131,7 @@ native-to-`Agent*` translation; `UsagePoller.cs` + `UsageReportMapping.cs` handl
   unfinished turn is lost; the release waits `HandOffTurnWaitSeconds` for it, then proceeds anyway and logs
   the loss. The owned stream is always disposed *before* the background agent is spawned - the two must
   never overlap on one session id.
-- **Nothing releases automatically.** `DisposeSession` still ends an agent outright; keeping one alive
-  requires an explicit `ReleaseAgentInstance(keep-running)`. Making shutdown hand every session back would
-  leave detached agents on the machine that nobody is tracking, so that policy is deliberately not the
-  default and belongs to whoever owns the workspace lifecycle.
+- **Nothing releases automatically here.** `DisposeSession` still ends an agent outright; keeping one alive
+  requires an explicit `ReleaseAgentInstance(keep-running)`. Whether quitting parks agents is a workspace
+  lifecycle decision, so the bridge holds no such policy - the `Workspaces` plugin makes it, and holds the
+  quit open long enough for the hand-offs to actually spawn.

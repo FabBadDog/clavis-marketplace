@@ -1,7 +1,7 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 7.0.0
+version: 7.1.0
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
@@ -70,8 +70,8 @@ unit-tested.
   `SummonClavis` (from `SummonSignal`, see Notes).
 - Panels: `OpenPanel`, `RestorePanel`, `PanelClosed`, `SlideInRegistered`, `SlideInClosed`.
 - Windows: `WindowOpened`, `WindowClosed`, `WindowFocusChanged`.
-- Lifecycle/snapshot: `ApplicationShutdown`, and `LayoutSnapshot` (the response to
-  `LayoutSnapshotRequested`).
+- Lifecycle/snapshot: `ShutdownPreparing` then `ApplicationShutdown` (see the shutdown barrier in Notes), and
+  `LayoutSnapshot` (the response to `LayoutSnapshotRequested`).
 
 ## Messages subscribed
 
@@ -86,6 +86,17 @@ unit-tested.
 ## Notes
 
 - **UI-thread bound.** Activation and all window/region work marshal onto `Application.Current.Dispatcher`.
+- **Quitting is two-phase** (`ShutdownBarrier`). `ApplicationShutdown` takes effect immediately - the host shuts
+  the WPF application down as soon as it sees it - which is fine for work already on disk but not for work that
+  has to *start* on the way out, such as handing a session back to a background agent (a spawn that must happen
+  while Clavis still exists). So a plugin with such work declares a `ShutdownParticipant` at activation; the
+  window owner broadcasts `ShutdownPreparing` and holds `ApplicationShutdown` until every participant has
+  answered `ShutdownPrepared`, or until `ShutdownGraceSeconds` expires. **The barrier always opens**: a
+  participant that never answers delays the quit, it can never prevent it, and the outstanding names are logged
+  so the pause is diagnosable. With nothing declared the behaviour is exactly what it was before - one
+  `ApplicationShutdown`, immediately - so the barrier costs nothing when nobody needs it. Both quit gestures (the
+  primary window's own close and `ExitApplication`) go through it, and it is idempotent, so closing the window
+  during a quit already under way does nothing.
 - **Persistence (layout v2).** The saved layout is normalised: a `windows` list carries identity, **role**
   (`primary`/`panel`), the owning **workspace** and one set of bounds each, and a separate `layouts` list carries
   one docking tree + slide-ins per **(window, workspace)** pair. Geometry is deliberately not per workspace -
