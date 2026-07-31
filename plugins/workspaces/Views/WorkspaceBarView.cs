@@ -22,14 +22,21 @@ namespace FabioSoft.Nucleus.Plugins.Workspaces.Views;
 [ExcludeFromCodeCoverage] // WPF composition; the projection and the activity mapping are WorkspaceBarRows
 public static class WorkspaceBarView
 {
-    private const double TabWidth = 180;
+    // Sized against the host's 60px strip. The type and the marks scale by roughly half again rather than
+    // doubling with the height: at double size the numbers start competing with the workspace names, and the
+    // strip is meant to be read at a glance, not stared at.
+    private const double TabWidth = 220;
+    private const double LabelSize = 13;
+    private const double GlyphSize = 24;
 
     public static FrameworkElement Create(IBus bus)
     {
         var tabs = new StackPanel { Orientation = Orientation.Horizontal };
 
-        var quit = TailButton("QUIT", "Quit Clavis", isDestructive: true, () => bus.Send(new ExitApplication()));
-        var create = TailButton("+", "New workspace", isDestructive: false, () => bus.Send(new CreateWorkspace("", "")));
+        // A word and a glyph do not read at the same size: "QUIT" is set at label size, "+" at glyph size, so
+        // both land at about the same visual weight on the strip.
+        var quit = TailButton("QUIT", "Quit Clavis", LabelSize, isDestructive: true, () => bus.Send(new ExitApplication()));
+        var create = TailButton("+", "New workspace", GlyphSize, isDestructive: false, () => bus.Send(new CreateWorkspace("", "")));
 
         var tail = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         tail.Children.Add(create);
@@ -100,7 +107,7 @@ public static class WorkspaceBarView
         //
         // A fleet agent has no identity here yet: it is somebody's running work, not one of your places, so it
         // gets no accent. That absence is the signal - the tick is what says "this is a place of yours".
-        var tick = new Border { Width = 2, VerticalAlignment = VerticalAlignment.Stretch, Margin = new Thickness(0, 6, 10, 6) };
+        var tick = new Border { Width = 3, VerticalAlignment = VerticalAlignment.Stretch, Margin = new Thickness(0, 12, 13, 12) };
         tick.SetResourceReference(Border.BackgroundProperty, row.IsFleetAgent ? "TextDimBrush" : row.AccentKey);
         tick.Opacity = row.IsFleetAgent ? 0.3 : row.IsActive ? 1.0 : 0.55;
 
@@ -109,10 +116,10 @@ public static class WorkspaceBarView
         var number = new TextBlock
         {
             Text = row.IsFleetAgent ? "~" : row.SlotNumber,
-            FontSize = 15,
+            FontSize = 21,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 9, 0),
+            Margin = new Thickness(0, 0, 12, 0),
             Opacity = row.IsActive ? 1.0 : 0.55
         };
         number.SetResourceReference(TextBlock.FontFamilyProperty, "UiFont");
@@ -120,7 +127,7 @@ public static class WorkspaceBarView
             TextBlock.ForegroundProperty, row.IsFleetAgent ? "TextDimBrush" : "ClavisBrush");
 
         // State: a circle, never a box.
-        var dot = new Ellipse { Width = 8, Height = 8, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+        var dot = new Ellipse { Width = 12, Height = 12, Margin = new Thickness(0, 0, 11, 0), VerticalAlignment = VerticalAlignment.Center };
         dot.SetResourceReference(Shape.FillProperty, row.ActivityBrushKey);
         if (row.IsBreathing)
         {
@@ -134,7 +141,7 @@ public static class WorkspaceBarView
         var title = new TextBlock
         {
             Text = row.Title,
-            FontSize = 11.5,
+            FontSize = 15,
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
             ToolTip = row.Tooltip
@@ -170,12 +177,13 @@ public static class WorkspaceBarView
     }
 
     // Quit is the only destructive gesture on the strip, so it is the only one that turns red on hover.
-    private static FrameworkElement TailButton(string glyph, string tooltip, bool isDestructive, Action onClick)
+    private static FrameworkElement TailButton(
+        string glyph, string tooltip, double fontSize, bool isDestructive, Action onClick)
     {
         var text = new TextBlock
         {
             Text = glyph,
-            FontSize = 9.5,
+            FontSize = fontSize,
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Center,
             ToolTip = tooltip
@@ -185,7 +193,7 @@ public static class WorkspaceBarView
 
         var button = new Border
         {
-            Width = 42,
+            Width = 60,
             Background = Brushes.Transparent,
             Cursor = System.Windows.Input.Cursors.Hand,
             Child = text

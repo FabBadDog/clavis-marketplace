@@ -33,7 +33,13 @@ internal static class WorkAreaMaximize
     private const int WmGetMinMaxInfo = 0x0024;
     private const uint MonitorDefaultToNearest = 0x00000002;
 
-    public static void Constrain(Window window)
+    /// Constrain a window's maximized size to its monitor's work area, less the strip the always-on-top
+    /// workspace bar occupies. Pass 0 when there is no bar.
+    ///
+    /// Reserving the bar's height is not cosmetic: the bar is `Topmost`, so without it a maximized window
+    /// expands under the bar and loses the top of its own chrome - its title bar and window controls sit behind
+    /// a strip they cannot be dragged out from.
+    public static void Constrain(Window window, double barHeight)
     {
         // IsInitialized turns true once the XAML has loaded, but the native handle (Hwnd) only exists
         // after the window is shown (SourceInitialized). Gate on the handle, not IsInitialized: hooking
@@ -41,21 +47,30 @@ internal static class WorkAreaMaximize
         // "Hwnd of zero is not valid", aborting activation.
         if (new WindowInteropHelper(window).Handle != IntPtr.Zero)
         {
-            Hook(window);
+            Hook(window, barHeight);
         }
         else
         {
-            window.SourceInitialized += (_, _) => Hook(window);
+            window.SourceInitialized += (_, _) => Hook(window, barHeight);
         }
     }
 
-    private static void Hook(Window window)
+    private static void Hook(Window window, double barHeight)
     {
         var handle = new WindowInteropHelper(window).Handle;
-        HwndSource.FromHwnd(handle)?.AddHook(WndProc);
+        var source = HwndSource.FromHwnd(handle);
+
+        // The DPI factor is read from the window's own presentation source rather than assumed: the bar height
+        // is in DIPs while every rectangle in this message is in physical pixels, and the two only coincide at
+        // 100% scaling.
+        source?.AddHook((IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+            WndProc(
+                hwnd, message, lParam, ref handled,
+                barHeight, source.CompositionTarget?.TransformToDevice.M11 ?? 1.0));
     }
 
-    private static IntPtr WndProc(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    private static IntPtr WndProc(
+        IntPtr hwnd, int message, IntPtr lParam, ref bool handled, double barHeight, double dpiFactor)
     {
         if (message != WmGetMinMaxInfo)
         {
@@ -74,9 +89,14 @@ internal static class WorkAreaMaximize
             return IntPtr.Zero;
         }
 
+        var work = BarPlacement.Reserve(
+            new ScreenRectangle(info.Work.Left, info.Work.Top, info.Work.Right, info.Work.Bottom),
+            barHeight,
+            dpiFactor);
+
         var placement = MaximizedWindowBounds.Compute(
             new ScreenRectangle(info.Monitor.Left, info.Monitor.Top, info.Monitor.Right, info.Monitor.Bottom),
-            new ScreenRectangle(info.Work.Left, info.Work.Top, info.Work.Right, info.Work.Bottom));
+            work);
 
         // Read the OS-supplied struct first so the track-size defaults are preserved, then override only
         // the maximized position and size with the work-area-constrained values.

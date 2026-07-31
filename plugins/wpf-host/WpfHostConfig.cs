@@ -49,7 +49,7 @@ public sealed record WpfHostConfig(
 
     /// The bar's height in device-independent pixels. A maximized window's work area is reduced by this, so a
     /// maximized Clavis window does not end up sitting underneath the always-on-top strip.
-    public double WorkspaceBarHeight { get; init; } = 30;
+    public double WorkspaceBarHeight { get; init; } = 60;
 
     /// Reserve desktop space via SHAppBarMessage instead of relying on Topmost. Off, and a designed seam rather
     /// than a feature: a leaked AppBar registration survives a crash and permanently steals desktop space until

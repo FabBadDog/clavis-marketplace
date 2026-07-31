@@ -44,8 +44,12 @@ internal sealed class BarWindow
             Height = height
         };
 
+        // The strip is the only thing painting this window, and the window allows transparency - so a background
+        // that does not resolve leaves the desktop showing through wherever there is no tab. `PanelDeepBrush` was
+        // such a key: it exists in neither the theme file nor the XAML fallback, and SetResourceReference resolves
+        // at runtime, so nothing reported it.
         var strip = new Border { Child = _content };
-        strip.SetResourceReference(Border.BackgroundProperty, "PanelDeepBrush");
+        strip.SetResourceReference(Border.BackgroundProperty, "BlackBrush");
         strip.SetResourceReference(Border.BorderBrushProperty, "LineBrush");
         strip.BorderThickness = new Thickness(0, 0, 0, 1);
 

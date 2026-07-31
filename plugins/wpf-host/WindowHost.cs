@@ -85,7 +85,7 @@ internal sealed partial class WindowHost
         Window.Height = config.DefaultHeight;
         Window.MinWidth = config.MinWidth;
         Window.MinHeight = config.MinHeight;
-        WorkAreaMaximize.Constrain(Window);
+        WorkAreaMaximize.Constrain(Window, config.ShowWorkspaceBar ? config.WorkspaceBarHeight : 0);
 
         var contentControl = (ContentControl)Window.Content;
         contentControl.Content = isPrimary ? BuildPrimaryLayout() : BuildSecondaryLayout();

@@ -37,7 +37,7 @@ public static class AdoptionOverlay
         // Opaque, not translucent: there is nothing underneath worth showing through, and a scrim over an empty
         // chat just looks like a rendering fault.
         var overlay = new Border { Child = notice, Visibility = Visibility.Collapsed };
-        overlay.SetResourceReference(Control.BackgroundProperty, "BackgroundBrush");
+        overlay.SetResourceReference(Border.BackgroundProperty, "BlackBrush");
 
         ISubscription? subscription = null;
 

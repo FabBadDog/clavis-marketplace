@@ -1,7 +1,7 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 7.3.0
+version: 7.4.0
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
@@ -135,6 +135,17 @@ unit-tested.
   taken while it is banished or mid-animation records somewhere it can never be seen again - and loses wherever
   it actually was. `LayoutTree.ClampToDesktop` pulls the whole window back on, so the title bar stays draggable;
   a window that reopens centred is a far quieter failure than one that reopens invisible.
+- **The bar reserves its strip from a maximized window.** `BarPlacement.Reserve` computes the work area a
+  maximized window should use once the bar has taken the top, and `WorkAreaMaximize` applies it when answering
+  `WM_GETMINMAXINFO`. Without it a maximized window expands under the always-on-top bar and loses the top of its
+  own chrome - its title bar sits behind a strip it cannot be dragged out from. The reservation is in DIPs while
+  every rectangle in that message is in physical pixels, so the window's own DPI factor is read rather than
+  assumed; the two only coincide at 100% scaling. (`Reserve` existed, documented and unit-tested, for some time
+  before anything called it - the tests passed throughout, because they tested the function and not the wiring.)
+- **The bar paints itself opaque.** It is the only content of a window with `AllowsTransparency`, so a
+  background brush that fails to resolve leaves the desktop showing through wherever there is no tab - and
+  `SetResourceReference` resolves at runtime, so a key that exists in neither the theme file nor the XAML
+  fallback reports nothing and simply renders as transparent.
 - **Declared cardinality, not app-wide dedupe.** The host used to treat every panel kind as an
   application-wide singleton. It now enforces the kind's *declared* `PanelCardinality`, carried from its
   registration onto `PanelInstanceReady`: `many` never reuses, `one-per-application` reuses an instance in any
