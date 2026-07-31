@@ -23,14 +23,27 @@ let ``tabs are ordered by slot with gaps preserved`` () =
     %(rows |> Seq.map (fun r -> r.SlotNumber) |> Seq.toList).Should().SequenceEqual([ "1"; "3"; "5" ])
 
 [<Fact>]
-let ``a workspace past the keyboard range shows no number`` () =
+let ``a workspace past the keyboard range is left off the bar`` () =
 
-    // Act
+    // Act - every tab on the strip is one an F-key reaches, so a slotless workspace has no place there
     let rows = build [ workspace "overflow" 0; workspace "keyed" 1 ] Guid.Empty
 
-    // Assert
+    // Assert - still reachable from the picker and the overview, just not from the bar
+    %rows.Count.Should().Be(1)
     %rows[0].SlotNumber.Should().Be("1")
-    %rows[1].SlotNumber.Should().Be("")
+
+[<Fact>]
+let ``a fleet agent stays on the bar despite holding no slot`` () =
+
+    // Arrange - slotless by design: a short-lived agent must not consume one of eleven keys
+    let fleet = Workspace(Name = "clavis/probe", Slot = 0, AccentKey = AccentPalette.Keys[0], IsFleetAgent = true)
+
+    // Act
+    let rows = build [ fleet; workspace "keyed" 1 ] Guid.Empty
+
+    // Assert - the tab is the only place a running outside agent appears, so hiding it would hide the agent
+    %rows.Count.Should().Be(2)
+    %(rows |> Seq.filter _.IsFleetAgent |> Seq.length).Should().Be(1)
 
 [<Fact>]
 let ``only the active tab is marked active`` () =

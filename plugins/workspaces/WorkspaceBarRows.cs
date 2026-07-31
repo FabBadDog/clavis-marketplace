@@ -24,12 +24,22 @@ public static class WorkspaceBarRows
     /// width, so a long name must lose characters rather than push its neighbours along.
     public const int MaxTitleLength = 28;
 
+    /// Whether a workspace earns a place on the strip. Every tab shown is one you can reach with its F-key, so a
+    /// workspace holding no slot is left off - the bar is a keyboard map, and a tab you can only click makes the
+    /// numbers beside it look decorative. Those workspaces are still reachable from the picker and the overview.
+    ///
+    /// Fleet agents are the deliberate exception. They are slotless by design (a short-lived agent somebody
+    /// spawned must not consume one of eleven keys), and the tab is how you notice one is running at all and take
+    /// it over - hiding them would hide the only place they appear.
+    public static bool IsOnBar(Workspace workspace) => workspace.IsFleetAgent || workspace.Slot > 0;
+
     /// Tabs in slot order with gaps preserved: a slot is an address, so a closed workspace leaves a hole rather
     /// than shuffling everyone left and silently remapping the key you learned.
     public static IReadOnlyList<WorkspaceBarRow> Build(
         IReadOnlyList<Workspace> workspaces, Guid activeWorkspaceId) =>
     [
         .. workspaces
+            .Where(IsOnBar)
             .OrderBy(workspace => workspace.Slot <= 0)
             .ThenBy(workspace => workspace.Slot)
             .Select(workspace => new WorkspaceBarRow(

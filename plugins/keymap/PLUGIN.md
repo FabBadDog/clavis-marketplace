@@ -1,7 +1,7 @@
 ---
 name: keymap
 pluginId: KeyMap
-version: 1.1.0
+version: 1.2.0
 apiVersion: 1.0.0
 description: Keybinding resolution service.
 dependencies:
@@ -34,7 +34,7 @@ config round-trip.
 
 ## Config (`KeyMapConfig`)
 
-- `SummonGesture` (default `"Ctrl+Shift+V"`) - the system-scope chord seeded as the global
+- `SummonGesture` (default `"Ctrl+Shift+Ü"`) - the system-scope chord seeded as the global
   summon/hide toggle hotkey. Validated at activation (`ConfigInvalid` if not a parseable gesture). The
   host reads the live value from the broadcast bindings; this is only the seed default.
 

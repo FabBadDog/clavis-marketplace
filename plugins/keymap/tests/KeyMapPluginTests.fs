@@ -10,7 +10,7 @@ open Xunit
 let ``id and default config are exposed`` () =
     let plugin = KeyMapPlugin()
     %plugin.Id.Should().Be("KeyMap")
-    %plugin.DefaultConfig.SummonGesture.Should().Be("Ctrl+Shift+V")
+    %plugin.DefaultConfig.SummonGesture.Should().Be("Ctrl+Shift+Ü")
 
 [<Fact>]
 let ``validate accepts a valid summon gesture and rejects a keyless one`` () =

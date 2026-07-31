@@ -1,7 +1,7 @@
 ---
 name: workspaces
 pluginId: Workspaces
-version: 1.5.2
+version: 1.6.0
 essential: true
 apiVersion: 1.0.0
 description: The single authority for workspace identity, activation, and the workspace list.
@@ -123,6 +123,11 @@ they work off what `AgentInstance` carries, so this plugin names no provider.
   the workspace's name plus its working directory (`FleetAgents.ParkedFor`), the two things Clavis controls. An
   ambiguous match reclaims nothing: attaching a workspace to the wrong conversation is worse than attaching it
   to none, and the candidates still appear as fleet tabs so nothing is hidden.
+- **The bar is a keyboard map, so it shows what an F-key reaches** (`WorkspaceBarRows.IsOnBar`). A workspace
+  holding no slot is left off the strip: every tab carries a number, and a tab you can only click makes those
+  numbers look decorative. Such a workspace is still reachable from the picker and the F12 overview, so nothing
+  becomes unreachable - it just stops competing for space with the eleven that have keys. Fleet agents are the
+  deliberate exception, because their tab is the only place they appear at all (see below).
 - **Agents running outside Clavis appear as slotless tabs.** Discovery is polled, and every background agent no
   workspace claims becomes a tab with no F-key, no accent and no persistence, drawn distinctly. Activating one
   takes it over and **promotes** it to a real workspace, at which point it gains a slot and is persisted. They

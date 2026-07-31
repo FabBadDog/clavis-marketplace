@@ -26,6 +26,12 @@ internal sealed class GlobalHotkey : IDisposable
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
+    /// Maps a character to a virtual key in the **active keyboard layout**, returning -1 when the layout cannot
+    /// produce it. This is what lets a chord be written as the character it prints rather than as a layout-
+    /// specific key name.
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "VkKeyScanW")]
+    private static extern short VkKeyScan(char character);
+
     private readonly Action<string> _runCommand;
     private readonly Dictionary<int, string> _idToCommand = [];
     private HwndSource? _source;
@@ -142,8 +148,26 @@ internal sealed class GlobalHotkey : IDisposable
             case "Enter": virtualKey = 0x0D; return true;
             case "Tab": virtualKey = 0x09; return true;
             case "Escape": virtualKey = 0x1B; return true;
-            default: return false;
         }
+
+        // Any other single character is resolved through the active keyboard layout. A chord like Ctrl+Shift+Ü
+        // is only expressible this way: which physical key carries "ü" is a property of the layout, not of the
+        // character, so hardcoding a virtual key would bind the wrong key on every other layout. Without this
+        // the chord simply failed to register - RegisterHotKey was never reached, and a hotkey that silently
+        // does nothing is indistinguishable from one that is not pressed.
+        if (key.Length == 1)
+        {
+            var scan = VkKeyScan(key[0]);
+            if (scan != -1)
+            {
+                // Low byte is the virtual key; the high byte carries the shift state the character needs, which
+                // the chord's own modifiers already express.
+                virtualKey = (uint)(scan & 0xFF);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void Dispose()

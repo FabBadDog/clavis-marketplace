@@ -16,7 +16,7 @@ namespace FabioSoft.Nucleus.Plugins.WpfHost;
 /// popup placement (`SelectorWindow` centres on it, `ConfirmDialog` uses CenterOwner), so a 30px strip as
 /// MainWindow would jam the command palette and every picker against the top edge, sized against the bar. And it
 /// is never `Owner`-linked to the primary, because owned windows hide and minimize with their owner - the bar
-/// must survive `Ctrl+Shift+V` hiding everything else, which is the whole point of it.
+/// must survive `Ctrl+Shift+Ü` hiding everything else, which is the whole point of it.
 [ExcludeFromCodeCoverage] // a bare WPF window; the placement arithmetic is BarPlacement
 internal sealed class BarWindow
 {

@@ -15,7 +15,9 @@ public static class KeymapBindings
         App("Ctrl+P", "SelectPanel"),
         App("Ctrl+E", "ToggleShortcutHelp"),
         App("Ctrl+W", "CloseActiveWindow"),
-        Sys("Ctrl+Shift+V", "ToggleClavis"),
+        // The one system-scope binding, so it is the one chord that must not collide with anything else on the
+        // machine. Resolved through the active keyboard layout rather than a fixed virtual key.
+        Sys("Ctrl+Shift+Ü", "ToggleClavis"),
 
         // Shift+Tab cycles the session's permission mode (Plan -> None -> Auto -> Edit -> back). The host
         // reclaims Shift+Tab from backward focus traversal for this; plain Tab still traverses forward.
