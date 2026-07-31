@@ -117,6 +117,41 @@
         </Grid>
     </DataTemplate>
 
+    <!-- The F-key sits in its own leading column so the numbers line up as a column you can read down, and a
+         workspace that holds no slot shows a gap there rather than shifting its name left. -->
+    <DataTemplate x:Key="WorkspaceItemTemplate">
+        <Grid Margin="0,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="44" />
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="{Binding Key}"
+                       FontSize="12"
+                       VerticalAlignment="Top"
+                       Margin="0,1,0,0"
+                       Foreground="{DynamicResource ClavisBrush}"
+                       FontFamily="{DynamicResource MonoFont}" />
+
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Name}"
+                       Style="{DynamicResource Selector.ItemTitle}"
+                       VerticalAlignment="Top"
+                       Margin="0,0,12,0" />
+
+            <TextBlock Grid.Column="2"
+                       Text="{Binding Detail}"
+                       FontSize="12"
+                       VerticalAlignment="Top"
+                       Margin="12,1,0,0"
+                       TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource SecondaryBrush}"
+                       FontFamily="{DynamicResource MonoFont}" />
+        </Grid>
+    </DataTemplate>
+
     <DataTemplate x:Key="OptionItemTemplate">
         <Grid Margin="0,5">
             <Grid.ColumnDefinitions>

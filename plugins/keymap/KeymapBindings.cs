@@ -13,6 +13,9 @@ public static class KeymapBindings
         // The panel picker (SelectPanel) lists every user-openable panel kind; Ctrl+P mirrors the
         // command palette's Ctrl+Shift+P so the two pickers sit on the same gesture family.
         App("Ctrl+P", "SelectPanel"),
+        // Same family again: Ctrl+Shift+O reaches every workspace, including the ones past F11 and the agents
+        // running outside Clavis, neither of which the bar shows.
+        App("Ctrl+Shift+O", "SelectWorkspace"),
         App("Ctrl+E", "ToggleShortcutHelp"),
         App("Ctrl+W", "CloseActiveWindow"),
         // The one system-scope binding, so it is the one chord that must not collide with anything else on the

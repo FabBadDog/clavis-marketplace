@@ -26,5 +26,7 @@ internal sealed class SelectionTemplates
 
     public DataTemplate Panel => (DataTemplate)_dictionary["PanelItemTemplate"];
 
+    public DataTemplate Workspace => (DataTemplate)_dictionary["WorkspaceItemTemplate"];
+
     public DataTemplate Option => (DataTemplate)_dictionary["OptionItemTemplate"];
 }

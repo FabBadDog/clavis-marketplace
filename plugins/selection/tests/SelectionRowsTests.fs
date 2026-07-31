@@ -1,8 +1,10 @@
 module FabioSoft.Nucleus.Selection.Tests.SelectionRowsTests
 
+open System
 open System.Collections.Generic
 open FabioSoft.Contracts.Host
 open FabioSoft.Contracts.Session
+open FabioSoft.Contracts.Workspace
 open FabioSoft.Nucleus.Plugins.Selection
 open Faqt
 open Faqt.Operators
@@ -58,6 +60,51 @@ let ``panel rows sort by title and fall back to the kind`` () =
 
     // Assert
     %(rows |> Seq.map _.Title |> List.ofSeq).Should().Be([ "bare-kind"; "Events"; "Git Log" ])
+
+let private workspaceInfo name slot isFleetAgent =
+    WorkspaceInfo(
+        Guid.NewGuid(), name, "Accent1Brush", "C:\\repo", Guid.Empty, "", "", DateTimeOffset.UtcNow, slot,
+        isFleetAgent, false)
+
+let private workspace name slot = workspaceInfo name slot false
+
+let private fleetAgent name = workspaceInfo name 0 true
+
+[<Fact>]
+let ``workspace rows list the ones the bar leaves off`` () =
+
+    // Arrange - the bar shows only what an F-key reaches, so these two are why the picker exists
+    let workspaces = [ workspace "keyed" 1; workspace "overflow" 0; fleetAgent "clavis/probe" ]
+
+    // Act
+    let rows = SelectionRows.BuildWorkspaces(List<WorkspaceInfo>(workspaces), Guid.NewGuid())
+
+    // Assert - slot order first, slotless after, nothing dropped
+    %(rows |> Seq.map _.Name |> List.ofSeq).Should().Be([ "keyed"; "overflow"; "clavis/probe" ])
+    %(rows |> Seq.map _.Key |> List.ofSeq).Should().Be([ "F1"; ""; "" ])
+
+[<Fact>]
+let ``a fleet agent row says it is running outside Clavis`` () =
+
+    // Act
+    let rows = SelectionRows.BuildWorkspaces(List<WorkspaceInfo>([ fleetAgent "clavis/probe" ]), Guid.Empty)
+
+    // Assert - its working directory is not the useful thing to say about it
+    %rows[0].Detail.Should().Be("running outside Clavis")
+
+[<Fact>]
+let ``the active workspace is marked rather than repeating its directory`` () =
+
+    // Arrange
+    let active = workspace "here" 1
+    let other = workspace "there" 2
+
+    // Act
+    let rows = SelectionRows.BuildWorkspaces(List<WorkspaceInfo>([ active; other ]), active.WorkspaceId)
+
+    // Assert
+    %rows[0].Detail.Should().Be("current")
+    %rows[1].Detail.Should().Be("C:\\repo")
 
 [<Fact>]
 let ``option rows carry value label and description`` () =

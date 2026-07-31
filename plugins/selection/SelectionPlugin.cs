@@ -22,6 +22,12 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
     private readonly ConcurrentDictionary<Guid, AgentCapabilities> _capabilitiesBySession = new();
     private readonly ConcurrentDictionary<string, string> _panelKinds = new(StringComparer.Ordinal);
 
+    // The whole workspace list as last broadcast, replaced wholesale rather than merged - the owner always
+    // sends all of it, and a workspace that has gone must disappear from the picker rather than linger.
+    private readonly object _workspacesGate = new();
+    private IReadOnlyList<WorkspaceInfo> _workspaces = [];
+    private Guid _activeWorkspaceId;
+
     // Written on a bus thread, read on the UI thread when a picker opens. A Guid write is not atomic, so this
     // is guarded rather than marked volatile (which C# does not allow on a struct this size anyway) - a torn
     // read would point at a session that does not exist.
@@ -119,6 +125,23 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
             return Task.CompletedTask;
         });
 
+        var workspaceListSubscription = bus.Subscribe<WorkspaceListChanged>(message =>
+        {
+            lock (_workspacesGate)
+            {
+                _workspaces = message.Workspaces;
+                _activeWorkspaceId = message.ActiveWorkspaceId;
+            }
+
+            return Task.CompletedTask;
+        });
+
+        var selectWorkspaceSubscription = bus.Subscribe<SelectWorkspace>(_ =>
+        {
+            OnDispatcher(() => ShowWorkspaceSelector(bus, config));
+            return Task.CompletedTask;
+        });
+
         // Shift+Tab (by default): advance to the next mode without a popup. No dispatcher needed - it only
         // computes the next mode from the cached catalog and sends the switch; the indicators follow the
         // bridge's confirmation like any other mode change.
@@ -135,12 +158,17 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
         });
 
         bus.Send(new PanelKindsRequested());
+
+        // The late-subscriber pattern: the list may already have been broadcast before this plugin activated,
+        // and without asking, the picker would stay empty until something else changed a workspace.
+        bus.Send(new RequestWorkspaces());
         bus.LogInfo(Id, "Selection plugin activated");
 
         return Task.FromResult<IDisposable>(new PluginDisposable(
             streamSubscription, panelKindSubscription, selectModelSubscription, selectEffortSubscription,
             selectModeSubscription, selectPanelSubscription, cycleModeSubscription,
             workspaceActivatedSubscription, workspaceSessionSubscription,
+            workspaceListSubscription, selectWorkspaceSubscription,
             selectionRequestedSubscription));
     }
 
@@ -245,6 +273,39 @@ public sealed class SelectionPlugin : IPlugin<SelectionConfig>
                     && !string.Equals(row.Id, capabilities.Mode, StringComparison.OrdinalIgnoreCase))
                 {
                     bus.Send(new SetSessionMode(capabilities.SessionId, row.Id));
+                }
+            },
+        });
+    }
+
+    /// Every workspace, including the ones the bar leaves off. Activating one is all this does - promoting a
+    /// fleet agent, obtaining its session and the rest is the owner's business, exactly as for a click on a tab.
+    private void ShowWorkspaceSelector(IBus bus, SelectionConfig config)
+    {
+        IReadOnlyList<WorkspaceInfo> workspaces;
+        Guid activeWorkspaceId;
+        lock (_workspacesGate)
+        {
+            workspaces = _workspaces;
+            activeWorkspaceId = _activeWorkspaceId;
+        }
+
+        var rows = SelectionRows.BuildWorkspaces(workspaces, activeWorkspaceId);
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        Show(config, new SelectorOptions
+        {
+            Prompt = "Go to workspace",
+            GetSuggestions = filter => SelectionRows.Filter(rows, filter, SelectionRows.SearchableFields),
+            ItemTemplate = Templates.Workspace,
+            OnAccept = (_, item) =>
+            {
+                if (item is WorkspaceRow row)
+                {
+                    bus.Send(new ActivateWorkspace(row.WorkspaceId));
                 }
             },
         });

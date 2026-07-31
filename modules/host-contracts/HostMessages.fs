@@ -172,6 +172,14 @@ type CycleSessionMode() =
 type SelectPanel() =
     do ()
 
+/// Open the workspace selector popup: every workspace, activating the chosen one. Handled by the Selection
+/// plugin. It lists more than the bar does - the bar shows only what an F-key reaches, so past eleven
+/// workspaces, and for an agent running outside Clavis, this is the way to one.
+[<Sealed>]
+[<Description("Go to a workspace")>]
+type SelectWorkspace() =
+    do ()
+
 /// One choice in an agent-driven selection popup (SelectionRequested). Value is what is returned when
 /// chosen; Label is the row title shown to the user; Description is optional supporting text.
 [<Sealed>]

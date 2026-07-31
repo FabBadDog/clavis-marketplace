@@ -17,6 +17,10 @@ public sealed record ModeRow(string Id, string Name, string Description);
 
 public sealed record PanelRow(string Kind, string Title);
 
+/// One row in the workspace picker. `Key` is the F-key that reaches it, blank for a workspace that holds no
+/// slot - which is exactly the set the bar no longer shows, and the reason this picker exists.
+public sealed record WorkspaceRow(Guid WorkspaceId, string Key, string Name, string Detail);
+
 /// One row in an agent-driven selection (SelectionRequested): Value is returned on accept, Label/
 /// Description are shown.
 public sealed record OptionRow(string Value, string Label, string Description);
@@ -52,6 +56,31 @@ public static class SelectionRows
             .OrderBy(row => row.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+    /// Every workspace, in the bar's own order (slot order, slotless last) so the picker reads as a superset of
+    /// the strip rather than a differently-sorted second list. Includes the ones the bar leaves off, which is
+    /// the point of it: past eleven slots, and for an agent running outside Clavis, this is how you get there.
+    public static IReadOnlyList<WorkspaceRow> BuildWorkspaces(
+        IEnumerable<WorkspaceInfo> workspaces, Guid activeWorkspaceId) =>
+        workspaces
+            .OrderBy(workspace => workspace.Slot <= 0)
+            .ThenBy(workspace => workspace.Slot)
+            .Select(workspace => new WorkspaceRow(
+                workspace.WorkspaceId,
+                workspace.Slot > 0 ? $"F{workspace.Slot}" : "",
+                workspace.Name,
+                WorkspaceDetail(workspace, workspace.WorkspaceId == activeWorkspaceId)))
+            .ToList();
+
+    private static string WorkspaceDetail(WorkspaceInfo workspace, bool isActive)
+    {
+        if (workspace.IsFleetAgent)
+        {
+            return "running outside Clavis";
+        }
+
+        return isActive ? "current" : workspace.WorkingDirectory;
+    }
+
     public static IReadOnlyList<OptionRow> BuildOptions(IEnumerable<SelectionOption> options) =>
         options.Select(option => new OptionRow(option.Value, option.Label, option.Description)).ToList();
 
@@ -83,6 +112,8 @@ public static class SelectionRows
     public static IEnumerable<string> SearchableFields(ModeRow row) => [row.Name, row.Description];
 
     public static IEnumerable<string> SearchableFields(PanelRow row) => [row.Title, row.Kind];
+
+    public static IEnumerable<string> SearchableFields(WorkspaceRow row) => [row.Name, row.Key, row.Detail];
 
     public static IEnumerable<string> SearchableFields(OptionRow row) => [row.Label, row.Description];
 

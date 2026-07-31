@@ -1,7 +1,7 @@
 ---
 name: host-contracts
 assemblyName: FabioSoft.Contracts.Host
-version: 3.2.0
+version: 3.3.0
 apiVersion: 1.0.0
 description: UI region and user-input contracts.
 produces: [ FabioSoft.Contracts.Host.dll ]
