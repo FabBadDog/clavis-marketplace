@@ -1,7 +1,7 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 7.2.0
+version: 7.3.0
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
@@ -59,9 +59,10 @@ unit-tested.
 - `MinWidth` (default `400`) / `MinHeight` (default `260`) - minimum window size.
 - `DefaultSlidePanels` - panel kinds shown as edge slide-ins by default (`usage-limits`->right,
   `git-log`->left, `keymap`->bottom). A saved layout that docks a kind as a tab overrides its default.
-- `DefaultPanels` (default `[chat]`) - panel kinds opened on a launch with **no saved layout**, so a first
-  run is never a blank window. This is how the host seeds a chat without naming one in code; a saved layout
-  always wins, including an empty one (a chat you closed stays closed).
+- `DefaultPanels` (default `[chat]`) - panel kinds opened for a **workspace with nothing restorable saved**, so
+  no workspace is ever a blank window. This is how the host seeds a chat without naming one in code; a saved
+  layout always wins, including an empty one (a chat you closed stays closed). See the seeding note below - it
+  is deliberately per workspace, not per launch.
 
 ## Messages published
 
@@ -119,6 +120,16 @@ unit-tested.
   not record it as `activeWorkspaceId` or give it a docking tree - the layout stores one tree per workspace, so a
   saved reference to a workspace that no longer exists restores an **empty surface on every tab**, with nothing
   in the UI able to explain or undo it. The last non-transient workspace is saved as active instead.
+- **Default panels are seeded per workspace, not per launch** (`LayoutMigration.NeedsDefaultPanels`). A
+  workspace is one chat plus its panels, so the second workspace you open needs a chat exactly as much as the
+  first - and it has no saved layout to restore either. Seeding once per launch left every workspace but one a
+  blank surface with no chat and no way to type. The test is "is there a saved entry for this workspace on a
+  window that still exists", deliberately not "does that entry have panels": an entry with no panels is a chat
+  you closed and is taken at its word, while an entry naming a window that is gone restores nothing at all. That
+  second case is not hypothetical - it is what a layout written before transient workspaces were excluded looks
+  like, and by itself it produced an empty surface on every tab with nothing in the UI able to explain it.
+  Seeding waits for the same bar the restore sends do, since an `OpenPanel` for a kind the registry cannot
+  resolve yet is simply dropped.
 - **Window bounds are clamped on save, not only on restore.** `IsCenterWithin` already refuses to restore
   off-desktop bounds, but summon and banish animate a window through a position above the screen, so a snapshot
   taken while it is banished or mid-animation records somewhere it can never be seen again - and loses wherever

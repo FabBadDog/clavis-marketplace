@@ -42,8 +42,6 @@ internal sealed partial class WindowManager
 
     private void RestoreSavedLayout(PersistedLayout saved)
     {
-        _layoutApplied = true;
-
         // A layout migrated from version 1 carries no workspace, and the workspace list has not arrived yet.
         // Remember the layout's own active workspace so capture writes it back unchanged; the first
         // WorkspaceActivated adopts any unassigned entries onto the real workspace.
@@ -120,12 +118,12 @@ internal sealed partial class WindowManager
     /// placeholder it would on a cold boot.
     private void RestoreWorkspacePanels(Guid workspaceId)
     {
-        if (_restoredLayout is not { } saved || workspaceId == Guid.Empty)
+        if (workspaceId == Guid.Empty)
         {
             return;
         }
 
-        foreach (var entry in saved.For(workspaceId).ToList())
+        foreach (var entry in _restoredLayout?.For(workspaceId).ToList() ?? [])
         {
             if (_windows.TryGetValue(entry.WindowId, out var host))
             {
@@ -136,21 +134,35 @@ internal sealed partial class WindowManager
         FlushRestoreSends();
     }
 
+    /// Open the configured default panels for a workspace that has nothing restorable saved, so no workspace is
+    /// ever a blank surface with no chat and no way to type. That configuration is how the host seeds a chat
+    /// without naming one in code. A workspace with a saved layout is taken at its word, including an empty
+    /// one: a chat you closed stays closed, which is the point of the chat being an ordinary panel.
+    private void SeedDefaultPanels(Guid workspaceId)
+    {
+        // Same bar the restore sends wait for: an OpenPanel for a kind the registry cannot resolve yet is
+        // simply dropped. Nothing is marked seeded before then, so the flush at bootstrap seeds it properly.
+        if (!_revealed && !_bootstrapComplete)
+        {
+            return;
+        }
+
+        if (!_seededWorkspaces.Add(workspaceId)
+            || !LayoutMigration.NeedsDefaultPanels(_restoredLayout, workspaceId, _windows.Keys.ToList()))
+        {
+            return;
+        }
+
+        foreach (var kind in _config.DefaultPanels)
+        {
+            _bus.Send(new OpenPanel(kind));
+        }
+    }
+
     // Restore requests are deferred until every plugin is up, so the registry has the kinds to resolve them.
-    // A launch with no saved layout at all (first run, or a deleted state.yaml) opens the configured default
-    // panels instead, so the window is never blank - that configuration is how the host seeds a chat without
-    // naming one in code. A saved layout is taken at its word, including an empty one: a chat the user closed
-    // stays closed, which is the point of the chat being an ordinary panel.
     private void FlushRestoreSends()
     {
-        if (!_layoutApplied && !_defaultsOpened)
-        {
-            _defaultsOpened = true;
-            foreach (var kind in _config.DefaultPanels)
-            {
-                _bus.Send(new OpenPanel(kind));
-            }
-        }
+        SeedDefaultPanels(_activeWorkspaceId);
 
         foreach (var request in _pendingRestoreSends)
         {

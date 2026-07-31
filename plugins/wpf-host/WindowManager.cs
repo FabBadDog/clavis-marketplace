@@ -90,10 +90,11 @@ internal sealed partial class WindowManager : IDisposable
     private bool _restoredFromConfig;
     private bool _bootstrapComplete;
 
-    // Whether a saved layout was actually applied, and whether the configured default panels were opened in
-    // its place. Both one-shot: the defaults seed a first run only, and never override a saved layout.
-    private bool _layoutApplied;
-    private bool _defaultsOpened;
+    // Workspaces already considered for the configured default panels. Seeding is per workspace, not per
+    // launch: a workspace is one chat plus its panels, so the second one you open needs a chat exactly as much
+    // as the first, and it has no saved layout to restore either. One shot per workspace, so a panel closed
+    // afterwards stays closed.
+    private readonly HashSet<Guid> _seededWorkspaces = [];
 
     // The workspace whose panels are on screen, and the layout as last read from disk. The layout is kept so
     // a capture can carry over the arrangements of workspaces that are not currently shown - otherwise

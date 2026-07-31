@@ -166,3 +166,57 @@ let ``dropping orphans keeps unassigned entries for adoption`` () =
     // Assert
     %pruned.Layouts.Count.Should().Be(2)
     %pruned.Windows.Count.Should().Be(2)
+
+let private savedFor windowId workspaceId layout =
+    PersistedLayout(
+        LayoutFile.CurrentVersion, workspaceId,
+        [| PersistedWindow(windowId, WindowRole.Primary, Guid.Empty, bounds 0.0) |],
+        [| PersistedWorkspaceLayout(windowId, workspaceId, layout) |])
+
+[<Fact>]
+let ``a workspace with a restorable layout is not seeded with defaults`` () =
+
+    // Arrange
+    let windowId = Guid.NewGuid()
+    let workspaceId = Guid.NewGuid()
+    let saved = savedFor windowId workspaceId (leafOf "chat")
+
+    // Act & Assert
+    %LayoutMigration.NeedsDefaultPanels(saved, workspaceId, List [ windowId ]).Should().BeFalse()
+
+[<Fact>]
+let ``an empty saved layout is taken at its word`` () =
+
+    // Arrange - the chat was closed, so restoring must leave it closed
+    let windowId = Guid.NewGuid()
+    let workspaceId = Guid.NewGuid()
+    let saved = savedFor windowId workspaceId (DockingModel.leaf (Guid.NewGuid()) [||] 0)
+
+    // Act & Assert
+    %LayoutMigration.NeedsDefaultPanels(saved, workspaceId, List [ windowId ]).Should().BeFalse()
+
+[<Fact>]
+let ``a layout naming a window that is gone restores nothing, so defaults are seeded`` () =
+
+    // Arrange - the observed failure: the only entry with panels named a window not in the file
+    let workspaceId = Guid.NewGuid()
+    let saved = savedFor (Guid.NewGuid()) workspaceId (leafOf "chat")
+
+    // Act & Assert
+    %LayoutMigration.NeedsDefaultPanels(saved, workspaceId, List [ Guid.NewGuid() ]).Should().BeTrue()
+
+[<Fact>]
+let ``a workspace with nothing saved is seeded with defaults`` () =
+
+    // Arrange - the second workspace you open has no layout of its own, and needs a chat just as much
+    let windowId = Guid.NewGuid()
+    let saved = savedFor windowId (Guid.NewGuid()) (leafOf "chat")
+
+    // Act & Assert
+    %LayoutMigration.NeedsDefaultPanels(saved, Guid.NewGuid(), List [ windowId ]).Should().BeTrue()
+
+[<Fact>]
+let ``a launch with no saved layout at all is seeded with defaults`` () =
+
+    // Act & Assert
+    %LayoutMigration.NeedsDefaultPanels(null, Guid.NewGuid(), List<Guid>()).Should().BeTrue()

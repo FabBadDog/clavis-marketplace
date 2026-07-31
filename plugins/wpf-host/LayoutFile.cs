@@ -194,6 +194,19 @@ public static class LayoutMigration
             Layouts = [.. layout.Layouts.Where(entry => IsLive(entry.WorkspaceId))]
         };
     }
+
+    /// Whether a workspace should be seeded with the configured default panels: it has nothing saved that can
+    /// actually be restored onto a window that exists.
+    ///
+    /// The question is deliberately "is there an entry", not "does the entry have panels". An entry with no
+    /// panels is a workspace whose chat was closed, and that is taken at its word - seeding it again would make
+    /// closing a panel impossible. But an entry naming a window that is gone restores nothing, and until now
+    /// that produced a blank surface with no chat and no way to type, which no gesture in the UI could explain
+    /// or undo.
+    public static bool NeedsDefaultPanels(
+        PersistedLayout? layout, Guid workspaceId, IReadOnlyCollection<Guid> liveWindows) =>
+        layout is null
+        || !layout.For(workspaceId).Any(entry => entry.Layout is not null && liveWindows.Contains(entry.WindowId));
 }
 
 /// Serialises the window layout to and from YAML. The text is persisted as this plugin's runtime state
