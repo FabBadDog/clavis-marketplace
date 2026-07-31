@@ -1,7 +1,7 @@
 ---
 name: wpf-host
 pluginId: WpfHost
-version: 7.5.0
+version: 7.6.0
 essential: true
 apiVersion: 1.0.0
 description: Owns the application windows, regions, and the docking surface.
@@ -100,8 +100,11 @@ unit-tested.
   during a quit already under way does nothing.
 - **Persistence (layout v2).** The saved layout is normalised: a `windows` list carries identity, **role**
   (`primary`/`panel`), the owning **workspace** and one set of bounds each, and a separate `layouts` list carries
-  one docking tree + slide-ins per **(window, workspace)** pair. Geometry is deliberately not per workspace -
-  otherwise the primary's bounds would be duplicated once per workspace and the copies would drift. The layout
+  one docking tree + slide-ins per **(window, workspace)** pair, plus that pair's own bounds once it has one.
+  Geometry follows the workspace: switching restores where you had these windows, not only what was in them. A
+  workspace that has never been on screen carries no bounds and the window's standing position stands in, so
+  geometry is never duplicated across workspaces before anyone has moved anything - copies written up front are
+  just copies waiting to drift out of step. The layout
   also persists `activeWorkspaceId` itself, so it stays self-sufficient and the reveal keeps waiting on exactly
   the two answers it always did (a third precondition would be a third way for boot to hang). A **version-1**
   layout is migrated forward rather than discarded (`LayoutMigration.FromVersion1`), with `Guid.Empty` as an

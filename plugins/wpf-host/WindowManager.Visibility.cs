@@ -145,7 +145,16 @@ internal sealed partial class WindowManager
             bar.PlaceOn(WorkAreaContaining(rect), dpi);
         }
 
-        bar.Window.Show();
+        // Already up: bring it forward without replaying the entrance, the same rule the windows follow.
+        if (bar.Window.IsVisible)
+        {
+            bar.Window.Show();
+        }
+        else
+        {
+            bar.SlideIn();
+        }
+
         bar.ReassertTopmost();
     }
 
@@ -203,10 +212,13 @@ internal sealed partial class WindowManager
             Motion.showWindowFallingIn(window, CompleteVisibilityTransition);
         }
 
+        // The bar left with the windows, so it comes back with them - and after the z-order kick below, which
+        // would otherwise momentarily lift the primary over it.
+        ShowBar(primary);
+
         primary.Window.Activate();
         primary.Window.Topmost = true;
         primary.Window.Topmost = false;
-        // Summon's z-order kick above can momentarily lift the primary over the bar; reclaim the top.
         _bar?.ReassertTopmost();
         primary.FocusSurface();
     }
@@ -259,6 +271,11 @@ internal sealed partial class WindowManager
                 window.Hide();
             }
         }
+
+        // The bar goes with them. It used to be the one thing that stayed - the way back in when everything else
+        // was hidden - which meant "hide Clavis" always left a strip across the top of the screen. With the bar
+        // gone the global summon chord is the only way back, which is what makes hiding actually hide.
+        _bar?.SlideOut();
     }
 
     // Window entrance: a secondary window falls in from the top of the screen, matching the primary window's

@@ -52,7 +52,9 @@ internal sealed partial class WindowManager
         var primaryEntry = saved.Windows.FirstOrDefault(window => window.IsPrimary);
         if (primary is not null && primaryEntry is not null)
         {
-            if (ApplyBounds(primary.Window, primaryEntry.Bounds))
+            // The active workspace's own geometry if it has any, else the window's standing position.
+            var bounds = saved.For(primaryEntry.WindowId, saved.ActiveWorkspaceId)?.Bounds ?? primaryEntry.Bounds;
+            if (ApplyBounds(primary.Window, bounds))
             {
                 primary.Window.WindowState = WindowState.Maximized;
             }
@@ -219,8 +221,41 @@ internal sealed partial class WindowManager
             .Where(entry => !_transientWorkspaces.Contains(entry.WorkspaceId))
             .Where(entry => entry.WorkspaceId != activeWorkspaceId);
 
-        return new PersistedLayout(
+        var captured = new PersistedLayout(
             LayoutFile.CurrentVersion, activeWorkspaceId, windows, [.. live, .. carriedOver]);
+
+        // Remember what was just written as the layout of record. Carry-over reads from it, so without this it
+        // stayed the file as first read and every save re-carried the boot-time entry for any workspace not
+        // currently on screen - quietly undoing whatever that workspace had done since. Guarded on the restore
+        // having happened, so a save that lands before the saved state is read cannot adopt an empty layout as
+        // the truth and carry that forward instead.
+        if (_restoredFromConfig)
+        {
+            _restoredLayout = captured;
+        }
+
+        return captured;
+    }
+
+    /// Move each window to where this workspace last had it. A workspace that has never been on screen carries
+    /// no bounds, and its windows simply stay put rather than jumping to some default.
+    private void ApplyWorkspaceBounds(Guid workspaceId)
+    {
+        if (_restoredLayout is not { } saved || workspaceId == Guid.Empty)
+        {
+            return;
+        }
+
+        foreach (var host in _windows.Values)
+        {
+            if (saved.For(host.WindowId, workspaceId)?.Bounds is not { } bounds)
+            {
+                continue;
+            }
+
+            host.Window.WindowState =
+                ApplyBounds(host.Window, bounds) ? WindowState.Maximized : WindowState.Normal;
+        }
     }
 
     private PersistedWindow CaptureWindow(WindowHost host) =>
@@ -237,6 +272,9 @@ internal sealed partial class WindowManager
             host.IsPrimary || host.WorkspaceId == Guid.Empty ? _activeWorkspaceId : host.WorkspaceId,
             LayoutTree.FoldState(host.Surface.Capture(), _panelState))
         {
+            // Where the window sits belongs to the workspace on screen, so switching carries the window with it.
+            // Only the workspace being looked at can be captured - a hidden window is not where it appears to be.
+            Bounds = host.Window.IsVisible ? BoundsOf(host.Window) : null,
             SlideIns =
             [
                 .. host.SlideInLayouts.Select(slide =>

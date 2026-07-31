@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using FabioSoft.Clavis.Rendering;
 
 namespace FabioSoft.Nucleus.Plugins.WpfHost;
 
@@ -13,10 +14,12 @@ namespace FabioSoft.Nucleus.Plugins.WpfHost;
 ///
 /// Deliberately **not** a `WindowHost`: it is not in the window ring, never takes focus, has no docking surface,
 /// no panels and no layout. It is also never `Application.Current.MainWindow` - MainWindow is load-bearing for
-/// popup placement (`SelectorWindow` centres on it, `ConfirmDialog` uses CenterOwner), so a 30px strip as
-/// MainWindow would jam the command palette and every picker against the top edge, sized against the bar. And it
-/// is never `Owner`-linked to the primary, because owned windows hide and minimize with their owner - the bar
-/// must survive `Ctrl+Shift+Ü` hiding everything else, which is the whole point of it.
+/// popup placement (`SelectorWindow` centres on it, `ConfirmDialog` uses CenterOwner), so the strip as MainWindow
+/// would jam the command palette and every picker against the top edge, sized against the bar.
+///
+/// It is never `Owner`-linked to the primary either, even though it now hides alongside it. Owned windows hide
+/// *and minimize* with their owner and cannot be animated apart from it; the bar leaves and returns on its own
+/// motion, one step behind the windows, so it keeps its own lifetime and the manager drives both.
 [ExcludeFromCodeCoverage] // a bare WPF window; the placement arithmetic is BarPlacement
 internal sealed class BarWindow
 {
@@ -73,11 +76,24 @@ internal sealed class BarWindow
     public void PlaceOn(ScreenRectangle workArea, double dpiFactor)
     {
         var rect = BarPlacement.Compute(workArea, Height, dpiFactor);
+
+        // Release Top from any slide still animating it. While an animation holds a dependency property it wins
+        // over a direct write, so placing the bar mid-slide would be silently ignored and the bar would resume
+        // wherever the animation left it.
+        Window.BeginAnimation(Window.TopProperty, null);
+
         Window.Left = rect.Left;
         Window.Top = rect.Top;
         Window.Width = rect.Width;
         Window.Height = rect.Height;
     }
+
+    /// Drop the strip in from above, the same entrance the windows make.
+    public void SlideIn() => Motion.showWindowFallingIn(Window, null);
+
+    /// Lift the strip up out of the screen and hide it. The bar is the last thing to leave, so it reads as the
+    /// application withdrawing rather than as a window disappearing out from under a strip that stays behind.
+    public void SlideOut() => Motion.riseOutWindow(Window, Window.Hide);
 
     /// Re-assert topmost. `Summon` kicks the primary's z-order with `Topmost = true; Topmost = false;`, which can
     /// momentarily lift it above the bar, so the bar reclaims the top afterwards.

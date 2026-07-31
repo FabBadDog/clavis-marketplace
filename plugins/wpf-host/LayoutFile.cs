@@ -16,10 +16,9 @@ public static class WindowRole
     public const string Panel = "panel";
 }
 
-/// A window's on-screen rectangle plus whether it was maximised. The single source of truth for window
-/// geometry: every persisted window carries one, and geometry is deliberately **not** part of a per-workspace
-/// layout - otherwise the primary window's bounds would be duplicated once per workspace and the copies would
-/// drift.
+/// A window's on-screen rectangle plus whether it was maximised. Every persisted window carries one as its
+/// standing position; a (window, workspace) pair may additionally carry its own, which wins while that
+/// workspace is on screen.
 public sealed record PersistedWindowState
 {
     public double Left { get; set; }
@@ -68,14 +67,19 @@ public sealed record PersistedWindow
         (WindowId, Role, WorkspaceId, Bounds) = (windowId, role, workspaceId, bounds);
 }
 
-/// The docking tree one workspace has inside one window, plus that pair's edge slide-ins. A window holds one
-/// of these per workspace it has been used in, which is what lets a workspace keep its own arrangement of
-/// panels while the window itself keeps one set of bounds.
+/// The docking tree one workspace has inside one window, plus that pair's edge slide-ins and where the window
+/// sits while that workspace is on screen. A window holds one of these per workspace it has been used in, so a
+/// workspace keeps its own arrangement of panels *and* its own geometry.
+///
+/// `Bounds` is absent until that workspace has actually been on screen, and the window's own `Bounds` stands in
+/// until then. It is deliberately not written for every workspace up front: geometry duplicated once per
+/// workspace before anyone has moved anything is just copies waiting to drift out of step with each other.
 public sealed record PersistedWorkspaceLayout
 {
     public Guid WindowId { get; set; }
     public Guid WorkspaceId { get; set; }
     public LayoutNode Layout { get; set; } = null!;
+    public PersistedWindowState? Bounds { get; set; }
     public List<PersistedSlideIn> SlideIns { get; set; } = [];
 
     public PersistedWorkspaceLayout() { }

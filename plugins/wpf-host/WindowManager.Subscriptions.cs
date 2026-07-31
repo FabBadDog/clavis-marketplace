@@ -206,6 +206,10 @@ internal sealed partial class WindowManager
                     RestoreWorkspacePanels(message.WorkspaceId);
                 }
 
+                // Geometry travels with the workspace too, so switching restores where you had these windows and
+                // not just what was in them.
+                ApplyWorkspaceBounds(message.WorkspaceId);
+
                 // A workspace's extra windows travel with it: the ones belonging to another workspace go away,
                 // and this workspace's come back. The primary is untouched - it is the constant.
                 ApplyWorkspaceWindowVisibility();

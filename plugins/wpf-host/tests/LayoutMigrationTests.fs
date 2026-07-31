@@ -220,3 +220,37 @@ let ``a launch with no saved layout at all is seeded with defaults`` () =
 
     // Act & Assert
     %LayoutMigration.NeedsDefaultPanels(null, Guid.NewGuid(), List<Guid>()).Should().BeTrue()
+
+[<Fact>]
+let ``a workspace keeps its own window bounds`` () =
+
+    // Arrange - two workspaces in one window, each having moved it somewhere different
+    let windowId = Guid.NewGuid()
+    let first = Guid.NewGuid()
+    let second = Guid.NewGuid()
+    let saved =
+        PersistedLayout(
+            LayoutFile.CurrentVersion, first,
+            [| PersistedWindow(windowId, WindowRole.Primary, Guid.Empty, bounds 0.0) |],
+            [| PersistedWorkspaceLayout(windowId, first, leafOf "chat", Bounds = bounds 100.0)
+               PersistedWorkspaceLayout(windowId, second, leafOf "chat", Bounds = bounds 900.0) |])
+
+    // Act & Assert
+    %(saved.For(windowId, first)).Bounds.Left.Should().Be(100.0)
+    %(saved.For(windowId, second)).Bounds.Left.Should().Be(900.0)
+
+[<Fact>]
+let ``a workspace that has never been on screen carries no bounds of its own`` () =
+
+    // Arrange - geometry written for every workspace up front is just copies waiting to drift
+    let windowId = Guid.NewGuid()
+    let workspaceId = Guid.NewGuid()
+    let saved =
+        PersistedLayout(
+            LayoutFile.CurrentVersion, workspaceId,
+            [| PersistedWindow(windowId, WindowRole.Primary, Guid.Empty, bounds 42.0) |],
+            [| PersistedWorkspaceLayout(windowId, workspaceId, leafOf "chat") |])
+
+    // Act & Assert - the window's standing position stands in
+    %(obj.ReferenceEquals((saved.For(windowId, workspaceId)).Bounds, null)).Should().BeTrue()
+    %saved.Windows[0].Bounds.Left.Should().Be(42.0)
