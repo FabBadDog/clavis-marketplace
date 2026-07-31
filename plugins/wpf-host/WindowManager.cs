@@ -151,7 +151,10 @@ internal sealed partial class WindowManager : IDisposable
 
         // System-scope bindings register as OS global hotkeys on the primary window; a press runs the
         // bound command through the same RunCommand path as any other binding.
-        _globalHotkey = new GlobalHotkey(primary.Window, command => _bus.Send(new RunCommand(command)));
+        _globalHotkey = new GlobalHotkey(
+            primary.Window,
+            command => _bus.Send(new RunCommand(command)),
+            message => _bus.LogWarn("WpfHost", message));
 
         // The bar is created with the primary but shown at the reveal, alongside it.
         if (_config.ShowWorkspaceBar)

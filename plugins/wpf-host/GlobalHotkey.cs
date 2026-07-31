@@ -33,14 +33,27 @@ internal sealed class GlobalHotkey : IDisposable
     private static extern short VkKeyScan(char character);
 
     private readonly Action<string> _runCommand;
+    private readonly Action<string> _report;
     private readonly Dictionary<int, string> _idToCommand = [];
     private HwndSource? _source;
     private IReadOnlyList<KeyBinding> _systemBindings = [];
 
-    public GlobalHotkey(Window window, Action<string> runCommand)
+    public GlobalHotkey(Window window, Action<string> runCommand, Action<string> report)
     {
         _runCommand = runCommand;
-        if (new WindowInteropHelper(window).Handle != IntPtr.Zero)
+        _report = report;
+
+        // Force the handle into existence rather than waiting for the window to be shown. The primary window
+        // is created long before the reveal and stays hidden until the essential plugins are up, so waiting on
+        // SourceInitialized made the one gesture that reaches Clavis from outside depend on the window having
+        // been displayed at least once. EnsureHandle creates the HWND without showing anything.
+        var helper = new WindowInteropHelper(window);
+        if (helper.Handle == IntPtr.Zero)
+        {
+            helper.EnsureHandle();
+        }
+
+        if (helper.Handle != IntPtr.Zero)
         {
             Attach(window);
         }
@@ -63,10 +76,18 @@ internal sealed class GlobalHotkey : IDisposable
         Apply();
     }
 
+    /// Register every system-scope binding as an OS hotkey, replacing whatever was registered before.
+    ///
+    /// **Every outcome is reported.** A system binding that does not register leaves the application with no
+    /// way in from outside itself, and nothing else can notice: the same chord still works while a Clavis
+    /// window has focus, because the in-window key path resolves system bindings too. So the gesture appears
+    /// to work right up until the moment it is the only way back, and then does nothing.
     private void Apply()
     {
         if (_source is null)
         {
+            // Not a failure: the window has no handle yet. Attach re-applies once it does.
+            _report($"global hotkeys deferred: the window has no handle yet ({_systemBindings.Count} pending)");
             return;
         }
 
@@ -80,12 +101,22 @@ internal sealed class GlobalHotkey : IDisposable
         var nextId = FirstHotkeyId;
         foreach (var binding in _systemBindings)
         {
-            if (TryParse(binding.Gesture, out var modifiers, out var virtualKey)
-                && RegisterHotKey(_source.Handle, nextId, modifiers | ModNoRepeat, virtualKey))
+            if (!TryParse(binding.Gesture, out var modifiers, out var virtualKey))
             {
-                _idToCommand[nextId] = binding.Command;
-                nextId++;
+                _report($"global hotkey '{binding.Gesture}' ({binding.Command}) is not a gesture this can express");
+                continue;
             }
+
+            if (!RegisterHotKey(_source.Handle, nextId, modifiers | ModNoRepeat, virtualKey))
+            {
+                _report(
+                    $"global hotkey '{binding.Gesture}' ({binding.Command}) was refused by Windows "
+                    + $"(error {Marshal.GetLastWin32Error()}) - it is most likely taken by another application");
+                continue;
+            }
+
+            _idToCommand[nextId] = binding.Command;
+            nextId++;
         }
     }
 
