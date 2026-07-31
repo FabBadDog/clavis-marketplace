@@ -16,6 +16,13 @@ namespace FabioSoft.Nucleus.Plugins.Conversation.ViewModels;
 public sealed class ChatViewModels
 {
     private readonly Dictionary<Guid, ConversationViewModel> _byChatId = [];
+
+    /// Panels whose chat does not exist yet, one per workspace. Keyed by workspace rather than pooled under a
+    /// single "unbound" slot: switching to a workspace materialises its panel immediately but its session is
+    /// obtained asynchronously, so several panels can be waiting at once - and a shared slot would hand every
+    /// one of them the same view model, which is precisely the "every workspace shows the same chat" fault.
+    private readonly Dictionary<Guid, ConversationViewModel> _unboundByWorkspace = [];
+
     private readonly Action<string, string> _publishPermission;
 
     // Prompt availability and the session's permission mode are still application-wide facts (one session
@@ -30,16 +37,38 @@ public sealed class ChatViewModels
 
     /// The view model for a chat, created on first ask. Called by the chat panel's view factory, so a panel
     /// that opens later still lands on the same view model as the one already projecting that chat.
-    public ConversationViewModel ForChat(Chat? chat, Guid chatId)
+    ///
+    /// `workspaceId` is only consulted when there is no chat to bind to yet - it decides which workspace the
+    /// resulting placeholder belongs to, so the chat that eventually appears for that workspace adopts this
+    /// panel and no other.
+    public ConversationViewModel ForChat(Chat? chat, Guid chatId, Guid workspaceId)
     {
-        if (_byChatId.TryGetValue(chatId, out var existing))
+        if (chat is not null && _byChatId.TryGetValue(chat.ChatId, out var bound))
         {
-            return existing;
+            return bound;
         }
 
+        if (chat is null)
+        {
+            if (_unboundByWorkspace.TryGetValue(workspaceId, out var waiting))
+            {
+                return waiting;
+            }
+
+            var placeholder = New(null);
+            _unboundByWorkspace[workspaceId] = placeholder;
+            return placeholder;
+        }
+
+        var created = New(chat);
+        _byChatId[chatId] = created;
+        return created;
+    }
+
+    private ConversationViewModel New(Chat? chat)
+    {
         var created = new ConversationViewModel(chat, _publishPermission) { IsPromptAvailable = _promptAvailable };
         created.SetPromptMode(_promptMode, _promptModeDisplayName);
-        _byChatId[chatId] = created;
         return created;
     }
 
@@ -108,27 +137,49 @@ public sealed class ChatViewModels
         }
     }
 
-    // A chat panel can resolve before any chat exists: Workspaces creates the first one only after its config
-    // answer arrives, and a restored panel is materialised on its own schedule. Such a panel is bound under
-    // Guid.Empty, which no chat will ever match - so the first chat to appear adopts it, rather than the panel
-    // staying blank forever behind a view model nothing projects onto.
+    // A chat panel can resolve before its chat exists: a workspace's session is obtained asynchronously, and a
+    // restored panel is materialised on its own schedule. Such a panel waits behind a placeholder that no chat
+    // matches, so the chat that does appear has to adopt it - otherwise the panel stays blank for ever behind a
+    // view model nothing projects onto.
     private void AdoptUnbound(ConversationState current)
     {
-        if (!_byChatId.TryGetValue(Guid.Empty, out var unbound) || current.Chats.Count == 0)
+        foreach (var chat in current.Chats)
+        {
+            if (_byChatId.ContainsKey(chat.ChatId))
+            {
+                // That chat already has its own view model, so any placeholder for it is simply stale.
+                _unboundByWorkspace.Remove(chat.WorkspaceId);
+                continue;
+            }
+
+            if (_unboundByWorkspace.Remove(chat.WorkspaceId, out var waiting))
+            {
+                _byChatId[chat.ChatId] = waiting;
+            }
+        }
+
+        AdoptWorkspaceless(current);
+    }
+
+    // A panel created before workspaces existed carries no workspace of its own, so nothing will ever match it
+    // by workspace. The visible chat adopts it, which is what happened before workspaces were a thing.
+    private void AdoptWorkspaceless(ConversationState current)
+    {
+        if (!_unboundByWorkspace.TryGetValue(Guid.Empty, out var legacy))
         {
             return;
         }
 
-        var adopting = current.VisibleChat ?? current.Chats[0];
-        if (_byChatId.ContainsKey(adopting.ChatId))
+        if ((current.VisibleChat ?? current.Chats.FirstOrDefault()) is not { } adopting)
         {
-            // That chat already has its own view model, so the placeholder is simply stale.
-            _byChatId.Remove(Guid.Empty);
             return;
         }
 
-        _byChatId.Remove(Guid.Empty);
-        _byChatId[adopting.ChatId] = unbound;
+        _unboundByWorkspace.Remove(Guid.Empty);
+        if (!_byChatId.ContainsKey(adopting.ChatId))
+        {
+            _byChatId[adopting.ChatId] = legacy;
+        }
     }
 
     private static bool Unchanged(ConversationState previous, Chat chat) =>

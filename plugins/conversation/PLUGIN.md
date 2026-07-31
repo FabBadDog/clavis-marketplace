@@ -1,7 +1,7 @@
 ---
 name: conversation
 pluginId: Conversation
-version: 10.1.1
+version: 10.2.0
 essential: true
 apiVersion: 1.0.0
 description: The elm/flux conversation state, update, and view models.
@@ -83,6 +83,20 @@ WpfHost's `title-bar-left`, `title-bar-right`, and `status-bar` chrome regions.
 
 ## Notes
 
+- **A chat panel binds to its workspace, never to what is on screen** (`BindPanelToChat` + `ChatViewModels`).
+  The binding is most-specific-first: the chat named in the panel's saved blob, else the chat of the workspace
+  the panel is being created for, else - only for a panel that names no workspace at all - the visible chat.
+  That last fallback used to apply to every panel, and since a freshly seeded panel has an empty blob, every
+  workspace's chat resolved to whichever workspace happened to be active: distinct panel instances all showing
+  one conversation. The workspace arrives on `PanelInstanceContext`, because an empty blob is the one case
+  where the panel cannot work it out for itself.
+- **A panel whose chat does not exist yet waits per workspace.** A workspace's session is obtained
+  asynchronously, so switching materialises the panel well before the chat exists - the gap is the ordinary
+  case, not a rare one. Such a panel is held behind a placeholder view model keyed by **workspace**, and the
+  chat that eventually appears for that workspace adopts it. Pooling them under one "unbound" slot handed every
+  waiting workspace the same view model, which is the same fault by another route; and resolving the gap by
+  borrowing the visible chat would bind the panel to the wrong conversation and then persist that choice. A
+  panel that names no workspace (one created before workspaces existed) is still adopted by the visible chat.
 - **A chat covered by a take-over says so** (`AdoptionNotice` + `Views/AdoptionOverlay`). While a workspace is
   taking an agent over there is genuinely nothing to render - the agent has not let go, so no session and no
   transcript exist yet - and a blank chat would read as a fault. The overlay covers the prompt too, because a

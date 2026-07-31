@@ -459,20 +459,34 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         void PublishPermission(string requestId, string decision)
             => bus.Send(new PermissionDecided(state.ActiveSessionId ?? Guid.Empty, requestId, decision));
 
-        // Which chat a panel instance shows: the one named in its saved blob if it still exists, otherwise the
-        // visible chat. The resolved binding is what the panel persists back, so a hand-opened panel gains a
-        // concrete chat id and comes back to the same chat next launch.
+        // Which chat a panel instance shows, most specific first: the one named in its saved blob if it still
+        // exists, else the chat of the workspace the panel is being created for, else the visible chat. The
+        // resolved binding is what the panel persists back, so a hand-opened panel gains a concrete chat id and
+        // comes back to the same chat next launch.
+        //
+        // The workspace step is what makes each workspace its own conversation. A freshly seeded panel has an
+        // empty blob, so without it every workspace's chat fell through to "whatever is on screen" - which is
+        // the chat of whichever workspace happened to be active - and all of them showed the same conversation
+        // in different panel instances.
         ChatPanelBinding BindPanelToChat(PanelInstanceContext context)
         {
             var saved = ChatPanelState.Parse(context.SavedState);
+            var workspaceId = context.WorkspaceId != Guid.Empty ? context.WorkspaceId : saved.WorkspaceId;
             lock (lockObj)
             {
+                // The visible chat is a fallback only for a panel that names no workspace at all. For a panel
+                // that does, "this workspace has no chat yet" must resolve to nothing and wait to be adopted -
+                // borrowing whatever is on screen is what bound every workspace to the same conversation, and a
+                // workspace's session is obtained asynchronously, so the gap is the normal case rather than a
+                // rare one.
                 var chat = state.Chats.FirstOrDefault(candidate => candidate.ChatId == saved.ChatId)
-                    ?? state.VisibleChat;
+                    ?? (workspaceId == Guid.Empty
+                        ? state.VisibleChat
+                        : state.Chats.FirstOrDefault(candidate => candidate.WorkspaceId == workspaceId));
                 var chatId = chat?.ChatId ?? saved.ChatId;
                 return new ChatPanelBinding(
-                    chatViewModels!.ForChat(chat, chatId),
-                    new ChatPanelState(chat?.WorkspaceId ?? saved.WorkspaceId, chatId));
+                    chatViewModels!.ForChat(chat, chatId, workspaceId),
+                    new ChatPanelState(chat?.WorkspaceId ?? workspaceId, chatId));
             }
         }
 

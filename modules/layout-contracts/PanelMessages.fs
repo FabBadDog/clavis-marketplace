@@ -7,13 +7,22 @@ open System.ComponentModel
 /// state blob (empty for a fresh panel, the restored blob otherwise) and a callback the panel invokes
 /// whenever its state changes so the host can persist it. The host and registry never interpret the
 /// blob - each panel owns its own format.
+///
+/// `WorkspaceId` is which workspace the instance is being created for. A panel whose content is per
+/// workspace cannot get this from the state blob, which is empty for a fresh panel, so without it the only
+/// thing such a factory could do is guess from whatever was on screen - and every workspace's panel ended up
+/// bound to the same thing. `Guid.Empty` means no workspace (a panel created before workspaces exist).
 [<Sealed>]
 type PanelInstanceContext
-    (instanceId: Guid, kind: string, savedState: string, onStateChanged: Action<string>) =
+    (instanceId: Guid, kind: string, savedState: string, workspaceId: Guid, onStateChanged: Action<string>) =
+
+    new(instanceId, kind, savedState, onStateChanged) =
+        PanelInstanceContext(instanceId, kind, savedState, Guid.Empty, onStateChanged)
 
     member _.InstanceId = instanceId
     member _.Kind = kind
     member _.SavedState = savedState
+    member _.WorkspaceId = workspaceId
     member _.OnStateChanged = onStateChanged
 
 /// How many instances of a panel kind may live at once, and within what boundary. Declared by the owning

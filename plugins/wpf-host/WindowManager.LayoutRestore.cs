@@ -95,7 +95,7 @@ internal sealed partial class WindowManager
             _pendingRestorePlacement[slot.PanelId] = host.WindowId;
             _kindPlacement[slot.PanelKind] = new PanelPlacement(host.WindowId, TabMode, "");
             _pendingRestoreSends.Add(
-                new RestoreRequest(slot.PanelId, slot.PanelKind, slot.SavedState ?? "", Guid.Empty));
+                new RestoreRequest(slot.PanelId, slot.PanelKind, slot.SavedState ?? "", entry.WorkspaceId));
         }
 
         // Slide-ins are not part of the docking tree, so re-materialise them separately: parked (hidden) on
@@ -108,7 +108,7 @@ internal sealed partial class WindowManager
             _pendingRestoreSlideIn[slide.PanelId] = new SlideInRestore(host.WindowId, kind, slide.Title, slide.Edge);
             _kindPlacement[kind] = new PanelPlacement(host.WindowId, SlideMode, slide.Edge);
             _pendingRestoreSends.Add(
-                new RestoreRequest(slide.PanelId, kind, slide.SavedState ?? "", Guid.Empty));
+                new RestoreRequest(slide.PanelId, kind, slide.SavedState ?? "", entry.WorkspaceId));
         }
     }
 
@@ -153,9 +153,11 @@ internal sealed partial class WindowManager
             return;
         }
 
+        // Named, not left to default: a seeded panel has no saved state, so the workspace on the request is the
+        // only way its factory can tell which workspace it is being built for.
         foreach (var kind in _config.DefaultPanels)
         {
-            _bus.Send(new OpenPanel(kind));
+            _bus.Send(new OpenPanel(kind, workspaceId));
         }
     }
 

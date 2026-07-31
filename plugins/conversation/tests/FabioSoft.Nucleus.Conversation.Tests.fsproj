@@ -29,6 +29,7 @@
     <Compile Include="AdoptionNoticeTests.fs" />
     <Compile Include="PromptHistoryTests.fs" />
     <Compile Include="ChatAggregateTests.fs" />
+    <Compile Include="ChatViewModelsTests.fs" />
     <Compile Include="ConversationUpdateTests.fs" />
     <Compile Include="PermissionNavigateTests.fs" />
     <Compile Include="ConversationPluginTests.fs" />

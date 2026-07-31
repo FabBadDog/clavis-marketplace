@@ -1,7 +1,7 @@
 ---
 name: panel-registry
 pluginId: PanelRegistry
-version: 1.2.0
+version: 1.3.0
 essential: true
 apiVersion: 1.0.0
 description: Catalogs panel kinds and routes open/restore into panel instances.

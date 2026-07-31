@@ -57,7 +57,8 @@ public sealed class PanelCatalog
     {
         if (_kinds.TryGetValue(kind, out var registration))
         {
-            var context = new PanelInstanceContext(instanceId, kind, savedState, stateCallback(instanceId));
+            var context = new PanelInstanceContext(
+                instanceId, kind, savedState, workspaceId, stateCallback(instanceId));
             var view = new Func<object>(() => registration.ViewFactory.Invoke(context));
             ready = new PanelInstanceReady(
                 instanceId, kind, registration.Title, registration.MinWidth, registration.MinHeight, view,
