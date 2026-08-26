@@ -28,7 +28,24 @@ internal sealed class LifecyclePipeline(IBus bus, string home, bool autoPush)
     private static string GateBuildDir(string itemName) =>
         Path.Combine(Path.GetTempPath(), "clavis-lifecycle", itemName);
 
-    public Task RunAsync(string itemDir) => Task.Run(() => Run(itemDir));
+    /// Run one item's pipeline on a thread of its own, never on the thread pool.
+    ///
+    /// `Run` is synchronous, CPU-heavy (Roslyn) and blocks while a test host process runs. Pool threads are
+    /// also how every bus message is delivered, so occupying them starves delivery: the pool grows by only
+    /// about one thread per second, and a message published meanwhile waits seconds before its handler is
+    /// even entered. Measured during a watcher rebuild, a workspace switch sat 11 s between the key press and
+    /// its handler while the UI thread was idle throughout - the switch looked like it did nothing at all.
+    ///
+    /// Deliberately NOT capped by a semaphore. Capping concurrency here reads like the careful thing to do,
+    /// but it puts every run into one queue - and the startup reconciliation sweeps the whole catalog, so an
+    /// edit made just after launch waits behind every stale item instead of running now. The WatcherTest
+    /// catches exactly that. Runs stay independent; the thread pool is protected by keeping them off it.
+    public Task RunAsync(string itemDir) =>
+        Task.Factory.StartNew(
+            () => Run(itemDir),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
 
     private void Run(string itemDir)
     {

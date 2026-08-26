@@ -49,14 +49,28 @@ public static class WorkspaceBarView
 
         ISubscription? subscription = null;
 
+        // One live tab per workspace, reused across renders rather than rebuilt - see WorkspaceTab for why that
+        // matters for clicking.
+        var tabsById = new Dictionary<Guid, WorkspaceTab>();
+
         void Render(WorkspaceListChanged message)
         {
             var rows = WorkspaceBarRows.Build([.. Project(message.Workspaces)], message.ActiveWorkspaceId);
-            tabs.Children.Clear();
-            foreach (var row in rows)
+
+            for (var index = 0; index < rows.Count; index++)
             {
-                tabs.Children.Add(BuildTab(bus, row));
+                var row = rows[index];
+                if (!tabsById.TryGetValue(row.WorkspaceId, out var tab))
+                {
+                    tab = new WorkspaceTab(bus, row.WorkspaceId);
+                    tabsById[row.WorkspaceId] = tab;
+                }
+
+                tab.Apply(row);
+                Place(tabs, tab.Root, index);
             }
+
+            Prune(tabs, tabsById, rows);
         }
 
         layout.Loaded += (_, _) =>
@@ -77,6 +91,51 @@ public static class WorkspaceBarView
         };
 
         return layout;
+    }
+
+    // Move a tab to its place in the strip, and leave it alone when it is already there: reordering by
+    // remove-and-insert on every render would defeat the point of keeping the visuals alive.
+    private static void Place(Panel strip, FrameworkElement tab, int index)
+    {
+        var current = strip.Children.IndexOf(tab);
+        if (current == index)
+        {
+            return;
+        }
+
+        if (current >= 0)
+        {
+            strip.Children.RemoveAt(current);
+        }
+
+        strip.Children.Insert(index < strip.Children.Count ? index : strip.Children.Count, tab);
+    }
+
+    // Drop the visuals of workspaces that are no longer on the strip - a closed workspace, or a fleet agent
+    // that stopped being offered.
+    private static void Prune(
+        Panel strip, Dictionary<Guid, WorkspaceTab> tabs, IReadOnlyList<WorkspaceBarRow> rows)
+    {
+        var live = new HashSet<Guid>();
+        foreach (var row in rows)
+        {
+            live.Add(row.WorkspaceId);
+        }
+
+        var gone = new List<Guid>();
+        foreach (var entry in tabs)
+        {
+            if (!live.Contains(entry.Key))
+            {
+                gone.Add(entry.Key);
+            }
+        }
+
+        foreach (var workspaceId in gone)
+        {
+            strip.Children.Remove(tabs[workspaceId].Root);
+            tabs.Remove(workspaceId);
+        }
     }
 
     private static IEnumerable<Workspace> Project(IReadOnlyList<WorkspaceInfo> workspaces)
@@ -100,80 +159,151 @@ public static class WorkspaceBarView
         }
     }
 
-    private static FrameworkElement BuildTab(IBus bus, WorkspaceBarRow row)
+    /// One tab's visuals, kept alive from one render to the next.
+    ///
+    /// The strip re-renders on every workspace-list change, and a session's activity alone changes that list
+    /// while an agent works. Rebuilding the tabs each time restarted the breathing animation - and, worse, threw
+    /// clicks away: a tab replaced between its mouse-down and the matching mouse-up never sees the up, so the
+    /// click that switches workspace silently did nothing. That is why clicking a tab "only worked sometimes",
+    /// and why waiting for the agent to fall quiet made it work again.
+    [ExcludeFromCodeCoverage] // WPF composition; the projection and the activity mapping are WorkspaceBarRows
+    private sealed class WorkspaceTab
     {
-        // Identity: a 2px tick of constant length. Its geometry never changes with selection - a workspace does
-        // not become more or less itself because you are looking at it - only its opacity lifts.
-        //
-        // A fleet agent has no identity here yet: it is somebody's running work, not one of your places, so it
-        // gets no accent. That absence is the signal - the tick is what says "this is a place of yours".
-        var tick = new Border { Width = 3, VerticalAlignment = VerticalAlignment.Stretch, Margin = new Thickness(0, 12, 13, 12) };
-        tick.SetResourceReference(Border.BackgroundProperty, row.IsFleetAgent ? "TextDimBrush" : row.AccentKey);
-        tick.Opacity = row.IsFleetAgent ? 0.3 : row.IsActive ? 1.0 : 0.55;
-
-        // Position: the slot number, in the primary blue. A fleet agent holds no slot, so it shows a mark in that
-        // column instead of a number - the column stays aligned, and the missing number is the point.
-        var number = new TextBlock
+        private readonly Border _tick = new()
         {
-            Text = row.IsFleetAgent ? "~" : row.SlotNumber,
+            Width = 3,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Margin = new Thickness(0, 12, 13, 12)
+        };
+
+        private readonly TextBlock _number = new()
+        {
             FontSize = 21,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 12, 0),
-            Opacity = row.IsActive ? 1.0 : 0.55
+            Margin = new Thickness(0, 0, 12, 0)
         };
-        number.SetResourceReference(TextBlock.FontFamilyProperty, "UiFont");
-        number.SetResourceReference(
-            TextBlock.ForegroundProperty, row.IsFleetAgent ? "TextDimBrush" : "ClavisBrush");
 
-        // State: a circle, never a box.
-        var dot = new Ellipse { Width = 12, Height = 12, Margin = new Thickness(0, 0, 11, 0), VerticalAlignment = VerticalAlignment.Center };
-        dot.SetResourceReference(Shape.FillProperty, row.ActivityBrushKey);
-        if (row.IsBreathing)
+        private readonly Ellipse _dot = new()
         {
-            Motion.breathe(dot);
-        }
-        else
-        {
-            dot.Opacity = row.IsActive || row.ActivityBrushKey != "TextDimBrush" ? 1.0 : 0.5;
-        }
+            Width = 12,
+            Height = 12,
+            Margin = new Thickness(0, 0, 11, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
 
-        var title = new TextBlock
+        private readonly TextBlock _title = new()
         {
-            Text = row.Title,
             FontSize = 15,
             VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            ToolTip = row.Tooltip
+            TextTrimming = TextTrimming.CharacterEllipsis
         };
-        title.SetResourceReference(TextBlock.FontFamilyProperty, "UiFont");
-        title.SetResourceReference(TextBlock.ForegroundProperty, row.IsActive ? "TextBrightBrush" : "TextDimBrush");
 
-        var content = new DockPanel { LastChildFill = true, Margin = new Thickness(0, 0, 12, 0) };
-        content.Children.Add(tick);
-        content.Children.Add(number);
-        content.Children.Add(dot);
-        content.Children.Add(title);
+        // What this tab already shows, so a render only touches what actually changed. Re-resolving resource
+        // references on every activity tick is what made the strip flicker.
+        private WorkspaceBarRow? _applied;
+        private bool _breathing;
 
-        // Square corners. The active tab is marked by a slightly raised fill, not by a border.
-        var tab = new Border
+        public WorkspaceTab(IBus bus, Guid workspaceId)
         {
-            Width = TabWidth,
-            Cursor = System.Windows.Input.Cursors.Hand,
-            Child = content
-        };
-        tab.SetResourceReference(
-            Border.BackgroundProperty, row.IsActive ? "RaisedBrush" : "FaintBrush");
+            _number.SetResourceReference(TextBlock.FontFamilyProperty, "UiFont");
+            _title.SetResourceReference(TextBlock.FontFamilyProperty, "UiFont");
 
-        // Clicking a tab both activates the workspace and summons Clavis - the bar stays visible when everything
-        // else is hidden, so a click there is often how you come back.
-        tab.MouseLeftButtonUp += (_, _) =>
+            var content = new DockPanel { LastChildFill = true, Margin = new Thickness(0, 0, 12, 0) };
+            content.Children.Add(_tick);
+            content.Children.Add(_number);
+            content.Children.Add(_dot);
+            content.Children.Add(_title);
+
+            // Square corners. The active tab is marked by a slightly raised fill, not by a border.
+            Root = new Border
+            {
+                Width = TabWidth,
+                Cursor = System.Windows.Input.Cursors.Hand,
+                Child = content
+            };
+
+            // Clicking a tab both activates the workspace and summons Clavis - the bar stays visible when
+            // everything else is hidden, so a click there is often how you come back.
+            Root.MouseLeftButtonUp += (_, _) =>
+            {
+                bus.Send(new ActivateWorkspace(workspaceId));
+                bus.Send(new SummonClavis());
+            };
+        }
+
+        public Border Root { get; }
+
+        public void Apply(WorkspaceBarRow row)
         {
-            bus.Send(new ActivateWorkspace(row.WorkspaceId));
-            bus.Send(new SummonClavis());
-        };
+            var previous = _applied;
+            _applied = row;
 
-        return tab;
+            // Identity: a 2px tick of constant length. Its geometry never changes with selection - a workspace
+            // does not become more or less itself because you are looking at it - only its opacity lifts.
+            //
+            // A fleet agent has no identity here yet: it is somebody's running work, not one of your places, so
+            // it gets no accent. That absence is the signal - the tick is what says "this is a place of yours".
+            if (previous is null
+                || previous.AccentKey != row.AccentKey
+                || previous.IsFleetAgent != row.IsFleetAgent)
+            {
+                _tick.SetResourceReference(
+                    Border.BackgroundProperty, row.IsFleetAgent ? "TextDimBrush" : row.AccentKey);
+                _number.SetResourceReference(
+                    TextBlock.ForegroundProperty, row.IsFleetAgent ? "TextDimBrush" : "ClavisBrush");
+            }
+
+            _tick.Opacity = row.IsFleetAgent ? 0.3 : row.IsActive ? 1.0 : 0.55;
+
+            // Position: the slot number, in the primary blue. A fleet agent holds no slot, so it shows a mark in
+            // that column instead of a number - the column stays aligned, and the missing number is the point.
+            _number.Text = row.IsFleetAgent ? "~" : row.SlotNumber;
+            _number.Opacity = row.IsActive ? 1.0 : 0.55;
+
+            // State: a circle, never a box.
+            if (previous is null || previous.ActivityBrushKey != row.ActivityBrushKey)
+            {
+                _dot.SetResourceReference(Shape.FillProperty, row.ActivityBrushKey);
+            }
+
+            ApplyBreathing(row);
+
+            _title.Text = row.Title;
+            _title.ToolTip = row.Tooltip;
+            if (previous is null || previous.IsActive != row.IsActive)
+            {
+                _title.SetResourceReference(
+                    TextBlock.ForegroundProperty, row.IsActive ? "TextBrightBrush" : "TextDimBrush");
+                Root.SetResourceReference(Border.BackgroundProperty, row.IsActive ? "RaisedBrush" : "FaintBrush");
+            }
+        }
+
+        // Breathing is started once and then left running: restarting it on every activity tick made the dot
+        // stutter. Stopping it clears the animation explicitly, because a held animated value outranks a direct
+        // write to the same property.
+        private void ApplyBreathing(WorkspaceBarRow row)
+        {
+            if (row.IsBreathing)
+            {
+                if (_breathing)
+                {
+                    return;
+                }
+
+                _breathing = true;
+                Motion.breathe(_dot);
+                return;
+            }
+
+            if (_breathing)
+            {
+                _breathing = false;
+                _dot.BeginAnimation(UIElement.OpacityProperty, null);
+            }
+
+            _dot.Opacity = row.IsActive || row.ActivityBrushKey != "TextDimBrush" ? 1.0 : 0.5;
+        }
     }
 
     // Quit is the only destructive gesture on the strip, so it is the only one that turns red on hover.

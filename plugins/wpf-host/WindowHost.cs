@@ -22,6 +22,7 @@ internal sealed partial class WindowHost
     private readonly Grid _bodyGrid = new();
     private readonly WorkspaceSurfaces _surfaces;
     private Border? _statusRow;
+    private FrameworkElement? _focusFallback;
     private FocusVisualController? _focusVisual;
     private PanelTitleController? _panelTitle;
     private ActivePanelWatcher? _activePanel;
@@ -177,6 +178,23 @@ internal sealed partial class WindowHost
             () => Surface.MoveFocus(new TraversalRequest(FocusNavigationDirection.First)),
             System.Windows.Threading.DispatcherPriority.Input);
 
+    /// Guarantee this window holds keyboard focus somewhere inside it, without disturbing a focus it already
+    /// has. WPF routes key presses from the focused element outwards, so a window with nothing focused never
+    /// reaches its own PreviewKeyDown - and every application shortcut, the workspace F-keys included, stops
+    /// responding. Activating a workspace replaces the surface and takes the focused element with it, which is
+    /// exactly when that happens. The fallback is not a Tab stop, so this parks focus without adding a landing
+    /// place traversal could stop on.
+    public void EnsureWindowFocus()
+    {
+        if (Keyboard.FocusedElement is DependencyObject focused
+            && ReferenceEquals(System.Windows.Window.GetWindow(focused), Window))
+        {
+            return;
+        }
+
+        _focusFallback?.Focus();
+    }
+
     /// Shows or collapses the status row. The active panel's owner reports whether its status bar has any
     /// configured content; an empty bar is collapsed so the panel fills the whole space rather than showing a
     /// bare strip, and reappears (with an entrance) when content returns.
@@ -253,9 +271,16 @@ internal sealed partial class WindowHost
 
         // A single-cell grid layering the chrome and the help overlay. Panels are tiled by the docking
         // surface inside the chrome, so the window owns no fixed panel column.
-        var layoutGrid = new Grid();
+        //
+        // Focusable for the same reason the secondary layout is, but never a Tab stop: switching workspace
+        // replaces the whole surface, so whatever held focus leaves the visual tree. WPF only tunnels key
+        // presses through a window while something inside it is focused, so without somewhere to fall back to
+        // the window-level resolver goes deaf and the next F-key does nothing.
+        var layoutGrid = new Grid { Focusable = true };
+        KeyboardNavigation.SetIsTabStop(layoutGrid, false);
         layoutGrid.Children.Add(chromePanel);
         layoutGrid.Children.Add(_helpOverlay);
+        _focusFallback = layoutGrid;
 
         AttachSlideHosts(bodyGrid, layoutGrid);
 
@@ -302,6 +327,7 @@ internal sealed partial class WindowHost
 
         AttachSlideHosts(bodyGrid, layers);
         _focusVisual = new FocusVisualController(Window, layers, () => Surface, null);
+        _focusFallback = layers;
 
         // A secondary window opens with nothing focused. Take keyboard focus once shown so the window-level
         // PreviewKeyDown resolver sees key presses and its shortcuts (Ctrl+W to close, etc.) stay alive.

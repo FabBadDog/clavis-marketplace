@@ -213,6 +213,7 @@ internal sealed partial class WindowManager
                 // A workspace's extra windows travel with it: the ones belonging to another workspace go away,
                 // and this workspace's come back. The primary is untouched - it is the constant.
                 ApplyWorkspaceWindowVisibility();
+                FocusActiveWorkspace();
                 ScheduleSave();
             });
             return Task.CompletedTask;
@@ -317,5 +318,26 @@ internal sealed partial class WindowManager
             Application.Current.Dispatcher.InvokeAsync(() => _bus.Send(BuildSnapshot()));
             return Task.CompletedTask;
         }));
+    }
+
+    /// Put keyboard focus back after a workspace swap, in two steps.
+    ///
+    /// First the window parks focus on itself, because the swap replaced the surface and took the focused
+    /// element out of the visual tree with it. A window with nothing focused receives no key presses at all -
+    /// WPF routes them from the focused element outwards - so until something took focus again every
+    /// application shortcut was dead, the workspace F-keys among them. That is why switching "only worked
+    /// again after a moment": the moment was the new chat loading and taking focus by itself.
+    ///
+    /// Then the chat is asked to take it, so typing carries on where the user is looking rather than at a bare
+    /// window. Deferred to a later tick: the panels of a first visit are still being materialised on this one,
+    /// and the chat can only answer once its view is loaded.
+    private void FocusActiveWorkspace()
+    {
+        var target = _windows.Values.FirstOrDefault(host => host.Window.IsActive) ?? GetPrimary();
+        target?.EnsureWindowFocus();
+
+        Application.Current.Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            new Action(() => _bus.Send(new FocusInputRequested())));
     }
 }

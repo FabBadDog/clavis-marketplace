@@ -1306,6 +1306,45 @@ HWND, stealing F1-F12 from *every application on the machine* (F1 is help everyw
 `GlobalHotkey.TryVirtualKey` already maps F1-F24, so this would silently "work" and be a disaster. Keyboard
 switching therefore needs a focused Clavis window; the bar's click covers the hidden case.
 
+**"A focused window" is not enough - it has to be a focused *element*, and switching destroys it.** WPF routes
+key presses from the focused element outwards, so `Window.PreviewKeyDown` - the single key resolver - never
+runs when nothing inside the window holds focus. Activating a workspace replaces the whole surface
+(`WindowHost.ActivateWorkspace`), which takes the focused element out of the visual tree with it, and nothing
+put focus back: so **the F-key that switches workspace killed the next F-key press**, until the incoming chat
+panel finished loading and took focus by itself. That read as "switching only works sometimes, and works again
+if you wait a moment" - the moment being the session start on a workspace's first visit. Two parts to the fix:
+`WindowHost` keeps a `Focusable`, non-tab-stop root as a fallback (`EnsureWindowFocus`, matching what the
+secondary layout already did), and the `WorkspaceActivated` handler calls `FocusActiveWorkspace` - park focus
+on the window, then ask the new workspace's chat for it via `FocusInputRequested`, deferred a tick because a
+first visit is still materialising its panels. That also fixes the second half of the same defect: after a
+switch the caret now lands in the new chat's prompt instead of nowhere.
+
+**The real reason a switch stalled for seconds was thread-pool starvation, not the key press.** With tracing
+on both ends it was clear the press always arrived and always resolved to `ActivateWorkspaceSlot`; the message
+then sat undelivered for **1.5 to 11.4 seconds** while the handler itself reported `waited 0ms for the lock,
+then worked 6-52ms`. The log went silent during the gap and then burst - and the log sink is a bus subscriber
+too, so the whole delivery layer was blocked, not the workspaces plugin. Every bus subscriber is pumped on a
+thread-pool thread, and the marketplace lifecycle pipeline runs CPU-bound Roslyn compiles plus a blocking
+`WaitForExit` on that same pool; the pool only grows by roughly one thread per second, which is exactly the
+shape of the delays. Two changes: `Program.raiseThreadPoolFloor` lifts the minimum worker/completion-port
+count before anything boots, so the pool does not have to climb, and `LifecyclePipeline.RunAsync` starts its
+work with `TaskCreationOptions.LongRunning` on a dedicated thread instead of occupying a pool thread for the
+duration of a build. Measured after: 20+ rapid switches with background recompiles running delivered in
+**1-34 ms**.
+
+Two things that look like the obvious next step and are both wrong. **Do not cap the pipeline with a
+semaphore** - a `SemaphoreSlim(ProcessorCount / 4)` gives 2 slots on an 8-core machine, and the startup
+reconciliation sweeps the whole catalog, so the next edit queues behind that sweep and the `WatcherTest`
+harness times out (it did; the regression was confirmed by reverting to baseline and re-running). And **do not
+move bus consumers onto dedicated threads** - there are hundreds of subscribers, and `async`/`await`
+continuations return to the pool regardless.
+
+**The bar's click had its own, unrelated way of doing nothing.** The strip re-rendered by clearing and
+rebuilding every tab on each `WorkspaceListChanged` - and a session's *activity* changes that list while an
+agent works. A tab replaced between its mouse-down and mouse-up never sees the up, so the click was dropped;
+falling quiet made it work again. `WorkspaceBarView` now keeps one `WorkspaceTab` per workspace alive across
+renders and only applies what changed, which also stops the breathing dot restarting on every activity tick.
+
 **Fix the text-input swallow properly.** `WindowHost.cs:440` bails whenever a text input is focused and the
 modifiers are not Ctrl/Win, so bare F1 dies. Widening `isTextSafe` to "Ctrl/Win **or** an F-key" is a hack
 that leaves the next non-text key broken. Invert the predicate - ask about the **key**, not just the
