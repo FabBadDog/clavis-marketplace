@@ -90,14 +90,17 @@ let ``adopt binds an unassigned layout to the active workspace`` () =
     %(adopted.Windows |> Seq.find (fun w -> w.WindowId = secondary)).WorkspaceId.Should().Be(workspaceId)
 
 [<Fact>]
-let ``adopt leaves the primary window belonging to no workspace`` () =
+let ``adopt binds the chrome window to the workspace like any other`` () =
 
     // Arrange
     let document, primary, _ = legacy ()
-    let adopted = LayoutMigration.Adopt(LayoutMigration.FromVersion1 document, Guid.NewGuid())
+    let workspaceId = Guid.NewGuid()
 
-    // Act & Assert - the primary carries the chrome for every workspace, so it belongs to none
-    %(adopted.Windows |> Seq.find (fun w -> w.WindowId = primary)).WorkspaceId.Should().Be(Guid.Empty)
+    // Act
+    let adopted = LayoutMigration.Adopt(LayoutMigration.FromVersion1 document, workspaceId)
+
+    // Assert - a workspace owns its own window now, so the chrome window belongs to one like every other
+    %(adopted.Windows |> Seq.find (fun w -> w.WindowId = primary)).WorkspaceId.Should().Be(workspaceId)
 
 [<Fact>]
 let ``adopt never rebinds a layout that already names a workspace`` () =
@@ -170,8 +173,72 @@ let ``dropping orphans keeps unassigned entries for adoption`` () =
 let private savedFor windowId workspaceId layout =
     PersistedLayout(
         LayoutFile.CurrentVersion, workspaceId,
-        [| PersistedWindow(windowId, WindowRole.Primary, Guid.Empty, bounds 0.0) |],
+        [| PersistedWindow(windowId, WindowRole.Primary, workspaceId, bounds 0.0) |],
         [| PersistedWorkspaceLayout(windowId, workspaceId, layout) |])
+
+[<Fact>]
+let ``rebinding points a workspace's saved window at the live one`` () =
+
+    // Arrange - window ids are minted per launch, so the saved one is never the live one
+    let workspaceId = Guid.NewGuid()
+    let saved = savedFor (Guid.NewGuid()) workspaceId (leafOf "chat")
+    let live = Guid.NewGuid()
+
+    // Act
+    let rebound = LayoutMigration.RebindWorkspaceWindow(saved, workspaceId, live)
+
+    // Assert - both the window row and its docking tree follow, or the tree is stranded on a dead id
+    %rebound.Windows[0].WindowId.Should().Be(live)
+    %rebound.Layouts[0].WindowId.Should().Be(live)
+
+[<Fact>]
+let ``a rebound layout is restorable, so its workspace is not seeded a second chat`` () =
+
+    // Arrange - the observed defect: a saved chat that no live window claimed, so a fresh one was seeded
+    // beside it and the workspace ended up with two
+    let workspaceId = Guid.NewGuid()
+    let saved = savedFor (Guid.NewGuid()) workspaceId (leafOf "chat")
+    let live = Guid.NewGuid()
+
+    // Act
+    let rebound = LayoutMigration.RebindWorkspaceWindow(saved, workspaceId, live)
+
+    // Assert
+    %LayoutMigration.NeedsDefaultPanels(saved, workspaceId, List [ live ]).Should().BeTrue()
+    %LayoutMigration.NeedsDefaultPanels(rebound, workspaceId, List [ live ]).Should().BeFalse()
+
+[<Fact>]
+let ``rebinding leaves another workspace's window alone`` () =
+
+    // Arrange
+    let mine = Guid.NewGuid()
+    let other = Guid.NewGuid()
+    let otherWindow = Guid.NewGuid()
+    let saved =
+        PersistedLayout(
+            LayoutFile.CurrentVersion, mine,
+            [| PersistedWindow(Guid.NewGuid(), WindowRole.Primary, mine, bounds 0.0)
+               PersistedWindow(otherWindow, WindowRole.Primary, other, bounds 1280.0) |],
+            [| PersistedWorkspaceLayout(otherWindow, other, leafOf "chat") |])
+
+    // Act
+    let rebound = LayoutMigration.RebindWorkspaceWindow(saved, mine, Guid.NewGuid())
+
+    // Assert
+    %(rebound.Windows |> Seq.find (fun w -> w.WorkspaceId = other)).WindowId.Should().Be(otherWindow)
+    %rebound.Layouts[0].WindowId.Should().Be(otherWindow)
+
+[<Fact>]
+let ``rebinding a workspace with nothing saved is a no-op`` () =
+
+    // Arrange
+    let saved = savedFor (Guid.NewGuid()) (Guid.NewGuid()) (leafOf "chat")
+
+    // Act
+    let rebound = LayoutMigration.RebindWorkspaceWindow(saved, Guid.NewGuid(), Guid.NewGuid())
+
+    // Assert
+    %Object.ReferenceEquals(rebound, saved).Should().BeTrue()
 
 [<Fact>]
 let ``a workspace with a restorable layout is not seeded with defaults`` () =

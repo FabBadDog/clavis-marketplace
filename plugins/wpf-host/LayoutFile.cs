@@ -157,9 +157,10 @@ public static class LayoutMigration
                 SlideIns = window.SlideIns
             }));
 
-    /// Bind every unassigned (Guid.Empty) workspace reference to a real workspace. The primary window keeps
-    /// Guid.Empty on purpose - it belongs to no single workspace - so only secondary windows and layouts are
-    /// rebound. A no-op once everything is already assigned, and for an empty workspace id.
+    /// Bind every unassigned (Guid.Empty) workspace reference to a real workspace. Every window is rebound now,
+    /// the chrome window included: a workspace owns its own window rather than taking turns inside a shared
+    /// one, so "belongs to no single workspace" is no longer true of any of them. A no-op once everything is
+    /// already assigned, and for an empty workspace id.
     public static PersistedLayout Adopt(PersistedLayout layout, Guid workspaceId)
     {
         if (workspaceId == Guid.Empty)
@@ -173,7 +174,7 @@ public static class LayoutMigration
             Windows =
             [
                 .. layout.Windows.Select(window =>
-                    window.IsPrimary || window.WorkspaceId != Guid.Empty
+                    window.WorkspaceId != Guid.Empty
                         ? window
                         : window with { WorkspaceId = workspaceId })
             ],
@@ -181,6 +182,49 @@ public static class LayoutMigration
             [
                 .. layout.Layouts.Select(entry =>
                     entry.WorkspaceId == Guid.Empty ? entry with { WorkspaceId = workspaceId } : entry)
+            ]
+        };
+    }
+
+    /// Re-point a workspace's saved chrome window - and its docking tree - at the live window now showing it.
+    ///
+    /// Window ids are minted per launch while a saved layout names the previous launch's, so a chrome window
+    /// can never be matched by id across a restart. The **workspace** is the stable identity, so that is what
+    /// the match is made on. Without this the workspace's saved entry names a window that does not exist, which
+    /// reads as "nothing restorable" - the workspace is then seeded with a fresh default chat while its saved
+    /// chat slot is carried over untouched, and it ends up with two.
+    ///
+    /// A no-op when nothing is saved for that workspace, or when the ids already agree.
+    public static PersistedLayout RebindWorkspaceWindow(
+        PersistedLayout layout, Guid workspaceId, Guid liveWindowId)
+    {
+        if (workspaceId == Guid.Empty)
+        {
+            return layout;
+        }
+
+        var saved = layout.Windows
+            .FirstOrDefault(window => window.IsPrimary && window.WorkspaceId == workspaceId);
+
+        if (saved is null || saved.WindowId == liveWindowId)
+        {
+            return layout;
+        }
+
+        var stale = saved.WindowId;
+        return layout with
+        {
+            Windows =
+            [
+                .. layout.Windows.Select(window =>
+                    ReferenceEquals(window, saved) ? window with { WindowId = liveWindowId } : window)
+            ],
+            Layouts =
+            [
+                .. layout.Layouts.Select(entry =>
+                    entry.WindowId == stale && entry.WorkspaceId == workspaceId
+                        ? entry with { WindowId = liveWindowId }
+                        : entry)
             ]
         };
     }
@@ -194,7 +238,7 @@ public static class LayoutMigration
 
         return layout with
         {
-            Windows = [.. layout.Windows.Where(window => window.IsPrimary || IsLive(window.WorkspaceId))],
+            Windows = [.. layout.Windows.Where(window => IsLive(window.WorkspaceId))],
             Layouts = [.. layout.Layouts.Where(entry => IsLive(entry.WorkspaceId))]
         };
     }

@@ -19,6 +19,17 @@ type UiRegionContribution
     member _.ViewFactory = viewFactory
     member _.Resources = resources
 
+    /// Which workspace's window this contribution belongs in. Guid.Empty means every workspace window - the
+    /// right answer for a contributor whose subject is application-wide (the task tracker, the usage pace),
+    /// and the behaviour every contribution had before workspaces owned windows.
+    ///
+    /// Settable so the existing constructors keep their argument lists (same pattern as
+    /// PanelKindRegistration.Cardinality). Per-workspace chrome does not need one element shared across
+    /// windows - ViewFactory is invoked once per region it is added to, so each window gets its own. What it
+    /// needs is that the element built for a workspace binds to *that* workspace's state, which is why the
+    /// contribution names the workspace rather than the host guessing from what is on screen.
+    member val WorkspaceId = Guid.Empty with get, set
+
 [<Sealed>]
 type UiRegionRemoved(regionId: string, pluginId: string) =
     member _.RegionId = regionId

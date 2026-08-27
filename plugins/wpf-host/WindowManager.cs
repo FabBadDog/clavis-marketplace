@@ -28,7 +28,13 @@ internal sealed partial class WindowManager : IDisposable
     private readonly KeymapInput _keymap = new();
     private readonly Dictionary<Guid, WindowHost> _windows = [];
     private readonly List<ISubscription> _subscriptions = [];
-    private readonly Guid _primaryWindowId = Guid.NewGuid();
+    // The chrome window created before any workspace is known. The first WorkspaceActivated adopts it onto that
+    // workspace, so the boot path is unchanged for the first one and only later workspaces mint a new window.
+    private readonly Guid _bootstrapWindowId = Guid.NewGuid();
+
+    // Set once the application is genuinely going away, so a workspace window's Closing can refuse every other
+    // close. Without it Alt+F4 would still destroy a workspace window that deliberately has no close cross.
+    private bool _tearingDown;
     private readonly ConcurrentDictionary<Guid, string> _panelState = new();
     private readonly Dictionary<Guid, Guid> _pendingRestorePlacement = [];
     private readonly Dictionary<Guid, SlideInRestore> _pendingRestoreSlideIn = [];
@@ -106,6 +112,13 @@ internal sealed partial class WindowManager : IDisposable
     // afterwards stays closed.
     private readonly HashSet<Guid> _seededWorkspaces = [];
 
+    // Workspaces whose saved panels have already been sent for restore. The boot restores the active
+    // workspace's layout before the first WorkspaceActivated arrives, and that activation would otherwise
+    // restore it a second time - two RestoreRequests per saved panel, and two instances of a kind that is
+    // supposed to have one. Restoring is idempotent for the surface (Restore replaces the tree) but not for
+    // the sends, so the guard is on the workspace rather than on the tree.
+    private readonly HashSet<Guid> _restoredWorkspaces = [];
+
     // The workspace whose panels are on screen, and the layout as last read from disk. The layout is kept so
     // a capture can carry over the arrangements of workspaces that are not currently shown - otherwise
     // switching away from a workspace and saving would erase what it had.
@@ -157,7 +170,7 @@ internal sealed partial class WindowManager : IDisposable
         // The primary window is created now but revealed later (see Reveal): it stays invisible until the
         // essential plugins are up and the saved layout has been applied, then falls in from the top of
         // the screen - fully formed - as the host's splash drops out the bottom.
-        var primary = CreatePrimaryWindow();
+        var primary = CreateWorkspaceWindow(_bootstrapWindowId, Guid.Empty);
 
         // System-scope bindings register as OS global hotkeys on the primary window; a press runs the
         // bound command through the same RunCommand path as any other binding.
@@ -283,8 +296,19 @@ internal sealed partial class WindowManager : IDisposable
     private WindowHost ResolveWindow(Guid windowId) =>
         _windows.TryGetValue(windowId, out var host) ? host : (GetFocused() ?? GetPrimary())!;
 
+    /// The chrome window of the workspace on screen. There is one per workspace now, so "the primary" is no
+    /// longer a fixed window but a question about which workspace is active - every caller that asks for it
+    /// (region routing, the reveal, summon, the bar's placement) means "the one the user is looking at".
+    ///
+    /// Falls back to any chrome window, which covers the moment before the first WorkspaceActivated arrives:
+    /// the bootstrap window carries Guid.Empty until it is adopted.
     private WindowHost? GetPrimary() =>
-        _windows.TryGetValue(_primaryWindowId, out var host) ? host : null;
+        _windows.Values.FirstOrDefault(host => host.IsPrimary && host.WorkspaceId == _activeWorkspaceId)
+        ?? _windows.Values.FirstOrDefault(host => host.IsPrimary);
+
+    /// The chrome window belonging to a given workspace, if it has been created yet.
+    private WindowHost? WorkspaceWindow(Guid workspaceId) =>
+        _windows.Values.FirstOrDefault(host => host.IsPrimary && host.WorkspaceId == workspaceId);
 
     private WindowHost? GetFocused() =>
         _windows.TryGetValue(_focusedWindowId, out var host) ? host : null;
@@ -310,14 +334,18 @@ internal sealed partial class WindowManager : IDisposable
         return ordered;
     }
 
-    /// True when a window belongs on screen for the active workspace. The primary always does - it carries the
-    /// chrome for every workspace. An unassigned secondary (restored from a layout that predates workspaces,
-    /// before the first activation adopts it) does too, so it is never stranded invisible.
+    /// True when a window belongs on screen for the active workspace. A chrome window is no longer exempt: it
+    /// *is* a workspace now, so exactly one of them is on screen at a time and the others are hidden with
+    /// their workspace's panel windows. An unassigned window (the bootstrap one before the first activation
+    /// adopts it, or a secondary restored from a layout that predates workspaces) belongs to whatever is
+    /// active, so it is never stranded invisible.
     private bool IsInActiveWorkspace(WindowHost host) =>
-        host.IsPrimary || host.WorkspaceId == Guid.Empty || host.WorkspaceId == _activeWorkspaceId;
+        host.WorkspaceId == Guid.Empty || host.WorkspaceId == _activeWorkspaceId;
 
     public void Dispose()
     {
+        // From here a workspace window's Closing must stop refusing, or teardown would leave its windows up.
+        _tearingDown = true;
         _saveTimer.Stop();
         _globalHotkey?.Dispose();
         _summonSignal?.Dispose();

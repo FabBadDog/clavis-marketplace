@@ -18,8 +18,13 @@ internal static class WindowChromeViews
     // so the focused window reads at a glance across multiple windows. The drag grip and the static
     // "CLAVIS" label were removed (the whole bar is draggable, and the word carried no information); the
     // left holds a small active-window dot beside the contextual title region, the right an info region.
+    ///
+    /// `onClose` is null for a window that cannot be closed. A workspace window is one: it holds that
+    /// workspace's chat, which is unclosable, so a cross on it could only ever refuse - and the workspace
+    /// itself is closed from the bar, the application from there too. No cross is drawn at all rather than a
+    /// dead one, the same rule the panel handle follows.
     public static (Border TitleBar, Ellipse StatusDot) CreateTitleBar(
-        FrameworkElement titleBarLeft, ContentPresenter titleBarRight, Action onClose)
+        FrameworkElement titleBarLeft, ContentPresenter titleBarRight, Action? onClose)
     {
         // An activity indicator is a circle, never a square - square corners are for chrome, dots are round.
         var statusDot = new Ellipse
@@ -42,15 +47,23 @@ internal static class WindowChromeViews
         headerPanel.Children.Add(statusDot);
         headerPanel.Children.Add(titleBarLeft);
 
-        var closeButton = CreateCloseButton(onClose);
-        DockPanel.SetDock(closeButton, Dock.Right);
+        Border? closeButton = null;
+        if (onClose is not null)
+        {
+            closeButton = CreateCloseButton(onClose);
+            DockPanel.SetDock(closeButton, Dock.Right);
+        }
 
         DockPanel.SetDock(titleBarRight, Dock.Right);
         titleBarRight.VerticalAlignment = VerticalAlignment.Center;
         titleBarRight.Margin = new Thickness(0, 0, 10, 0);
 
         var dockPanel = new DockPanel();
-        dockPanel.Children.Add(closeButton);
+        if (closeButton is not null)
+        {
+            dockPanel.Children.Add(closeButton);
+        }
+
         dockPanel.Children.Add(titleBarRight);
         dockPanel.Children.Add(headerPanel);
 
@@ -70,7 +83,7 @@ internal static class WindowChromeViews
         // lands on the close button or the right-content region is left alone so its own click still fires.
         border.MouseLeftButtonDown += (_, args) =>
         {
-            if (IsWithin(args.OriginalSource as DependencyObject, closeButton)
+            if ((closeButton is not null && IsWithin(args.OriginalSource as DependencyObject, closeButton))
                 || IsWithin(args.OriginalSource as DependencyObject, titleBarRight))
             {
                 return;

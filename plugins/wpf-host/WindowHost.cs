@@ -230,7 +230,10 @@ internal sealed partial class WindowHost
         Regions.DefineRegion("status-bar", statusBar);
         Regions.DefineRegion("status-bar-right", statusBarRight);
 
-        var (titleBar, statusDot) = WindowChromeViews.CreateTitleBar(titleBarLeft, titleBarRight, () => Window.Close());
+        // No close cross: this window is a workspace, and a workspace is closed from the bar, not by disposing
+        // of the window that shows it. Its chat panel is unclosable for the same reason, so a cross here could
+        // only take the whole workspace with it - which is a different gesture wearing the wrong affordance.
+        var (titleBar, statusDot) = WindowChromeViews.CreateTitleBar(titleBarLeft, titleBarRight, null);
         _statusDot = statusDot;
         // The primary window's title/status bars are owned by the window but driven by the active docked
         // panel: the watcher announces the active kind and the Conversation re-templates the chrome strips it

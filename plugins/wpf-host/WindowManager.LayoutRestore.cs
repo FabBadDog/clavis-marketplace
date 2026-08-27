@@ -49,7 +49,13 @@ internal sealed partial class WindowManager
         _restoredLayout = saved;
 
         var primary = GetPrimary();
-        var primaryEntry = saved.Windows.FirstOrDefault(window => window.IsPrimary);
+
+        // The chrome window of the workspace that was active when this was written - there is one per
+        // workspace now, so "the primary entry" is a question about which workspace, not a single row.
+        var primaryEntry =
+            saved.Windows.FirstOrDefault(
+                window => window.IsPrimary && window.WorkspaceId == saved.ActiveWorkspaceId)
+            ?? saved.Windows.FirstOrDefault(window => window.IsPrimary);
         if (primary is not null && primaryEntry is not null)
         {
             // The active workspace's own geometry if it has any, else the window's standing position.
@@ -60,11 +66,19 @@ internal sealed partial class WindowManager
             }
 
             RestoreLayout(primary, saved.For(primaryEntry.WindowId, saved.ActiveWorkspaceId));
+
+            // Point the remembered layout at the window that now shows this workspace, so everything asking
+            // "is there a live window for this entry" (default-panel seeding above all) gets a truthful answer
+            // instead of matching against last launch's id.
+            _restoredLayout = LayoutMigration.RebindWorkspaceWindow(
+                _restoredLayout ?? saved, saved.ActiveWorkspaceId, primary.WindowId);
         }
 
+        // A panel window carries its own workspace's tree, not the active one's: it may belong to a workspace
+        // that is not on screen, and reading the active workspace's entry would restore the wrong panels into it.
         foreach (var entry in saved.Windows.Where(window => !window.IsPrimary))
         {
-            RecreateSecondaryWindow(entry, saved.For(entry.WindowId, saved.ActiveWorkspaceId));
+            RecreateSecondaryWindow(entry, saved.For(entry.WindowId, entry.WorkspaceId));
         }
 
         // If the window is already up (reveal or BootstrapComplete happened before this restore landed -
@@ -86,6 +100,8 @@ internal sealed partial class WindowManager
         // A layout saved under a since-renamed kind is read through the retirement map first, so an old name
         // does not restore as a slot nothing can resolve.
         var layout = LayoutTree.RenameKinds(entry.Layout, _config.RetiredPanelKinds);
+
+        _restoredWorkspaces.Add(entry.WorkspaceId);
 
         // Every slot - the chat among them - restores through the same path: a compile-log placeholder now,
         // swapped for the real view when its owning plugin resolves the kind.
@@ -120,7 +136,7 @@ internal sealed partial class WindowManager
     /// placeholder it would on a cold boot.
     private void RestoreWorkspacePanels(Guid workspaceId)
     {
-        if (workspaceId == Guid.Empty)
+        if (workspaceId == Guid.Empty || !_restoredWorkspaces.Add(workspaceId))
         {
             return;
         }
@@ -261,15 +277,17 @@ internal sealed partial class WindowManager
     private PersistedWindow CaptureWindow(WindowHost host) =>
         new(host.WindowId,
             host.IsPrimary ? WindowRole.Primary : WindowRole.Panel,
-            host.IsPrimary ? Guid.Empty : host.WorkspaceId,
+            host.WorkspaceId,
             BoundsOf(host.Window));
 
-    // A secondary window's layout is keyed by the workspace that window belongs to, not by whichever workspace
-    // is active: a hidden secondary is still captured, and filing it under the active workspace would move it
-    // to whatever you happened to be looking at when the save fired.
+    // Every window's layout is keyed by the workspace that window belongs to - never by whichever workspace is
+    // active. That distinction used to be made only for secondaries, and the exception for the chrome window
+    // was the defect: it holds one workspace's surface but was filed under `_activeWorkspaceId`, and the two
+    // are set from different places. Any drift between them wrote one workspace's panels into another
+    // workspace's layout, which is how a workspace ended up owning a second workspace's chat.
     private PersistedWorkspaceLayout CaptureWorkspaceLayout(WindowHost host) =>
         new(host.WindowId,
-            host.IsPrimary || host.WorkspaceId == Guid.Empty ? _activeWorkspaceId : host.WorkspaceId,
+            host.WorkspaceId == Guid.Empty ? _activeWorkspaceId : host.WorkspaceId,
             LayoutTree.FoldState(host.Surface.Capture(), _panelState))
         {
             // Where the window sits belongs to the workspace on screen, so switching carries the window with it.

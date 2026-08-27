@@ -23,11 +23,11 @@ internal sealed partial class WindowManager
                 if (contribution.RegionId == BarWindow.RegionId)
                 {
                     _bar?.Regions.AddContribution(contribution);
+                    return;
                 }
-                else
-                {
-                    GetPrimary()?.Regions.AddContribution(contribution);
-                }
+
+                RememberContribution(contribution);
+                PlaceContribution(contribution);
             });
             return Task.CompletedTask;
         }));
@@ -39,10 +39,17 @@ internal sealed partial class WindowManager
                 if (removal.RegionId == BarWindow.RegionId)
                 {
                     _bar?.Regions.RemoveContribution(removal);
+                    return;
                 }
-                else
+
+                // Retracted everywhere and forgotten, so a workspace window created later does not resurrect
+                // it from the replay buffer.
+                _contributions.RemoveAll(entry =>
+                    entry.RegionId == removal.RegionId && entry.PluginId == removal.PluginId);
+
+                foreach (var host in _windows.Values.Where(host => host.IsPrimary))
                 {
-                    GetPrimary()?.Regions.RemoveContribution(removal);
+                    host.Regions.RemoveContribution(removal);
                 }
             });
             return Task.CompletedTask;
@@ -193,18 +200,30 @@ internal sealed partial class WindowManager
                     host.WorkspaceId = message.WorkspaceId;
                 }
 
-                // Swap each window onto this workspace's surface. A workspace seen for the first time gets a
-                // fresh surface, and its saved panels are materialised into it right after.
-                var firstVisit = !_windows.Values.Any(host => host.HasSurfaceFor(message.WorkspaceId));
-                foreach (var host in _windows.Values)
+                // Give the workspace its own window. The bootstrap window - created before any workspace was
+                // known, and already holding whatever the boot restored - is adopted by the first activation
+                // rather than left beside a fresh empty one; every later workspace mints its own.
+                var window = WorkspaceWindow(message.WorkspaceId) ?? AdoptOrCreateWorkspaceWindow(message.WorkspaceId);
+
+                // The saved layout names last launch's window ids. Point this workspace's entry at the window
+                // that actually shows it now, before anything tries to look it up by id.
+                if (_restoredLayout is { } layout)
                 {
-                    host.ActivateWorkspace(message.WorkspaceId);
+                    _restoredLayout = LayoutMigration.RebindWorkspaceWindow(
+                        layout, message.WorkspaceId, window.WindowId);
                 }
 
-                if (firstVisit)
-                {
-                    RestoreWorkspacePanels(message.WorkspaceId);
-                }
+                // The window shows exactly one workspace, so this creates its surface once and never swaps
+                // again. Keeping the call means a window adopted from the bootstrap phase re-keys the surface
+                // its restored panels already sit in, instead of being handed an empty one.
+                window.ActivateWorkspace(message.WorkspaceId);
+
+                // Idempotent by workspace, so an adopted bootstrap window does not restore what the boot
+                // already restored into it.
+                RestoreWorkspacePanels(message.WorkspaceId);
+
+                // Chrome that is not bound to a particular workspace travels to the window now on screen.
+                ApplyContributions();
 
                 // Geometry travels with the workspace too, so switching restores where you had these windows and
                 // not just what was in them.

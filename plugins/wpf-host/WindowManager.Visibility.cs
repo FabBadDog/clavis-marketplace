@@ -82,14 +82,11 @@ internal sealed partial class WindowManager
             Motion.showWindowFallingIn(host.Window, null);
         }
 
-        // The primary is now shown, so it is a valid owner: link any secondary restored before the reveal,
-        // which could not be owned while the primary was still hidden.
+        // The workspace windows are now shown, so they are valid owners: link any panel window restored before
+        // the reveal, which could not be owned while its workspace's window was still hidden.
         foreach (var host in OrderedWindows())
         {
-            if (!host.IsPrimary && host.Window.Owner is null)
-            {
-                host.Window.Owner = primary.Window;
-            }
+            EnsureOwner(host);
         }
 
         ShowBar(primary);
@@ -106,9 +103,14 @@ internal sealed partial class WindowManager
         FlushRestoreSends();
     }
 
-    /// Show the active workspace's secondary windows and hide the others. Only runs while the application is
-    /// revealed and not mid-transition: before the reveal every window is deliberately hidden, and hiding or
-    /// showing during a slide would capture an animated position as a window's resting place.
+    /// Show the active workspace's windows and hide every other workspace's. Exactly one workspace is on
+    /// screen at a time, and a workspace's own chrome window is included - it is the workspace, not a constant
+    /// the workspaces take turns inside. The hidden ones keep running, which is what lets the bar say that a
+    /// workspace you are not looking at is working.
+    ///
+    /// Only runs while the application is revealed and not mid-transition: before the reveal every window is
+    /// deliberately hidden, and hiding or showing during a slide would capture an animated position as a
+    /// window's resting place.
     private void ApplyWorkspaceWindowVisibility()
     {
         if (!_revealed || InVisibilityTransition)
@@ -116,17 +118,25 @@ internal sealed partial class WindowManager
             return;
         }
 
-        foreach (var host in _windows.Values.Where(host => !host.IsPrimary))
+        // Hide what is leaving before showing what is arriving, so two workspaces are never briefly both up.
+        foreach (var host in _windows.Values.Where(host => !IsInActiveWorkspace(host) && host.Window.IsVisible))
         {
-            var belongs = IsInActiveWorkspace(host);
-            if (belongs && !host.Window.IsVisible)
+            Motion.fadeWindow(host.Window, 0.0, host.Window.Hide);
+        }
+
+        // Chrome windows first: a panel window can only take its owner once that owner has actually been
+        // shown, and WPF also refuses to show an owned window whose owner is hidden.
+        foreach (var host in _windows.Values
+                     .Where(IsInActiveWorkspace)
+                     .OrderByDescending(host => host.IsPrimary)
+                     .ToList())
+        {
+            if (!host.Window.IsVisible)
             {
                 ShowWithFade(host.Window);
             }
-            else if (!belongs && host.Window.IsVisible)
-            {
-                Motion.fadeWindow(host.Window, 0.0, host.Window.Hide);
-            }
+
+            EnsureOwner(host);
         }
     }
 

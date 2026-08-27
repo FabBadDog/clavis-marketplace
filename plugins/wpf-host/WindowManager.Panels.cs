@@ -21,7 +21,7 @@ internal sealed partial class WindowManager
             }
 
             var edge = string.IsNullOrEmpty(panel.Edge) ? DefaultSlideEdge : panel.Edge;
-            _kindPlacement[panel.Kind] = new PanelPlacement(_primaryWindowId, SlideMode, edge);
+            _kindPlacement[panel.Kind] = new PanelPlacement(_bootstrapWindowId, SlideMode, edge);
         }
     }
 
