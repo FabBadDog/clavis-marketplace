@@ -48,6 +48,8 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP7 the bar | done, **not runtime-verified** | `f0c1dd6` |
 | WP5b agent instances (bridge) | done, **hand-over runtime-verified** | `342e95d`, `d4d7604`, `045e671`, `820e67c`, `27a37a8`, `c481c33` |
 | WP5c continuous sessions: resume, fleet tabs, take-over, park on close | done, **not runtime-verified** | this pass |
+| Chat panel unclosable (`IsClosable` on registration + instance) | in the working copy, uncommitted | - |
+| WP11 one window per workspace, bar as the application | planned | - |
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
 >
@@ -1431,6 +1433,71 @@ Marketplace `docs/CODEMAP.md`; regenerate `docs/MESSAGE-MAP.md`
 `docs/{CODEMAP.md, DEPENDENCY-MAP.md, CORE-AND-BUS.md}` - the Terminology section needs the new
 Workspace definition and the layout rename. `agent-gateway/{ClavisTools.cs, ClavisDocs.cs}`:
 `layout_snapshot` plus new `workspaces_list` / `activate_workspace` tools.
+
+---
+
+## WP11 - One window per workspace, and the bar as the application - PLANNED
+
+This reverses the deferral in "Two questions answered up front". That section kept the primary window as the
+application's persistent presence and called the underlying question - *what is the app's persistent
+presence?* - deliberately deferred. It is now answered: **the bar is.** Each workspace gets its own window;
+the bar outlives all of them and is the only way out of the application.
+
+**What forced it.** Not aesthetics - a defect. All workspaces share one surface stack in one window, and
+`CaptureWorkspaceLayout` reads `host.Surface` (the *active* surface) and files it under `_activeWorkspaceId`.
+The two are set from different places, so any drift between them writes one workspace's surface into another
+workspace's layout. A live `state.yaml` showed exactly that: workspace `26e32960` with two `chat` slots
+carrying the same `chatId`, and workspace `b098b3ec` additionally carrying `26e32960`'s two chat panels
+(YAML anchors `*o3`/`*o4` - the same objects in both entries). One window per workspace removes the shared
+mutable "which surface is active" entirely, so this class of bug has nowhere left to live.
+
+**Two claims from the earlier analysis were wrong and are corrected here**, because both were used as
+arguments against this shape:
+
+1. **"A contributed chrome element cannot appear in N windows because a WPF element has one parent."**
+   False. `UiRegionContribution` carries a `ViewFactory: Func<obj>`, and `RegionManager.AddContribution`
+   invokes it per contribution (`RegionManager.cs:43`), so every window gets its own element. The comment at
+   `WindowManager.Subscriptions.cs:17` states this same wrong reason for its routing rule; the rule (one
+   owner per region) is right, its justification is not. What is actually true is narrower: two elements from
+   one factory bind to the *same view model* and would show the same workspace's data. That is a state
+   problem, and the state already exists per workspace - WP4 gave Conversation one `ConversationViewModel`
+   per chat, WP5 gave Selection per-session capabilities.
+2. **"The bar as the app's presence jams popup placement, because `SelectorWindow` centres on
+   `Application.Current.MainWindow`."** Does not apply. `WindowManager.Register` reassigns
+   `Application.Current.MainWindow` on *every* window's `Activated`, and the bar is `ShowActivated = false`
+   plus `NoActivateWindow`, so it never becomes MainWindow. MainWindow already tracks the focused window, so
+   popups already follow it. `Selector.fs:548` needs no change at all.
+
+**Path A over path B.** The alternative considered was a scope per workspace: a sub-bus and a plugin instance
+per workspace, so each workspace's plugins build their own chrome and no plugin need know workspaces exist.
+The contract permits it - `IPlugin.ActivateAsync(bus, config)` returns an `IDisposable` and says nothing
+about singletons; it is the kernel that activates once. It was rejected for this package because
+**`wpf-host` must stay global under it anyway** - it owns every HWND, and a second window owner would be a
+genuine second truth. A region contribution would therefore *still* have to name its workspace, so path B
+contains path A whole and adds a kernel rework (bus hierarchy, a global-vs-workspace plugin taxonomy, and
+re-aggregation for `LogSink`, dead letters, the EventsPanel firehose and the bar's activity). B remains the
+right answer if real isolation is ever the goal; it is not the cheapest way to per-workspace chrome.
+
+Decisions taken with the user, to be implemented:
+
+- **A workspace window has no close cross.** Closing a workspace happens from the bar or the palette; the
+  chat panel inside it is already unclosable, so neither gesture can strand a workspace without a chat.
+- **Exactly one workspace is visible.** Activating one shows its windows and hides the others -
+  `ApplyWorkspaceWindowVisibility` already does precisely this for secondaries; it loses its `!IsPrimary`
+  filter. Background panels keep running, which is what makes the bar's activity indicator mean anything.
+- **The bar is the lifetime anchor.** A workspace window's `Closing` no longer calls `BeginShutdown`;
+  quitting is `ExitApplication` and the bar.
+
+Shape of the work:
+
+- `WorkspaceSurfaces` is deleted. `WindowHost` holds one surface again, and `IsPrimary` splits into a role:
+  a **workspace window** (full chrome - title bar and status bar) or a **panel window** (a tear-off).
+- `WindowManager._primaryWindowId` becomes a workspace -> window map; `GetPrimary()` becomes
+  `WorkspaceWindow(workspaceId)`, created on a workspace's first activation.
+- `UiRegionContribution` gains a `WorkspaceId`: routed to that workspace's window, `Guid.Empty` meaning every
+  workspace window (the factory runs once per window). Conversation sends one per chat; app-wide
+  contributors (`task-tracker`, `usage-limits`) keep sending `Guid.Empty` and are unchanged.
+- Layout v2 keys by `(window, workspace)` already, which becomes 1:1; `WindowRole` gains `workspace`.
 
 ---
 
