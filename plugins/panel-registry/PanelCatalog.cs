@@ -64,7 +64,8 @@ public sealed class PanelCatalog
                 instanceId, kind, registration.Title, registration.MinWidth, registration.MinHeight, view,
                 workspaceId)
             {
-                Cardinality = registration.Cardinality
+                Cardinality = registration.Cardinality,
+                IsClosable = registration.IsClosable
             };
             return true;
         }

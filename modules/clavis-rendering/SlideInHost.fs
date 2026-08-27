@@ -163,7 +163,9 @@ type SlideInHost(edge: string) as this =
         // view detached from the content site) suppresses the tear-off fall-through.
         currentBar |> Option.iter (fun bar -> layoutGrid.Children.Remove(bar))
         revealed <- false
-        let bar = PanelHandle.buildBar (PanelHandle.header title (fun () -> closeRequested.Trigger(this, panelId)))
+        let bar =
+            PanelHandle.buildBar (
+                PanelHandle.header title (Some(fun () -> closeRequested.Trigger(this, panelId))))
         layoutGrid.Children.Add(bar) |> ignore
         currentBar <- Some bar
         PanelHandle.attachDrag

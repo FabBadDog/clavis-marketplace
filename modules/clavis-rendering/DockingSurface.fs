@@ -289,6 +289,12 @@ type DockingSurface() as this =
     // Rebuild leaves every existing tile untouched. Reset to Empty once consumed by RenderModel.
     let mutable pendingEnterPanel = Guid.Empty
 
+    // Whether a panel kind may be closed at all. A predicate rather than a flag on PanelSlot: the slot is the
+    // serialized layout, and closability is a property of the kind's registration, not of a saved position -
+    // persisting it would let a stale layout outvote the plugin that owns the kind. Defaults to "everything
+    // closes", so a host that never sets it behaves exactly as before.
+    let mutable isKindClosable : Func<string, bool> = Func<string, bool>(fun _ -> true)
+
     let layoutChanged = Event<EventHandler, EventArgs>()
     let panelRemoved = Event<EventHandler, EventArgs>()
     let activeTabChanged = Event<EventHandler<Guid>, Guid>()
@@ -407,7 +413,13 @@ type DockingSurface() as this =
     // so a kind registered as "git log" shows as GIT LOG rather than a bare lower-case word. The shared
     // PanelHandle builds the title + close so a slide-in's handle reads identically.
     let buildTabHeader (slot: PanelSlot) =
-        PanelHandle.header slot.Title (fun () -> panelCloseRequested.Trigger(this, slot.PanelId))
+        let close =
+            if isKindClosable.Invoke slot.PanelKind then
+                Some(fun () -> panelCloseRequested.Trigger(this, slot.PanelId))
+            else
+                None
+
+        PanelHandle.header slot.Title close
 
     // Arm a panel drag on element (a whole tab item or a lone panel's handle), so the gesture starts no
     // matter where on the tab the press lands. The drag mechanics are the shared PanelHandle.attachDrag; this
@@ -827,6 +839,12 @@ type DockingSurface() as this =
     member _.PanelCloseRequested = panelCloseRequested.Publish
 
     member _.ActiveGroupId = activeGroupId
+
+    /// Answers "may this panel kind be closed?" for every close affordance this surface draws. Set by the host
+    /// from the panel registrations; unset, everything closes.
+    member _.IsKindClosable
+        with get () = isKindClosable
+        and set value = isKindClosable <- value
 
     member private _.ActivePanel =
         match DockingModel.findGroup activeGroupId model with

@@ -80,6 +80,12 @@ type PanelKindRegistration
     /// read as OnePerWorkspace, the default the host applied to every kind before cardinality was declared.
     member val Cardinality = PanelCardinality.OnePerWorkspace with get, set
 
+    /// Whether the user may close this panel at all. False for a kind that *is* its container rather than
+    /// something docked inside it - a workspace's chat, which the workspace exists to hold. The host then
+    /// draws no close cross, synthesises no toggle command, and ignores ClosePanel / CloseActivePanel for it,
+    /// so there is no affordance that refuses. Defaults to true: every kind closed before this existed.
+    member val IsClosable = true with get, set
+
 /// The registry broadcasts this on its own activation; panel plugins subscribe and re-announce their
 /// kinds. Makes activation order irrelevant (a fire-and-forget registration sent before the registry
 /// subscribed would otherwise be lost).
@@ -157,6 +163,10 @@ type PanelInstanceReady
     /// declared rule without subscribing to registrations itself. Settable, so the registry fills it in
     /// without the placement message growing another positional argument.
     member val Cardinality = PanelCardinality.OnePerWorkspace with get, set
+
+    /// Whether the user may close this panel, carried through from its registration for the same reason as
+    /// Cardinality.
+    member val IsClosable = true with get, set
 
 /// Request to close a panel instance (e.g. from a command). The host removes it from its surface and
 /// announces PanelClosed.

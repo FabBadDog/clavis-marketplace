@@ -358,15 +358,21 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
             return Task.CompletedTask;
         });
 
-        // The chat is a panel kind like any other: the host places it, tears it off and closes it without
-        // knowing it is a conversation. One instance per workspace, which is today's single chat and, once
-        // workspaces exist, one chat each. The instance's blob names the chat it shows, so a restored panel
-        // re-attaches instead of being re-seeded.
+        // The chat is a panel kind so the host can place, dock and tear it off without knowing it is a
+        // conversation - but it is not a panel the user manages. It is the workspace: exactly one per
+        // workspace, opened by the workspace itself rather than from the panel picker (IsUserOpenable=false,
+        // so no toggle command and no shortcut synthesise for it either) and never closable. The instance's
+        // blob names the chat it shows, so a restored panel re-attaches instead of being re-seeded.
         void AnnounceChatPanel() => bus.Send(new PanelKindRegistration(
-            PanelChromeResolver.ChatKind, "Chat", 320, 200, "", true,
+            PanelChromeResolver.ChatKind, "Chat", 320, 200, "", false,
             context => Views.ChatPanelView.Create(bus, BindPanelToChat(context), context))
         {
-            Cardinality = PanelCardinality.OnePerWorkspace
+            Cardinality = PanelCardinality.OnePerWorkspace,
+
+            // The chat is the workspace, not a panel docked inside it: one per workspace, never a second, and
+            // never closable. Closing it would leave a workspace with no conversation, which is not a state a
+            // workspace has.
+            IsClosable = false
         });
 
         // Register the status-line editor as a dockable panel kind (the conversation owns these templates).

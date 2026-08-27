@@ -51,6 +51,16 @@ internal sealed partial class WindowManager : IDisposable
     // a kind) can apply the same rule an Open does without the host subscribing to registrations itself.
     private readonly Dictionary<string, string> _kindCardinality = new(StringComparer.Ordinal);
 
+    // The kinds that declared themselves unclosable, learned the same way. A workspace's chat is the one such
+    // kind today: it *is* the workspace, so closing it would leave a workspace that is not one. Held as the
+    // exception set rather than a per-kind flag, because everything else closes and an unknown kind must not
+    // become unclosable by accident.
+    private readonly HashSet<string> _unclosableKinds = new(StringComparer.Ordinal);
+
+    // Which kind each live panel instance is, so a close request carrying only an instance id can be checked
+    // against the unclosable set.
+    private readonly Dictionary<Guid, string> _panelKind = [];
+
     // Which workspace each live panel instance belongs to, so a one-per-workspace kind can be found within
     // its own workspace rather than application-wide. Everything is Guid.Empty until workspaces exist, which
     // is exactly the previous application-wide behaviour.
@@ -186,6 +196,11 @@ internal sealed partial class WindowManager : IDisposable
 
         host.PanelCloseRequested += (_, panelId) =>
         {
+            if (_panelKind.TryGetValue(panelId, out var kind) && _unclosableKinds.Contains(kind))
+            {
+                return;
+            }
+
             host.Surface.RemovePanel(panelId);
             _bus.Send(new PanelClosed(panelId));
             ScheduleSave();
@@ -233,6 +248,9 @@ internal sealed partial class WindowManager : IDisposable
     // surface leaves it empty, so the window is retired; drag events drive the cross-window move machinery.
     private void WireSurface(WindowHost host, DockingSurface surface)
     {
+        // Closes over the live set, so a kind that declares itself unclosable loses its cross on the next
+        // render even on surfaces that already existed.
+        surface.IsKindClosable = kind => !_unclosableKinds.Contains(kind);
         surface.LayoutChanged += (_, _) => ScheduleSave();
         surface.PanelRemoved += (_, _) => CloseIfEmptySecondary(host);
         surface.ExternalPanelDropped += (_, drop) => MovePanelAcrossWindows(host, drop);

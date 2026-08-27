@@ -52,6 +52,11 @@ internal sealed partial class WindowManager
         // sits and drop the duplicate the registry just minted (its view was never built, so there is nothing
         // to dispose).
         _kindCardinality[ready.Kind] = LivePanels.Normalize(ready.Cardinality);
+        if (!ready.IsClosable)
+        {
+            _unclosableKinds.Add(ready.Kind);
+        }
+
         var existing = FindLiveInstance(ready.Kind, ready.Cardinality, ready.WorkspaceId, ready.InstanceId);
         if (existing is not null)
         {
@@ -61,6 +66,7 @@ internal sealed partial class WindowManager
         }
 
         _panelWorkspace[ready.InstanceId] = ready.WorkspaceId;
+        _panelKind[ready.InstanceId] = ready.Kind;
         PlaceFresh(ready, (FrameworkElement)ready.View.Invoke());
         ScheduleSave();
     }
@@ -139,6 +145,9 @@ internal sealed partial class WindowManager
     /// Open the kind if it has no live instance, or close/dismiss it if it does - the one gesture that both
     /// summons and banishes a panel. A live slide-in toggles its visibility (shown -> hidden, hidden ->
     /// revealed); a live docked tab closes; with no live instance it opens through the normal placement path.
+    ///
+    /// For an unclosable kind the gesture only ever summons: it reveals the live instance instead of banishing
+    /// it, so the toggle stays useful (it still brings the chat to the front) without being able to remove it.
     private void TogglePanel(string kind, Guid workspaceId)
     {
         var cardinality = _kindCardinality.GetValueOrDefault(kind, PanelCardinality.OnePerWorkspace);
@@ -150,6 +159,12 @@ internal sealed partial class WindowManager
         }
 
         var instance = live.Value;
+        if (_unclosableKinds.Contains(kind))
+        {
+            RevealInstance(instance);
+            return;
+        }
+
         if (instance.Mode == SlideMode)
         {
             if (instance.Host.IsSlideInOpen(instance.PanelId))
@@ -186,6 +201,13 @@ internal sealed partial class WindowManager
             return;
         }
 
+        // Esc must not be able to remove a kind that declared itself unclosable - it would take the workspace's
+        // chat with it and leave a workspace that is not one.
+        if (_unclosableKinds.Contains(host.Surface.ActivePanelKind))
+        {
+            return;
+        }
+
         var closed = host.CloseActiveDockedPanel();
         if (closed != Guid.Empty)
         {
@@ -200,6 +222,11 @@ internal sealed partial class WindowManager
     /// close path.
     private void ClosePanel(Guid instanceId)
     {
+        if (_panelKind.TryGetValue(instanceId, out var kind) && _unclosableKinds.Contains(kind))
+        {
+            return;
+        }
+
         foreach (var host in _windows.Values)
         {
             if (host.Surface.PanelIds.Contains(instanceId))

@@ -52,7 +52,11 @@ module PanelHandle =
         SolidColorBrush(Color.FromArgb(0xE0uy, 0x14uy, 0x14uy, 0x1Cuy)) |> fun brush -> brush.Freeze(); brush
 
     /// The handle's content: the panel title (upper-cased chrome label) beside the shared close cross.
-    let header (title: string) (onClose: unit -> unit) : FrameworkElement =
+    ///
+    /// `onClose` is optional because some panels cannot be closed at all - a workspace's chat is the workspace,
+    /// not something docked inside it. Such a panel gets no cross rather than one that refuses: an affordance
+    /// that does nothing is worse than none.
+    let header (title: string) (onClose: (unit -> unit) option) : FrameworkElement =
         let titleBlock =
             TextBlock(
                 Text = title.ToUpperInvariant(),
@@ -62,12 +66,18 @@ module PanelHandle =
                 Margin = Thickness(0.0, 0.0, 7.0, 0.0))
         titleBlock.SetResourceReference(TextBlock.FontFamilyProperty, "UiFont")
 
-        let closeButton = CloseButton.create (Action onClose)
-        closeButton.VerticalAlignment <- VerticalAlignment.Center
-
         let panel = StackPanel(Orientation = Orientation.Horizontal)
         panel.Children.Add(titleBlock) |> ignore
-        panel.Children.Add(closeButton) |> ignore
+
+        match onClose with
+        | Some close ->
+            let closeButton = CloseButton.create (Action close)
+            closeButton.VerticalAlignment <- VerticalAlignment.Center
+            panel.Children.Add(closeButton) |> ignore
+        | None ->
+            // The title carried the cross's right margin; without one it would sit oddly far from the edge.
+            titleBlock.Margin <- Thickness(0.0)
+
         panel
 
     /// Wrap handle content in the slim bar: parked invisible (Opacity 0) and not hit-testable until the
