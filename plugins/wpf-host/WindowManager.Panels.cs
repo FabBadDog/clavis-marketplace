@@ -281,7 +281,7 @@ internal sealed partial class WindowManager
         {
             case SlideMode:
             {
-                var host = ResolveWindow(placement.WindowId);
+                var host = ResolveWindow(PlacementWindowFor(ready.WorkspaceId, placement.WindowId));
                 var edge = string.IsNullOrEmpty(placement.Edge) ? DefaultSlideEdge : placement.Edge;
                 host.AddSlideIn(ready.InstanceId, ready.Kind, ready.Title, view, edge);
                 _kindPlacement[ready.Kind] = new PanelPlacement(host.WindowId, SlideMode, edge);
@@ -300,11 +300,23 @@ internal sealed partial class WindowManager
 
             default:
             {
-                var host = ResolveWindow(placement.WindowId);
+                var host = ResolveWindow(PlacementWindowFor(ready.WorkspaceId, placement.WindowId));
                 host.Surface.AddPanel(ready.InstanceId, ready.Kind, ready.Title, view, DockTarget.IntoActiveGroup);
                 _kindPlacement[ready.Kind] = new PanelPlacement(host.WindowId, TabMode, "");
                 return;
             }
         }
+    }
+
+    // Where a fresh panel of this workspace goes, given where its kind was last placed. Enumerates the live
+    // windows (impure); PanelPlacements owns the rule.
+    private Guid PlacementWindowFor(Guid workspaceId, Guid remembered)
+    {
+        var candidates = _windows.Values
+            .Select(host => new PlaceableWindow(host.WindowId, host.WorkspaceId, host.IsPrimary))
+            .ToList();
+
+        var fallback = (GetFocused() ?? GetPrimary())?.WindowId ?? Guid.Empty;
+        return PanelPlacements.PlacementWindow(candidates, workspaceId, remembered, fallback);
     }
 }

@@ -98,6 +98,15 @@ unit-tested.
   `ApplicationShutdown`, immediately - so the barrier costs nothing when nobody needs it. `ExitApplication` is
   the quit gesture and goes through it; it is idempotent, so asking twice during a quit already under way does
   nothing. A workspace window's own close is no longer a quit - it is refused outright (see below).
+- **Panel placement is workspace-first** (`PanelPlacements`). The host remembers one window per panel *kind* -
+  where you last put a git log, a keymap, an events view - so re-opening a kind returns it to where it was.
+  That memory is right for a kind whose subject is the application and wrong for one whose subject is a
+  workspace: "where a chat was last placed" names some other workspace's window as often as not. So the
+  memory is honoured only while it stays inside the panel's own workspace; otherwise the panel goes to that
+  workspace's chrome window. A panel belonging to no workspace keeps the memory unconditionally, which is what
+  every kind did before workspaces owned windows. Honouring it unconditionally is what put all four
+  workspaces' chats into a single window as tabs while their own windows stood empty - each open remembered
+  where the previous one landed, so the first window swallowed the lot.
 - **Persistence (layout v2).** The saved layout is normalised: a `windows` list carries identity, **role**
   (`primary`/`panel`), the owning **workspace** and one set of bounds each, and a separate `layouts` list carries
   one docking tree + slide-ins per **(window, workspace)** pair, plus that pair's own bounds once it has one.
