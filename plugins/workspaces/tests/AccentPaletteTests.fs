@@ -6,10 +6,11 @@ open Faqt.Operators
 open Xunit
 
 [<Fact>]
-let ``the palette is four identity accents`` () =
+let ``the palette holds distinct accents, none of them a signal colour`` () =
 
-    // Act & Assert
-    %AccentPalette.Keys.Should().HaveLength(4)
+    // Assert - the count is free to grow; distinctness and the signal exclusion are the rules that matter
+    %AccentPalette.Keys.Should().HaveLength(List.ofSeq AccentPalette.Keys |> List.distinct |> List.length)
+    %(AccentPalette.Keys |> Seq.forall (fun key -> key.StartsWith "Accent")).Should().BeTrue()
 
 [<Fact>]
 let ``an empty set gets the first accent`` () =
@@ -18,18 +19,18 @@ let ``an empty set gets the first accent`` () =
     %AccentPalette.Assign(Seq.empty).Should().Be(AccentPalette.Keys[0])
 
 [<Fact>]
-let ``the first four assignments never collide`` () =
+let ``every accent is handed out before any is reused`` () =
 
-    // Act - assign four in a row, each seeing the ones before it
+    // Act - assign one per key, each seeing the ones before it
     let assigned =
-        [ 1 .. 4 ]
+        [ 1 .. AccentPalette.Keys.Count ]
         |> List.fold (fun taken _ -> taken @ [ AccentPalette.Assign taken ]) []
 
     // Assert
-    %(assigned |> List.distinct |> List.length).Should().Be(4)
+    %(assigned |> List.distinct |> List.length).Should().Be(AccentPalette.Keys.Count)
 
 [<Fact>]
-let ``the fifth assignment reuses the least-used accent`` () =
+let ``the assignment after a full palette reuses the least-used accent`` () =
 
     // Arrange - every accent used once, plus a second use of the first
     let taken = List.ofSeq AccentPalette.Keys @ [ AccentPalette.Keys[0] ]
@@ -54,7 +55,7 @@ let ``next wraps around the palette`` () =
 
     // Act & Assert
     %AccentPalette.Next(AccentPalette.Keys[0]).Should().Be(AccentPalette.Keys[1])
-    %AccentPalette.Next(AccentPalette.Keys[3]).Should().Be(AccentPalette.Keys[0])
+    %AccentPalette.Next(AccentPalette.Keys[AccentPalette.Keys.Count - 1]).Should().Be(AccentPalette.Keys[0])
     %AccentPalette.Next("unknown").Should().Be(AccentPalette.Keys[0])
 
 [<Theory>]

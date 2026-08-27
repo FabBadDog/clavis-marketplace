@@ -49,15 +49,24 @@
     <SolidColorBrush x:Key="EventErrorBrush" Color="#E47E7E" />
     <SolidColorBrush x:Key="SecondaryBrush" Color="#9A9AA4" />
 
-    <!-- Workspace identity accents. Drawn from the identity family (the periwinkle/violet/blue range), never
-         from the signal colours: green, yellow and red mean something, and a workspace accent means only
-         "this is which one". Four is deliberate - enough that neighbours read as distinct, few enough that
-         every one stays clearly inside the family. A workspace persists the KEY, never a colour, so an
-         assignment survives a restart and stays re-themable here. -->
+    <!-- Workspace identity accents. A workspace accent means only "this is which one", so it must never be
+         confusable with a signal: the green (#7BD49B), yellow (#E4C47E) and red (#E47E7E) hues are left out
+         of the palette entirely, and the activity dot keeps its own colour so tinting never destroys it.
+         Everything else on the wheel is fair game - the first four were all periwinkle-to-blue and read as
+         two colours once more than a couple of workspaces were open. A workspace persists the KEY, never a
+         colour, so an assignment survives a restart and stays re-themable here; the first four therefore
+         keep their exact values, or every existing workspace would change colour. -->
     <SolidColorBrush x:Key="Accent1Brush" Color="#ADA6F2" />
     <SolidColorBrush x:Key="Accent2Brush" Color="#9FD5F0" />
     <SolidColorBrush x:Key="Accent3Brush" Color="#C79BF0" />
     <SolidColorBrush x:Key="Accent4Brush" Color="#8FBEEA" />
+    <SolidColorBrush x:Key="Accent5Brush" Color="#7FE0D0" />
+    <SolidColorBrush x:Key="Accent6Brush" Color="#F2A6D5" />
+    <SolidColorBrush x:Key="Accent7Brush" Color="#F0B08A" />
+    <SolidColorBrush x:Key="Accent8Brush" Color="#A6E8F2" />
+    <SolidColorBrush x:Key="Accent9Brush" Color="#E0A0E8" />
+    <SolidColorBrush x:Key="Accent10Brush" Color="#8C9BF0" />
+    <SolidColorBrush x:Key="Accent11Brush" Color="#6FC4E0" />
 
     <!-- Modern semantic keys (the names new code targets). Same palette, clearer intent. -->
     <SolidColorBrush x:Key="PrimaryAccentBrush" Color="#9FD5F0" />

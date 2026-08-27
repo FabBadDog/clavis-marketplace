@@ -6,21 +6,25 @@ namespace FabioSoft.Nucleus.Plugins.Workspaces;
 /// Which accent a new workspace gets. Accents are **theme resource keys**, never baked colours, so an accent
 /// assigned once survives a restart and stays re-themable.
 ///
-/// The palette is drawn from the design language's **identity** family (the periwinkle/violet/blue range), not
-/// the signal colours: green, yellow and red mean something, and a workspace's accent means only "this is
-/// which one". That is also why the accent and the activity dot are separate marks - tinting the dot with the
-/// workspace accent would destroy the activity signal.
+/// The palette spans the whole colour wheel *except* the signal hues - green, yellow and red mean something,
+/// and a workspace's accent means only "this is which one". That is also why the accent and the activity dot
+/// are separate marks: tinting the dot with the workspace accent would destroy the activity signal.
 public static class AccentPalette
 {
-    /// Four keys, defined in the host theme. Four is deliberate: enough that neighbouring workspaces read as
-    /// distinct, few enough that every one stays clearly inside the identity family.
+    /// Eleven keys, defined in the host theme. The first four are the original identity-family tones and keep
+    /// their exact colours - a workspace persists the key, so renumbering or recolouring them would change the
+    /// appearance of every existing workspace. The rest reach into teal, pink, apricot, ice, magenta, indigo
+    /// and cyan, because four periwinkle-to-blue tones read as two colours once several workspaces are open.
     public static IReadOnlyList<string> Keys { get; } =
-        ["Accent1Brush", "Accent2Brush", "Accent3Brush", "Accent4Brush"];
+    [
+        "Accent1Brush", "Accent2Brush", "Accent3Brush", "Accent4Brush", "Accent5Brush", "Accent6Brush",
+        "Accent7Brush", "Accent8Brush", "Accent9Brush", "Accent10Brush", "Accent11Brush"
+    ];
 
     /// The accent for a new workspace: the least-used key, earliest in the palette on a tie. Deterministic
     /// rather than random - the plan called for a random pick, but least-used guarantees no two workspaces
-    /// collide until there are more than four of them, which is the outcome random assignment was reaching for,
-    /// and it is testable.
+    /// collide until the palette is exhausted, which is the outcome random assignment was reaching for, and
+    /// it is testable.
     public static string Assign(IEnumerable<string> inUse)
     {
         var counts = Keys.ToDictionary(key => key, _ => 0);
