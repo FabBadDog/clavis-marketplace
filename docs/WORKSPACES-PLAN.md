@@ -48,8 +48,8 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP7 the bar | done, **not runtime-verified** | `f0c1dd6` |
 | WP5b agent instances (bridge) | done, **hand-over runtime-verified** | `342e95d`, `d4d7604`, `045e671`, `820e67c`, `27a37a8`, `c481c33` |
 | WP5c continuous sessions: resume, fleet tabs, take-over, park on close | done, **not runtime-verified** | this pass |
-| Chat panel unclosable (`IsClosable` on registration + instance) | in the working copy, uncommitted | - |
-| WP11 one window per workspace, bar as the application | planned | - |
+| Chat panel unclosable (`IsClosable` on registration + instance) | done | `7d676f1` |
+| WP11 one window per workspace | done, **not runtime-verified** | `8d6a156` + `af0c4f7` (host repo) |
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
 >
@@ -1436,7 +1436,53 @@ Workspace definition and the layout rename. `agent-gateway/{ClavisTools.cs, Clav
 
 ---
 
-## WP11 - One window per workspace, and the bar as the application - PLANNED
+## WP11 - One window per workspace - DONE, **not runtime-verified**
+
+> **Landed** as `8d6a156` (marketplace) plus `af0c4f7` (host repo: the CompileTest gap below). Catalog gate:
+> 40/40 items compile, wpf-host 109 -> 113 tests. **Nothing has been launched** - a window-model change is
+> exactly the kind whose correctness lives in a running app, so the first-launch checks at the end of this
+> section are the real gate.
+>
+> **Deviations from the plan below, all deliberate:**
+>
+> 1. **`WorkspaceSurfaces` was not deleted and `WindowHost` was not touched beyond its close cross.** Each
+>    workspace window simply activates onto exactly one workspace and never swaps, so the N-surface machinery
+>    degenerates to one surface per window on its own. Deleting it would have meant rewriting `WindowHost`,
+>    `ActivePanelWatcher`, `FocusVisualController` and `PanelTitleController` for no behavioural gain, in the
+>    same commit as a window-model change. It can go later, on its own, when something is watching.
+> 2. **`IsPrimary` was kept, meaning "is a workspace window".** Renaming it reaches `WindowSnapshot.IsPrimary`
+>    and `agent-gateway`'s tool output, which is agent-visible surface and deserves its own justification.
+>    Recorded here rather than done quietly.
+> 3. **The bar did not become `Application.Current.MainWindow`, and did not need to.** `WindowManager.Register`
+>    already reassigns MainWindow on every window's `Activated`, and the bar is never activated - so MainWindow
+>    tracks the focused workspace window, which is what popup placement wants. "The bar is the application"
+>    is therefore about *lifetime*, and that is delivered by workspace windows refusing to close.
+> 4. **Region contributions are moved, not duplicated, for the unscoped case.** See the corrected claim below:
+>    the factory *could* build per window, but today's contributors return one long-lived element from it. The
+>    `WorkspaceId` seam is in place for a contributor that grows per-workspace state.
+>
+> **Two further causes of the duplicate chats were found and fixed here**, neither of which is about the window
+> model - they were simply invisible until the layout was read carefully:
+>
+> - **Window ids are minted per launch** while a saved layout names the previous launch's, so a workspace's
+>   chrome window could never be matched by id across a restart. `NeedsDefaultPanels` then answered "nothing
+>   restorable", the workspace was seeded a fresh chat, and its saved chat slot was carried over untouched -
+>   two chats, which is precisely what the live `state.yaml` held. Fixed by `LayoutMigration.RebindWorkspaceWindow`
+>   (the workspace is the stable identity, not the window id), with four tests.
+> - **The boot restored the active workspace's panels and the first `WorkspaceActivated` restored them again**,
+>   two `RestoreRequest`s per saved panel. Restoring is now idempotent per workspace.
+>
+> **The catalog gate had a blind spot that hid the first compile error of this package** and is fixed in the
+> host repo: `CompileTest` resolved every reference from `~/.clavis/modules` - the assemblies the *last launch*
+> installed - so a changed contract module was invisible to its own dependents, and the harness reported green
+> on a catalog that could not compile together. It also sorted the whole catalog by name, interleaving modules
+> with the plugins depending on them. Modules now build first, into a scratch dir the dependents reference.
+>
+> **Known unrelated flake:** `ClaudeBridgePluginTests."StartNewSession sends Initialize handshake to session"`
+> fails under full-catalog load and passes in isolation (97/97). It waits on a fixed `Task.Delay(100)`. Not
+> touched here.
+
+### Original plan
 
 This reverses the deferral in "Two questions answered up front". That section kept the primary window as the
 application's persistent presence and called the underlying question - *what is the app's persistent
@@ -1498,6 +1544,24 @@ Shape of the work:
   workspace window (the factory runs once per window). Conversation sends one per chat; app-wide
   contributors (`task-tracker`, `usage-limits`) keep sending `Guid.Empty` and are unchanged.
 - Layout v2 keys by `(window, workspace)` already, which becomes 1:1; `WindowRole` gains `workspace`.
+
+### First-launch checks for WP11, in this order
+
+`state.yaml` was deleted before this landed, so the first launch starts from no saved layout at all - which is
+the simplest case and the one to check first.
+
+1. **One workspace, one window, one chat.** The window comes up with exactly one chat tab and no close cross on
+   its title bar. Alt+F4 does nothing. `quit` in the palette still exits.
+2. **A second workspace gets its own window** (press an unused F-key). The first workspace's window disappears
+   as the second appears - never both at once - and the second has its own chat, not the first one's.
+3. **Chrome follows the switch.** The branch strip, the agent cluster and the status bar are present in
+   whichever window is on screen, and show that workspace's values. This is the moved-not-copied path; a WPF
+   "element already has a logical parent" crash on the second switch would mean the removal half is missing.
+4. **Switch back and forth twice, then quit and relaunch.** Each workspace comes back with its own panels, and
+   **neither has gained a second chat tab** - that is the whole point of the package. Check `state.yaml`: one
+   `layouts` entry per workspace, each holding that workspace's own panels and no other's.
+5. **Tear a panel off** into its own window, switch workspace, switch back: it hides and returns with its
+   workspace, and it is owned by that workspace's window rather than whichever was active when it was created.
 
 ---
 

@@ -33,8 +33,8 @@ resources:
 
 ## Purpose
 
-Owns the Clavis application windows and the docking surface. It hosts a primary window (window chrome -
-title bar and status bar) plus any number of secondary panel-host windows, each with its own named regions
+Owns the Clavis application windows and the docking surface. It hosts one window per workspace (window
+chrome - title bar and status bar) plus any number of secondary panel-host windows, each with its own named regions
 (`title-bar-left`, `title-bar-right`, `status-bar`, `status-bar-right`) and a `DockingSurface` that tiles
 dockable panels. It materialises UI contributions other plugins announce, opens/closes/toggles panels,
 manages edge slide-ins and a global summon hotkey, and persists the whole layout across launches. The host
@@ -95,9 +95,9 @@ unit-tested.
   answered `ShutdownPrepared`, or until `ShutdownGraceSeconds` expires. **The barrier always opens**: a
   participant that never answers delays the quit, it can never prevent it, and the outstanding names are logged
   so the pause is diagnosable. With nothing declared the behaviour is exactly what it was before - one
-  `ApplicationShutdown`, immediately - so the barrier costs nothing when nobody needs it. Both quit gestures (the
-  primary window's own close and `ExitApplication`) go through it, and it is idempotent, so closing the window
-  during a quit already under way does nothing.
+  `ApplicationShutdown`, immediately - so the barrier costs nothing when nobody needs it. `ExitApplication` is
+  the quit gesture and goes through it; it is idempotent, so asking twice during a quit already under way does
+  nothing. A workspace window's own close is no longer a quit - it is refused outright (see below).
 - **Persistence (layout v2).** The saved layout is normalised: a `windows` list carries identity, **role**
   (`primary`/`panel`), the owning **workspace** and one set of bounds each, and a separate `layouts` list carries
   one docking tree + slide-ins per **(window, workspace)** pair, plus that pair's own bounds once it has one.
@@ -160,19 +160,31 @@ unit-tested.
   off in, and `OrderedWindows()` is scoped to the active one. That is the single funnel the reveal, summon,
   banish and the cross-window Tab ring all read, so a window belonging to a workspace you are not looking at is
   uniformly absent from every one of them instead of each site remembering to filter. Switching hides the other
-  workspaces' windows and fades this one's back in. The primary is the constant - it carries the chrome for
-  every workspace and belongs to none. A secondary's layout is keyed by *its* workspace, not the active one, so
-  a hidden window is not refiled to whatever you were looking at when the save fired.
-- **One docking surface per workspace, per window** (`WorkspaceSurfaces`), created lazily and kept alive;
-  `WindowHost.Surface` forwards to the active one so every existing call site is unchanged. N surfaces rather
-  than one captured-and-restored surface: swapping a single surface would rebuild every panel view on each
-  switch (scroll lost, `PanelClosed` disposing instances, git-log timers restarting) on a gesture used dozens of
-  times an hour - and keeping background panels alive is what makes "workspace 3 is working" mean anything. The
-  three chrome collaborators (`ActivePanelWatcher`, `FocusVisualController`, `PanelTitleController`) take an
-  accessor for the active surface rather than capturing one, so they follow the switch. Surface handlers are
-  attached per surface. The initial `Guid.Empty` surface is **adopted** on the first real activation rather than
-  replaced, so the panels restored during boot stay put. Switches cross-fade; the outgoing surface is collapsed,
-  not merely transparent, so it stops taking hit tests and tab stops.
+  workspaces' windows and fades this one's back in. **A workspace's own chrome window is one of them** - it is
+  the workspace, not a constant the workspaces take turns inside, so exactly one is on screen at a time. The
+  bootstrap window (created before any workspace is known) is adopted by the first activation and every later
+  workspace mints its own. Every window's layout is keyed by *its* workspace, never by the active one, so a
+  hidden window is not refiled to whatever you were looking at when the save fired - the exception that used to
+  be made for the chrome window was a defect, and it wrote one workspace's panels into another's layout.
+- **A workspace window cannot be closed.** It has no close cross and refuses its own `Closing` until teardown,
+  because it holds that workspace's unclosable chat: closing it could only take the workspace with it, which is
+  the bar's gesture and not this window's. Quitting is `ExitApplication`.
+- **Window ids are minted per launch, so a saved layout is matched by workspace, not by window id**
+  (`LayoutMigration.RebindWorkspaceWindow`). Without that a workspace's saved chrome window names an id no live
+  window has, which reads as "nothing restorable" - the workspace is seeded a fresh default chat while its saved
+  one is carried over untouched, and ends up with two.
+- **One docking surface per workspace** (`WorkspaceSurfaces`), created lazily and kept alive. Now that a
+  workspace owns its window, each window activates onto exactly one workspace and never swaps again, so the
+  mechanism carries the adoption of the bootstrap window and little else. Background panels stay alive either
+  way, which is what makes "workspace 3 is working" mean anything. The three chrome collaborators
+  (`ActivePanelWatcher`, `FocusVisualController`, `PanelTitleController`) take an accessor for the surface
+  rather than capturing one; surface handlers are attached per surface.
+- **Region contributions are routed per workspace window** (`WindowManager.Regions.cs`). A contribution naming
+  a `WorkspaceId` goes to that workspace's window and stays; one naming none belongs to whichever workspace is
+  on screen and is *moved* there on a switch. Moved rather than copied because today's contributors return one
+  long-lived element from their factory (`() => titleLeft.Element`) and a WPF element has one parent - which is
+  honest while exactly one workspace is visible. Every contribution is remembered and replayed, since
+  contributors announce their chrome once at activation, long before a later workspace has a window.
 - **Snapshot.** It answers `LayoutSnapshotRequested` by building a `LayoutSnapshot` (windows,
   panels, focused window/panel) on the dispatcher - this is the response half of a bus request, used by
   AgentGateway's `layout_snapshot` tool.
