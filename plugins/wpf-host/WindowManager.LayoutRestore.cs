@@ -67,6 +67,15 @@ internal sealed partial class WindowManager
 
             RestoreLayout(primary, saved.For(primaryEntry.WindowId, saved.ActiveWorkspaceId));
 
+            // The bootstrap window stops being anonymous the moment it is given a workspace's panels. It was
+            // left unassigned until the first WorkspaceActivated adopted it - whichever workspace that turned
+            // out to be. The workspace list and this layout are two separate files written at different
+            // moments, so they can disagree about which workspace was last active; when they did, the first
+            // workspace to activate adopted a window holding *another* workspace's restored chat, and its
+            // rightful owner then restored its own alongside - one workspace with two chats, the other
+            // missing one. Naming the window here means a workspace that is not its owner mints its own.
+            primary.WorkspaceId = saved.ActiveWorkspaceId;
+
             // Point the remembered layout at the window that now shows this workspace, so everything asking
             // "is there a live window for this entry" (default-panel seeding above all) gets a truthful answer
             // instead of matching against last launch's id.

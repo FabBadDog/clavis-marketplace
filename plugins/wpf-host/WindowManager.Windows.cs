@@ -57,9 +57,12 @@ internal sealed partial class WindowManager
     }
 
     /// The window for a workspace that has none yet: adopt the still-unassigned bootstrap window if it is
-    /// going spare, otherwise mint a fresh one. Adoption matters exactly once per launch - the bootstrap
-    /// window already holds the panels the boot restored, so replacing it would show an empty workspace and
-    /// orphan them.
+    /// going spare, otherwise mint a fresh one. Adoption matters exactly once per launch, on a start with
+    /// nothing saved to restore - the bootstrap window is then genuinely anonymous and the first workspace
+    /// may as well have it, rather than leaving an empty window beside a fresh one.
+    ///
+    /// A boot that restored a layout has already named this window after the workspace whose panels went into
+    /// it, so it is no longer spare and any other workspace mints its own.
     ///
     /// A newly minted window is shown only once the application has been revealed; before that every window
     /// is deliberately hidden and Reveal presents them together.
