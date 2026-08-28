@@ -121,7 +121,8 @@ internal sealed partial class WindowManager
         // Hide what is leaving before showing what is arriving, so two workspaces are never briefly both up.
         foreach (var host in _windows.Values.Where(host => !IsInActiveWorkspace(host) && host.Window.IsVisible))
         {
-            Motion.fadeWindow(host.Window, 0.0, host.Window.Hide);
+            var window = host.Window;
+            Motion.fadeWindow(window, 0.0, () => HideAndClearFade(window));
         }
 
         // Chrome windows first: a panel window can only take its owner once that owner has actually been
@@ -288,10 +289,28 @@ internal sealed partial class WindowManager
         _bar?.SlideOut();
     }
 
+    /// Take a window off screen and leave it in a state that can be shown again.
+    ///
+    /// A DoubleAnimation holds its end value, so a window faded to zero stays at zero and every later
+    /// assignment to Opacity is ignored while that clock holds - the animation has to be cleared, not
+    /// overwritten. Hiding first means the restored opacity is never briefly visible.
+    private static void HideAndClearFade(Window window)
+    {
+        window.Hide();
+        window.BeginAnimation(UIElement.OpacityProperty, null);
+        window.Opacity = 1.0;
+    }
+
     // Window entrance: a secondary window falls in from the top of the screen, matching the primary window's
     // drop-in. Close still fades out (CloseSecondaryWindow / CloseWithFade).
     private static void ShowWithFade(Window window)
     {
+        // Belt and braces for a window hidden by some other path, or mid-fade: coming back with a held zero
+        // opacity is not a subtle glitch. A chrome window is deliberately opaque (no AllowsTransparency), so
+        // the zero applies to its content and not to the HWND - the window paints as an opaque black
+        // rectangle that still drags and maximizes by its caption, looking like a hang rather than a fade.
+        window.BeginAnimation(UIElement.OpacityProperty, null);
+        window.Opacity = 1.0;
         window.Show();
         Motion.fallInWindow(window);
     }
