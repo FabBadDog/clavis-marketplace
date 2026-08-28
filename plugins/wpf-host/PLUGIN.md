@@ -127,6 +127,30 @@ unit-tested.
   via `RestorePanel` (deferred until `BootstrapComplete` so the registry can resolve their kinds) - docked
   panels swap into their slot, and slide-ins are re-anchored parked (hidden) on their saved edge, so a panel
   that was a slide-in or lived in an extra window comes back the same rather than as a default tab.
+- **Restoring is per (window, workspace), never per workspace** (`LayoutMigration.PendingRestores`). A
+  workspace owns one tree per window it appears in, and the two kinds of window come back at different
+  moments: panel windows are recreated eagerly at boot, chrome windows lazily on the workspace's first
+  activation. Guarding "already restored" on the workspace alone let one panel window's restore mark the whole
+  workspace done, and its chrome window's tree was then never put on screen - that workspace came up with no
+  panels at all. The pair is what can actually be restored twice, so the pair is what is guarded.
+- **A panel window keeps the id it was saved under; a chrome window is matched by workspace.** A chrome window
+  is created anew each launch, so its saved id can never match and the *workspace* is its stable identity
+  (`RebindWorkspaceWindow`). A panel window is matched by id, so recreating it must not mint a fresh one -
+  doing so left the saved layout naming a window that no longer existed, an entry that could never be restored
+  into again and that capture went on carrying over for ever.
+- **The bootstrap window is named as soon as it holds a workspace's panels.** It is created before any
+  workspace is known, and used to stay anonymous until the first `WorkspaceActivated` adopted it - whichever
+  workspace that turned out to be. But the boot has already restored `activeWorkspaceId`'s tree into it, and
+  that id comes from `state.yaml` while the workspace that activates first comes from `configuration.yaml`:
+  two files, written at different moments, free to disagree. When they did, the first workspace to activate
+  adopted a window holding another workspace's chat and the rightful owner restored its own alongside - one
+  workspace with two chats, the other missing one. Adoption is now only for a start with nothing saved, where
+  the window is genuinely anonymous.
+- **Every panel is put on the books before the placement paths diverge** (`PlacePanel`). Workspace, kind and
+  the kind's cardinality used to be recorded only when a panel was opened fresh; both restore paths returned
+  first. After a restart every restored panel was therefore of no known workspace and no known kind, so asking
+  for a kind that had been restored found nothing to reuse and opened a second one beside it, and an
+  unclosable kind stopped being unclosable.
 - **Transient workspaces are never persisted.** A workspace flagged `IsFleetAgent` stands for an agent running
   outside Clavis; its owner deliberately does not write it down, so neither does the layout. Activating one must
   not record it as `activeWorkspaceId` or give it a docking tree - the layout stores one tree per workspace, so a

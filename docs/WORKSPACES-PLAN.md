@@ -50,6 +50,59 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP5c continuous sessions: resume, fleet tabs, take-over, park on close | done, **not runtime-verified** | this pass |
 | Chat panel unclosable (`IsClosable` on registration + instance) | done | `7d676f1` |
 | WP11 one window per workspace | done, **not runtime-verified** | `8d6a156` + `af0c4f7` (host repo) |
+| WP12a scope infrastructure in Clavis core | done, tested | host branch `worktree-feature+workspace-scoping` |
+| WP12b restore/panel defects behind the reported symptoms | done, **launch-verified 28.08** | `71e76b5`, `03c6fff`, `e7da8cb`, `e2e38e7` |
+| WP12c `conversation`/`selection` per workspace + wpf-host split | **not started** - gated on the host branch reaching `main` | - |
+
+## WP12 - Workspace scoping
+
+The workspace feature was reported as behaving inconsistently: sometimes two chat panels in one window,
+sometimes a window with no panel at all. The diagnosis was that **scope is a manually threaded field with a
+magic value** - `workspaceId` is carried on message after message, and `Guid.Empty` means something
+different to each reader (`IsInActiveWorkspace`: "the active one"; `PlaceContribution`: "every window";
+`BindPanelToChat`: "the visible chat"; `LayoutMigration.Adopt`: "not yet assigned"). Any reader that
+forgets the filter, or resolves the magic value differently, produces exactly those symptoms.
+
+**WP12a - the scope model (host repo, done).** A plugin can now be `scoped`, running once per scope with its
+own object and its own `ScopedBus`; the routing rule is the pure `MessageScope.reaches`. One real `Bus`
+remains underneath, so dead letters, the activity stream and the bootstrap buffer stay single. The scope
+owner announces `ScopeOpened`/`ScopeClosed` and names no plugin. Also fixed there: `IBus.Request` matched
+only on the response *type*, so two concurrent requests of the same type resolved each other's answers.
+
+**WP12b - the actual defects (this repo, done and launch-verified).** Four, all in the restore path and all
+independent of the scope model:
+
+1. A window faded to zero kept a held animation value, so it came back as an opaque black rectangle that
+   still dragged by its caption - it read as a hang (`71e76b5`).
+2. "Already restored" was guarded per **workspace**, but a workspace owns one tree per window and the two
+   kinds of window come back at different moments. One panel window's restore marked the whole workspace
+   done, and its chrome window's tree was never put on screen (`03c6fff`).
+3. The bootstrap window stayed anonymous until the first `WorkspaceActivated` adopted it, although the boot
+   had already restored a *specific* workspace's tree into it. That workspace comes from `state.yaml`, the
+   first to activate from `configuration.yaml` - two files that may disagree (`e7da8cb`).
+4. `PlacePanel` recorded a panel's workspace, kind and cardinality only on the fresh-open path, so after a
+   restart every restored panel was of no known workspace: asking for a restored kind opened a second one
+   beside it, and unclosable kinds stopped being unclosable (`e2e38e7`). **Most likely the main cause of the
+   duplicate chat.**
+
+Launch on 28.08 confirmed a clean boot and exactly one chat per workspace across four workspaces, each in
+its own window, with a clean shutdown.
+
+**WP12c - the remaining structural half (not started).** Making the bug class impossible rather than fixed:
+`conversation` and `selection` become scoped plugins, and wpf-host splits into a global part (bar, window
+registry, reveal, shutdown, persistence) and a `scoped` part owning exactly one workspace's surface, handed
+to it as `WorkspaceSurfaceReady`. Two findings shape it:
+
+- **The two are entangled.** `conversation` subscribes to 22 message types, and the per-workspace half of
+  them is published by the chat panel *inside wpf-host*. They can only be addressed once wpf-host is split,
+  so scoping `conversation` first would break the running app.
+- **`claude-bridge` cannot address a workspace.** It is application-scoped and keys by `SessionId` while the
+  conversation instances are keyed by `WorkspaceId`, so `AgentStreamEvent` and friends have no route. With
+  the bridge staying global, it learns the pairing from the `WorkspaceSessionStarted` it already receives.
+
+**Gate:** the marketplace compiles on every launch against the `Nucleus.Contracts.dll` beside the host exe.
+`ScopeOpened`, `ScopeClosed`, `SetActiveScope` and `IBus.Scope` are only on the host feature branch, so any
+marketplace code using them breaks a launch from `main` until that branch lands.
 
 > ## Launch verification, 27.07 - WP3/WP4/WP5 boot chain CONFIRMED
 >
