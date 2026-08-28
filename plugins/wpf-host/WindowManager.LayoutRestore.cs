@@ -92,7 +92,7 @@ internal sealed partial class WindowManager
 
     private void RestoreLayout(WindowHost host, PersistedWorkspaceLayout? entry)
     {
-        if (entry?.Layout is null)
+        if (entry?.Layout is null || !_restoredWorkspaceWindows.Add((host.WindowId, entry.WorkspaceId)))
         {
             return;
         }
@@ -100,8 +100,6 @@ internal sealed partial class WindowManager
         // A layout saved under a since-renamed kind is read through the retirement map first, so an old name
         // does not restore as a slot nothing can resolve.
         var layout = LayoutTree.RenameKinds(entry.Layout, _config.RetiredPanelKinds);
-
-        _restoredWorkspaces.Add(entry.WorkspaceId);
 
         // Every slot - the chat among them - restores through the same path: a compile-log placeholder now,
         // swapped for the real view when its owning plugin resolves the kind.
@@ -136,12 +134,15 @@ internal sealed partial class WindowManager
     /// placeholder it would on a cold boot.
     private void RestoreWorkspacePanels(Guid workspaceId)
     {
-        if (workspaceId == Guid.Empty || !_restoredWorkspaces.Add(workspaceId))
+        if (workspaceId == Guid.Empty)
         {
             return;
         }
 
-        foreach (var entry in _restoredLayout?.For(workspaceId).ToList() ?? [])
+        var pending = LayoutMigration.PendingRestores(
+            _restoredLayout, workspaceId, _windows.Keys.ToList(), _restoredWorkspaceWindows);
+
+        foreach (var entry in pending)
         {
             if (_windows.TryGetValue(entry.WindowId, out var host))
             {

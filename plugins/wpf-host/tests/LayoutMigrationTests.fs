@@ -321,3 +321,64 @@ let ``a workspace that has never been on screen carries no bounds of its own`` (
     // Act & Assert - the window's standing position stands in
     %(obj.ReferenceEquals((saved.For(windowId, workspaceId)).Bounds, null)).Should().BeTrue()
     %saved.Windows[0].Bounds.Left.Should().Be(42.0)
+
+/// A workspace shown in two windows: its chrome window and one panel window. The chrome window is created
+/// fresh each launch and restored on first activation; the panel window is recreated at boot.
+let private twoWindowWorkspace () =
+    let workspace = Guid.NewGuid()
+    let chromeWindow = Guid.NewGuid()
+    let panelWindow = Guid.NewGuid()
+    let saved =
+        PersistedLayout(
+            LayoutFile.CurrentVersion, workspace,
+            [| PersistedWindow(chromeWindow, WindowRole.Primary, workspace, bounds 0.0)
+               PersistedWindow(panelWindow, WindowRole.Panel, workspace, bounds 1280.0) |],
+            [| PersistedWorkspaceLayout(chromeWindow, workspace, leafOf "chat")
+               PersistedWorkspaceLayout(panelWindow, workspace, leafOf "git-log") |])
+    saved, workspace, chromeWindow, panelWindow
+
+[<Fact>]
+let ``restoring one of a workspace's windows leaves the other still pending`` () =
+
+    // Arrange - the panel window came back at boot, so its pair is already restored. The chrome window's tree
+    // has not been put on screen yet, and used to be skipped because the workspace counted as done.
+    let saved, workspace, chromeWindow, panelWindow = twoWindowWorkspace ()
+    let live = [| chromeWindow; panelWindow |]
+    let restored = [| struct (panelWindow, workspace) |]
+
+    // Act
+    let pending = LayoutMigration.PendingRestores(saved, workspace, live, restored)
+
+    // Assert
+    %pending.Count.Should().Be(1)
+    %pending[0].WindowId.Should().Be(chromeWindow)
+
+[<Fact>]
+let ``a window already restored is not restored into twice`` () =
+
+    // Arrange
+    let saved, workspace, chromeWindow, panelWindow = twoWindowWorkspace ()
+
+    // Act
+    let pending =
+        LayoutMigration.PendingRestores(
+            saved, workspace, [| chromeWindow; panelWindow |],
+            [| struct (chromeWindow, workspace); struct (panelWindow, workspace) |])
+
+    // Assert
+    %pending.Should().BeEmpty()
+
+[<Fact>]
+let ``a saved tree naming a window that is gone is not pending`` () =
+
+    // Arrange - the saved id belongs to a previous launch, so there is nothing to restore it into.
+    let saved, workspace, chromeWindow, _ = twoWindowWorkspace ()
+
+    // Act
+    let pending =
+        LayoutMigration.PendingRestores(
+            saved, workspace, [| chromeWindow |], Array.empty<struct (Guid * Guid)>)
+
+    // Assert
+    %pending.Count.Should().Be(1)
+    %pending[0].WindowId.Should().Be(chromeWindow)

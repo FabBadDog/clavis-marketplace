@@ -112,12 +112,17 @@ internal sealed partial class WindowManager : IDisposable
     // afterwards stays closed.
     private readonly HashSet<Guid> _seededWorkspaces = [];
 
-    // Workspaces whose saved panels have already been sent for restore. The boot restores the active
-    // workspace's layout before the first WorkspaceActivated arrives, and that activation would otherwise
-    // restore it a second time - two RestoreRequests per saved panel, and two instances of a kind that is
-    // supposed to have one. Restoring is idempotent for the surface (Restore replaces the tree) but not for
-    // the sends, so the guard is on the workspace rather than on the tree.
-    private readonly HashSet<Guid> _restoredWorkspaces = [];
+    // The (window, workspace) pairs whose saved panels have already been sent for restore. The boot restores
+    // the active workspace's layout before the first WorkspaceActivated arrives, and that activation would
+    // otherwise restore it a second time - two RestoreRequests per saved panel, and two instances of a kind
+    // that is supposed to have one. Restoring is idempotent for the surface (Restore replaces the tree) but
+    // not for the sends, so it needs a guard.
+    //
+    // The pair, not the workspace alone: a workspace has one tree per window it owns, and the boot recreates
+    // every workspace's *secondary* windows eagerly while their chrome windows are still restored lazily on
+    // first activation. Guarding per workspace let one secondary's restore mark the whole workspace done, so
+    // its chrome window's tree was never materialised and that workspace came up with no panels at all.
+    private readonly HashSet<(Guid WindowId, Guid WorkspaceId)> _restoredWorkspaceWindows = [];
 
     // The workspace whose panels are on screen, and the layout as last read from disk. The layout is kept so
     // a capture can carry over the arrangements of workspaces that are not currently shown - otherwise

@@ -255,6 +255,29 @@ public static class LayoutMigration
         PersistedLayout? layout, Guid workspaceId, IReadOnlyCollection<Guid> liveWindows) =>
         layout is null
         || !layout.For(workspaceId).Any(entry => entry.Layout is not null && liveWindows.Contains(entry.WindowId));
+
+    /// The saved trees of a workspace that still have to be put on screen: those naming a window that exists
+    /// and that have not already been restored into it.
+    ///
+    /// A workspace owns one tree per window it appears in, and the two kinds of window are restored at
+    /// different moments - panel windows are recreated eagerly at boot, chrome windows lazily on the
+    /// workspace's first activation. So "has this workspace been restored" is not a question that has one
+    /// answer: asking it per workspace let one panel window's restore mark the whole workspace done, leaving
+    /// its chrome window empty for the rest of the launch.
+    public static IReadOnlyList<PersistedWorkspaceLayout> PendingRestores(
+        PersistedLayout? layout,
+        Guid workspaceId,
+        IReadOnlyCollection<Guid> liveWindows,
+        IReadOnlyCollection<(Guid WindowId, Guid WorkspaceId)> alreadyRestored) =>
+        workspaceId == Guid.Empty || layout is null
+            ? []
+            :
+            [
+                .. layout.For(workspaceId)
+                    .Where(entry => entry.Layout is not null)
+                    .Where(entry => liveWindows.Contains(entry.WindowId))
+                    .Where(entry => !alreadyRestored.Contains((entry.WindowId, entry.WorkspaceId)))
+            ];
 }
 
 /// Serialises the window layout to and from YAML. The text is persisted as this plugin's runtime state

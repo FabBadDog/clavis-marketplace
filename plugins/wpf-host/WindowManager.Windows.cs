@@ -140,7 +140,13 @@ internal sealed partial class WindowManager
 
     private void RecreateSecondaryWindow(PersistedWindow entry, PersistedWorkspaceLayout? layout)
     {
-        var host = NewSecondaryHost(Guid.NewGuid());
+        // Keep the saved id rather than minting a fresh one. A panel window is matched by id - unlike a chrome
+        // window, which is matched by workspace because it is created anew each launch - so a new id here left
+        // the saved layout pointing at a window that no longer existed: its entry could never be restored into
+        // again, and capture kept carrying it over as an arrangement belonging to no live window. Ids are
+        // unique within a launch and only the bootstrap window exists at this point, so the saved id is free.
+        var host = NewSecondaryHost(
+            _windows.ContainsKey(entry.WindowId) ? Guid.NewGuid() : entry.WindowId);
         host.WorkspaceId = entry.WorkspaceId;
         ApplyBounds(host.Window, entry.Bounds);
         RestoreLayout(host, layout);

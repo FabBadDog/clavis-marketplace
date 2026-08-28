@@ -218,8 +218,9 @@ internal sealed partial class WindowManager
                 // its restored panels already sit in, instead of being handed an empty one.
                 window.ActivateWorkspace(message.WorkspaceId);
 
-                // Idempotent by workspace, so an adopted bootstrap window does not restore what the boot
-                // already restored into it.
+                // Idempotent per (window, workspace), so an adopted bootstrap window does not restore what the
+                // boot already restored into it, while a workspace whose panel window came back at boot still
+                // gets its chrome window's tree.
                 RestoreWorkspacePanels(message.WorkspaceId);
 
                 // Chrome that is not bound to a particular workspace travels to the window now on screen.
