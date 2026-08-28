@@ -63,13 +63,32 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
         void Apply((WorkspaceSet Set, WorkspaceEffect[] Effects) result, bool persist = true)
         {
             var changed = !ReferenceEquals(result.Set, set);
+            var scopesBefore = set.Workspaces.Select(workspace => workspace.WorkspaceId).ToHashSet();
             set = result.Set;
+
+            // A workspace is a scope: announcing one brings up an instance of every scoped plugin, bound to a
+            // bus carrying only this workspace's traffic. Derived from the set rather than raised at each call
+            // site, so no path can create a workspace and forget to give it its plugins. No plugin is named
+            // here - which of them are scoped is the kernel's business, not this plugin's.
+            var scopesAfter = set.Workspaces.Select(workspace => workspace.WorkspaceId).ToHashSet();
+            foreach (var opened in scopesAfter.Except(scopesBefore))
+            {
+                bus.Send(new ScopeOpened(opened));
+            }
+
+            foreach (var closed in scopesBefore.Except(scopesAfter))
+            {
+                bus.Send(new ScopeClosed(closed));
+            }
 
             foreach (var effect in result.Effects)
             {
                 switch (effect)
                 {
                     case ActivatedEffect activated:
+                        // Before the activation itself, so a handler reacting to that already resolves
+                        // "the active scope" to this workspace.
+                        bus.Send(new SetActiveScope(activated.WorkspaceId));
                         bus.Send(new WorkspaceActivated(activated.WorkspaceId, activated.SessionId));
                         break;
 
