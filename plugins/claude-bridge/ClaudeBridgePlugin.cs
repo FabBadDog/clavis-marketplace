@@ -89,6 +89,11 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
         // rather than reconstructing them from plugin config, which would be a different agent by any other name.
         var sessionOrigins = new ConcurrentDictionary<Guid, (string WorkingDirectory, string Name)>();
 
+        // Which scope each session's stream belongs to. The bridge stays as scope-agnostic as it is
+        // provider-agnostic: it carries the id its caller gave and routes by it, and never learns that in
+        // Clavis a scope is a workspace.
+        var sessionScopes = new ConcurrentDictionary<Guid, Guid>();
+
         // The working directory each discovered instance reported. Adoption resumes an agent in the directory it
         // was already living in; the adopt message carries only an id, and guessing would move somebody's agent.
         var discoveredDirectories = new ConcurrentDictionary<string, string>();
@@ -119,10 +124,32 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
         var promptedSessions = new HashSet<Guid>();
         var sessionFacts = new object();
 
+        // A session's stream goes to the scope that session belongs to, so a scoped plugin sees only its own
+        // conversation. An unscoped session (Guid.Empty) broadcasts, which is what every caller got before
+        // scopes existed - and what an application-scoped subscriber sees either way, since that tier
+        // receives every scope.
+        void SendToSessionScope<TMessage>(Guid sessionId, TMessage message)
+        {
+            var scope = sessionScopes.GetValueOrDefault(sessionId);
+            if (scope == Guid.Empty)
+            {
+                bus.Send(message);
+            }
+            else
+            {
+                bus.SendTo(scope, message);
+            }
+        }
+
         // Creating and adopting differ only in whether a transcript is resumed; everything after the spawn -
         // the stream wiring, the axis bookkeeping, the lifecycle messages - is identical, so it lives here once.
-        void LaunchSession(Guid sessionId, string workingDirectory, string? model, string? label, string? resumeInstanceId)
+        void LaunchSession(Guid sessionId, string workingDirectory, string? model, string? label, string? resumeInstanceId, Guid scope)
         {
+            // Remembered so this session's stream can be addressed at the plugins bound to that scope rather
+            // than broadcast. What the scope stands for is never asked: it is an opaque id the caller chose,
+            // and Guid.Empty simply means "tell everyone", which is what an unscoped caller gets.
+            sessionScopes[sessionId] = scope;
+
             ClavisMcpAvailable? availableMcp;
             lock (clavisMcpLock)
             {
@@ -192,7 +219,7 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                 .Where(mapped => mapped is not null)
                 .Subscribe(mapped =>
                 {
-                    bus.Send(mapped!);
+                    SendToSessionScope(sessionId, mapped!);
                     if (mapped is AgentResult result)
                     {
                         turnGate.Finished(sessionId);
@@ -282,7 +309,7 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
 
         var startSubscription = bus.Subscribe<StartNewSession>(message =>
         {
-            LaunchSession(message.SessionId, message.WorkingDirectory, message.Model, message.Name, null);
+            LaunchSession(message.SessionId, message.WorkingDirectory, message.Model, message.Name, null, message.Scope);
             return Task.CompletedTask;
         });
 
@@ -595,7 +622,8 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
             }
 
             LaunchSession(
-                message.SessionId, message.WorkingDirectory, config.Model, message.Name, message.AgentSessionId);
+                message.SessionId, message.WorkingDirectory, config.Model, message.Name, message.AgentSessionId,
+                message.Scope);
             return Task.CompletedTask;
         });
 
@@ -678,7 +706,7 @@ public sealed class ClaudeBridgePlugin : IPlugin<ClaudeBridgeConfig>
                 ? name
                 : null;
 
-            LaunchSession(message.SessionId, workingDirectory, config.Model, label, message.InstanceId);
+            LaunchSession(message.SessionId, workingDirectory, config.Model, label, message.InstanceId, message.Scope);
             bus.Send(new AgentInstanceAdopted(message.SessionId, message.InstanceId));
         });
 

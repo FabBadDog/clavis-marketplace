@@ -33,3 +33,18 @@ type WindowFocusChanged(windowId: Guid) =
 [<Sealed>]
 type ActivePanelChanged(kind: string) =
     member _.Kind = kind
+
+/// Hands a workspace the docking surface of its window, addressed to that workspace's scope. The window
+/// owner creates windows and surfaces; who fills one is the workspace-scoped host bound to that scope.
+///
+/// This is what makes a workspace's panels structurally its own: exactly one plugin instance can ever
+/// hold a given surface, and that instance carries only that workspace's restore state - so filing one
+/// workspace's panels under another stops being expressible rather than merely being avoided.
+///
+/// `Surface` is `obj` for the same reason `UiRegionContribution.ViewFactory` is: a contract module stays
+/// free of WPF and of the control library, and the one consumer that needs the concrete type casts to it.
+[<Sealed>]
+type WorkspaceSurfaceReady(workspaceId: Guid, windowId: Guid, surface: obj) =
+    member _.WorkspaceId = workspaceId
+    member _.WindowId = windowId
+    member _.Surface = surface

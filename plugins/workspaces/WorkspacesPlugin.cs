@@ -168,19 +168,21 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
                     // adopting now and the session is only recorded once the bridge confirms it.
                     Apply(WorkspaceUpdate.Adopting(set, workspaceId, true), persist: false);
                     adopting[takeOver.InstanceId] = (workspaceId, sessionId);
-                    bus.Send(new AdoptAgentInstance(takeOver.InstanceId, sessionId));
+                    // The workspace is the session's scope, so the bridge can address this conversation's
+                    // stream at the plugins bound to it instead of broadcasting it to every workspace.
+                    bus.Send(new AdoptAgentInstance(takeOver.InstanceId, sessionId, false, workspaceId));
                     bus.LogInfo(Id, $"taking over agent {takeOver.InstanceId} for workspace '{workspace.Name}'");
                     break;
 
                 case ResumeConversation resume:
                     bus.Send(new ResumeSession(
-                        sessionId, resume.WorkingDirectory, resume.AgentSessionId, resume.Name));
+                        sessionId, resume.WorkingDirectory, resume.AgentSessionId, resume.Name, workspaceId));
                     Apply(WorkspaceUpdate.SessionStarted(set, workspaceId, sessionId));
                     bus.LogInfo(Id, $"reopening the conversation of workspace '{workspace.Name}'");
                     break;
 
                 case StartFresh start:
-                    bus.Send(new StartNewSession(sessionId, start.WorkingDirectory, null, start.Name));
+                    bus.Send(new StartNewSession(sessionId, start.WorkingDirectory, null, start.Name, workspaceId));
                     Apply(WorkspaceUpdate.SessionStarted(set, workspaceId, sessionId));
                     break;
             }
@@ -445,7 +447,8 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
                     $"could not take over agent {message.InstanceId}; reopening the conversation of "
                     + $"'{workspace.Name}' from its transcript instead");
                 bus.Send(new ResumeSession(
-                    pending.SessionId, workspace.WorkingDirectory, workspace.AgentSessionId, workspace.Name));
+                    pending.SessionId, workspace.WorkingDirectory, workspace.AgentSessionId, workspace.Name,
+                    pending.WorkspaceId));
                 Apply(WorkspaceUpdate.SessionStarted(set, pending.WorkspaceId, pending.SessionId));
             }
 
@@ -482,7 +485,7 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
                 }
 
                 bus.LogInfo(Id, $"taking over agent {pending.Key} without waiting for its turn");
-                bus.Send(new AdoptAgentInstance(pending.Key, pending.SessionId, true));
+                bus.Send(new AdoptAgentInstance(pending.Key, pending.SessionId, true, message.WorkspaceId));
             }
 
             return Task.CompletedTask;

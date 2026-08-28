@@ -6,13 +6,23 @@ open System.ComponentModel
 
 [<Sealed>]
 [<Description("Start a new agent session")>]
-type StartNewSession(sessionId: Guid, workingDirectory: string, model: string, name: string) =
+type StartNewSession(sessionId: Guid, workingDirectory: string, model: string, name: string, scope: Guid) =
 
-    new(sessionId, workingDirectory, model) = StartNewSession(sessionId, workingDirectory, model, null)
+    new(sessionId, workingDirectory, model, name) =
+        StartNewSession(sessionId, workingDirectory, model, name, Guid.Empty)
+
+    new(sessionId, workingDirectory, model) =
+        StartNewSession(sessionId, workingDirectory, model, null, Guid.Empty)
 
     member _.SessionId = sessionId
     member _.WorkingDirectory = workingDirectory
     member _.Model = model
+
+    /// The scope this session belongs to, so the bridge can address the session's stream at the plugins
+    /// bound to that scope instead of broadcasting it. An opaque id here on purpose: the bridge routes by
+    /// it without ever learning what a scope stands for, exactly as the kernel does. `Guid.Empty` means
+    /// unscoped, and the stream goes to everyone - which is what a caller that names no scope gets.
+    member _.Scope = scope
 
     /// A human label for the session (a workspace name), or null to let the bridge derive one from the working
     /// directory. It reaches the provider as the session's display name, which is what makes the agent
@@ -195,12 +205,17 @@ type AgentInstancesAvailable(instances: IReadOnlyList<AgentInstance>) =
 /// Clavis homes adopting one instance would give two windows onto one transcript.
 [<Sealed>]
 [<Description("Take over an existing agent instance")>]
-type AdoptAgentInstance(instanceId: string, sessionId: Guid, force: bool) =
+type AdoptAgentInstance(instanceId: string, sessionId: Guid, force: bool, scope: Guid) =
 
-    new(instanceId, sessionId) = AdoptAgentInstance(instanceId, sessionId, false)
+    new(instanceId, sessionId, force) = AdoptAgentInstance(instanceId, sessionId, force, Guid.Empty)
+
+    new(instanceId, sessionId) = AdoptAgentInstance(instanceId, sessionId, false, Guid.Empty)
 
     member _.InstanceId = instanceId
     member _.SessionId = sessionId
+
+    /// The scope the adopted session belongs to; see StartNewSession.Scope.
+    member _.Scope = scope
 
     /// Take the instance over even while it is mid-turn. Adoption stops the agent before resuming it, so taking
     /// over a working agent throws its unfinished turn away; by default the bridge therefore waits for the turn
@@ -228,9 +243,16 @@ type AgentInstanceAdoptionWaiting(sessionId: Guid, instanceId: string, status: s
 /// whose agent is simply gone.
 [<Sealed>]
 [<Description("Resume a session from its persisted transcript")>]
-type ResumeSession(sessionId: Guid, workingDirectory: string, agentSessionId: string, name: string) =
+type ResumeSession(sessionId: Guid, workingDirectory: string, agentSessionId: string, name: string, scope: Guid) =
+
+    new(sessionId, workingDirectory, agentSessionId, name) =
+        ResumeSession(sessionId, workingDirectory, agentSessionId, name, Guid.Empty)
+
     member _.SessionId = sessionId
     member _.WorkingDirectory = workingDirectory
+
+    /// The scope this session belongs to; see StartNewSession.Scope.
+    member _.Scope = scope
 
     /// The provider's own session id, which is what identifies the transcript to resume.
     member _.AgentSessionId = agentSessionId
