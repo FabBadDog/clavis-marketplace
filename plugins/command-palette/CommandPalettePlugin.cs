@@ -316,7 +316,9 @@ public sealed class CommandPalettePlugin : IPlugin<CommandPaletteConfig>
                 BusSender.Send(bus, send.Message);
                 break;
             case SendAgentPrompt prompt:
-                bus.Send(new UserSubmittedPrompt(prompt.Text));
+                // At the active scope, not to everyone: a prompt typed into the palette is meant for the
+                // conversation being looked at, and every workspace now has one of its own.
+                bus.SendToActive(new UserSubmittedPrompt(prompt.Text));
                 break;
         }
     }

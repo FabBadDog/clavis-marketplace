@@ -477,7 +477,15 @@ public sealed class ConversationPlugin : IPlugin<ConversationConfig>
         ChatPanelBinding BindPanelToChat(PanelInstanceContext context)
         {
             var saved = ChatPanelState.Parse(context.SavedState);
-            var workspaceId = context.WorkspaceId != Guid.Empty ? context.WorkspaceId : saved.WorkspaceId;
+
+            // This plugin runs one instance per workspace, so the bus it was activated with *is* the answer to
+            // "which workspace is this". The request and the saved blob are only consulted when there is no
+            // scope - an unscoped activation, where the old behaviour is what should happen.
+            var workspaceId = bus.Scope != Guid.Empty
+                ? bus.Scope
+                : context.WorkspaceId != Guid.Empty
+                    ? context.WorkspaceId
+                    : saved.WorkspaceId;
             lock (lockObj)
             {
                 // The visible chat is a fallback only for a panel that names no workspace at all. For a panel

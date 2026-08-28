@@ -60,26 +60,39 @@ public sealed class WorkspacesPlugin : IPlugin<WorkspacesConfig>
 
         var subscriptions = new List<ISubscription>();
 
-        void Apply((WorkspaceSet Set, WorkspaceEffect[] Effects) result, bool persist = true)
-        {
-            var changed = !ReferenceEquals(result.Set, set);
-            var scopesBefore = set.Workspaces.Select(workspace => workspace.WorkspaceId).ToHashSet();
-            set = result.Set;
+        // Which workspaces have been announced as scopes. Tracked in its own set rather than diffed against the
+        // previous `set`, because not every path reaches `set` through Apply: loading assigns it directly and
+        // only then applies an activation, so a diff taken inside Apply saw the loaded workspaces as already
+        // present and announced none of them - every restored workspace came up with no scoped plugins at all,
+        // and only workspaces created later got any. Comparing against what was actually announced cannot be
+        // fooled that way, whatever route the set took.
+        var announcedScopes = new HashSet<Guid>();
 
-            // A workspace is a scope: announcing one brings up an instance of every scoped plugin, bound to a
-            // bus carrying only this workspace's traffic. Derived from the set rather than raised at each call
-            // site, so no path can create a workspace and forget to give it its plugins. No plugin is named
-            // here - which of them are scoped is the kernel's business, not this plugin's.
-            var scopesAfter = set.Workspaces.Select(workspace => workspace.WorkspaceId).ToHashSet();
-            foreach (var opened in scopesAfter.Except(scopesBefore))
+        // A workspace is a scope: announcing one brings up an instance of every scoped plugin, bound to a bus
+        // carrying only that workspace's traffic. No plugin is named here - which of them are scoped is the
+        // kernel's business, not this plugin's.
+        void AnnounceScopes()
+        {
+            var live = set.Workspaces.Select(workspace => workspace.WorkspaceId).ToHashSet();
+
+            foreach (var opened in live.Except(announcedScopes).ToList())
             {
+                announcedScopes.Add(opened);
                 bus.Send(new ScopeOpened(opened));
             }
 
-            foreach (var closed in scopesBefore.Except(scopesAfter))
+            foreach (var closed in announcedScopes.Except(live).ToList())
             {
+                announcedScopes.Remove(closed);
                 bus.Send(new ScopeClosed(closed));
             }
+        }
+
+        void Apply((WorkspaceSet Set, WorkspaceEffect[] Effects) result, bool persist = true)
+        {
+            var changed = !ReferenceEquals(result.Set, set);
+            set = result.Set;
+            AnnounceScopes();
 
             foreach (var effect in result.Effects)
             {

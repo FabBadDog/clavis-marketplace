@@ -173,7 +173,9 @@ internal sealed class ClavisTools(GatewayContext context)
     [Description("Submit a prompt to the Clavis conversation exactly as if the user typed it into the prompt box.")]
     public string SubmitPrompt([Description("The prompt text to submit.")] string text)
     {
-        context.Bus.Send(new UserSubmittedPrompt(text));
+        // At the active scope: the agent is speaking into the conversation on screen, and each workspace has
+        // its own. Broadcasting would put the prompt into every workspace at once.
+        context.Bus.SendToActive(new UserSubmittedPrompt(text));
         return Dispatched("submit_prompt");
     }
 

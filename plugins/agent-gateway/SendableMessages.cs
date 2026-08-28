@@ -31,8 +31,9 @@ public sealed class SendableMessages
     {
         _factories = new Dictionary<string, Action<IBus, JsonElement>>(StringComparer.Ordinal)
         {
-            ["UserSubmittedPrompt"] = (bus, json) => bus.Send(new UserSubmittedPrompt(RequireString(json, "prompt"))),
-            ["UserAborted"] = (bus, _) => bus.Send(new UserAborted()),
+            // User intent with no workspace named, so it goes to the one on screen rather than to all of them.
+            ["UserSubmittedPrompt"] = (bus, json) => bus.SendToActive(new UserSubmittedPrompt(RequireString(json, "prompt"))),
+            ["UserAborted"] = (bus, _) => bus.SendToActive(new UserAborted()),
             ["FocusInputRequested"] = (bus, _) => bus.Send(new FocusInputRequested()),
             ["ToggleCommandPalette"] = (bus, _) => bus.Send(new ToggleCommandPalette()),
             ["ToggleShortcutHelp"] = (bus, _) => bus.Send(new ToggleShortcutHelp()),
