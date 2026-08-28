@@ -27,6 +27,18 @@ internal sealed partial class WindowManager
 
     private void PlacePanel(PanelInstanceReady ready)
     {
+        // Every panel is recorded the same way, whichever path puts it on screen. Restored panels used to skip
+        // this and return below, so after a restart every panel that came back was of no known workspace: the
+        // cardinality lookup could not match it, and asking for a kind that was already restored - the chat
+        // above all - opened a second one beside it.
+        _kindCardinality[ready.Kind] = LivePanels.Normalize(ready.Cardinality);
+        _panelWorkspace[ready.InstanceId] = ready.WorkspaceId;
+        _panelKind[ready.InstanceId] = ready.Kind;
+        if (!ready.IsClosable)
+        {
+            _unclosableKinds.Add(ready.Kind);
+        }
+
         // Restore path: the slot already exists in the surface (showing its compile-log placeholder while the
         // panel's plugin was still building). Stop the placeholder's log, swap in the real view, and fade it
         // in so the panel resolves out of the placeholder rather than hard-cutting.
@@ -51,22 +63,17 @@ internal sealed partial class WindowManager
         // The kind's declared cardinality decides whether an already-live panel is reused: reveal it where it
         // sits and drop the duplicate the registry just minted (its view was never built, so there is nothing
         // to dispose).
-        _kindCardinality[ready.Kind] = LivePanels.Normalize(ready.Cardinality);
-        if (!ready.IsClosable)
-        {
-            _unclosableKinds.Add(ready.Kind);
-        }
-
         var existing = FindLiveInstance(ready.Kind, ready.Cardinality, ready.WorkspaceId, ready.InstanceId);
         if (existing is not null)
         {
+            // This instance is being dropped, so it must not stay on the books as a live panel.
+            _panelWorkspace.Remove(ready.InstanceId);
+            _panelKind.Remove(ready.InstanceId);
             RevealInstance(existing.Value);
             _bus.Send(new PanelClosed(ready.InstanceId));
             return;
         }
 
-        _panelWorkspace[ready.InstanceId] = ready.WorkspaceId;
-        _panelKind[ready.InstanceId] = ready.Kind;
         PlaceFresh(ready, (FrameworkElement)ready.View.Invoke());
         ScheduleSave();
     }
