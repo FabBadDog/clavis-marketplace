@@ -50,9 +50,12 @@ Everything below is pushed; both repos are clean. Marketplace = `~/.clavis/marke
 | WP5c continuous sessions: resume, fleet tabs, take-over, park on close | done, **not runtime-verified** | this pass |
 | Chat panel unclosable (`IsClosable` on registration + instance) | done | `7d676f1` |
 | WP11 one window per workspace | done, **not runtime-verified** | `8d6a156` + `af0c4f7` (host repo) |
-| WP12a scope infrastructure in Clavis core | done, tested | host branch `worktree-feature+workspace-scoping` |
+| WP12a scope infrastructure in Clavis core | done, tested | host `main` |
 | WP12b restore/panel defects behind the reported symptoms | done, **launch-verified 28.08** | `71e76b5`, `03c6fff`, `e7da8cb`, `e2e38e7` |
-| WP12c `conversation`/`selection` per workspace + wpf-host split | **not started** - gated on the host branch reaching `main` | - |
+| WP12c scope announcement, `WorkspaceSurfaceReady`, session carries its scope | done, launch-verified | `2b3a88b`, `e96100b` |
+| WP12c `conversation` per workspace | **taken back out 30.08** - needs the wpf-host split first | `79d860d`, reverted |
+| WP12c wpf-host split into global + scoped surface | **not started** - the prerequisite for everything above it | - |
+| WP12c `selection` per workspace | **struck** - it owns no chrome and the workspace picker is application-wide | - |
 
 ## WP12 - Workspace scoping
 
@@ -88,17 +91,47 @@ independent of the scope model:
 Launch on 28.08 confirmed a clean boot and exactly one chat per workspace across four workspaces, each in
 its own window, with a clean shutdown.
 
-**WP12c - the remaining structural half (not started).** Making the bug class impossible rather than fixed:
-`conversation` and `selection` become scoped plugins, and wpf-host splits into a global part (bar, window
-registry, reveal, shutdown, persistence) and a `scoped` part owning exactly one workspace's surface, handed
-to it as `WorkspaceSurfaceReady`. Two findings shape it:
+**WP12c - the remaining structural half.** Making the bug class impossible rather than fixed: `conversation`
+becomes a scoped plugin, and wpf-host splits into a global part (bar, window registry, reveal, shutdown,
+persistence) and a `scoped` part owning exactly one workspace's surface, handed to it as
+`WorkspaceSurfaceReady`.
 
-- **The two are entangled.** `conversation` subscribes to 22 message types, and the per-workspace half of
-  them is published by the chat panel *inside wpf-host*. They can only be addressed once wpf-host is split,
-  so scoping `conversation` first would break the running app.
-- **`claude-bridge` cannot address a workspace.** It is application-scoped and keys by `SessionId` while the
-  conversation instances are keyed by `WorkspaceId`, so `AgentStreamEvent` and friends have no route. With
-  the bridge staying global, it learns the pairing from the `WorkspaceSessionStarted` it already receives.
+Landed and launch-verified: the scope announcement (`2b3a88b`), `WorkspaceSurfaceReady` (`e96100b`), and the
+session carrying its scope so the bridge can address the stream (`e96100b`).
+
+**Scoping `conversation` was shipped without the wpf-host split and had to be taken back out (30.08).** The
+launch failed in a way no compile could catch: a window with no chat at all, others showing a prompt input
+whose chat never received output, and multi-second workspace switches.
+
+- **The panel-kind registry is application-global and holds one entry per kind name.** All ten
+  `conversation` instances sent `PanelKindRegistration("chat", …, factory)`; the last one won. Every chat
+  panel in every window was therefore built by a single instance and bound through *its* `bus.Scope`, so
+  each panel belonged to one workspace no matter which window it sat in - and the `OnePerWorkspace`
+  cardinality then filed panels under the wrong workspace, leaving a window with none. A scoped plugin needs
+  a surface of its own to register into; that surface is exactly what the wpf-host split provides. **Scoping
+  `conversation` before the split has no foundation and cannot be made to work by patching around it.**
+- **Only the stream is addressed.** `claude-bridge` sends the mapped `AgentStreamEvent` family via
+  `SendToSessionScope`, but `SessionReady`, the capabilities catalog, `AgentModelChanged`/`Mode`/`Effort`,
+  `AgentParsingError` and `SessionStarted` are still plain broadcasts. `AgentParsingError` is subscribed by
+  `conversation`, so every workspace would surface every workspace's parsing errors. These have to be
+  addressed as part of the split, not after it.
+- **`WorkspaceSessionStarted` is a broadcast too**, and it is what creates a chat. Every scoped instance
+  therefore built a chat for every workspace, so the per-instance state was never actually partitioned - the
+  scope filter in `BindPanelToChat` was doing all the work.
+- **`SessionStarted` has no subscriber anywhere** in the catalog. Pre-existing dead message, unrelated to
+  scoping, but it shows up as a dead letter on every session start.
+
+The order in the plan was therefore wrong: step 5 (scope `conversation`) depends on step 3 (split wpf-host),
+not the other way round. The `scoped: true` line is removed from `plugins/conversation/PLUGIN.md`; the
+`bus.Scope` preference in `BindPanelToChat` stays, because it falls through to the old behaviour when the
+scope is `Guid.Empty` and is ready for the split.
+
+Still true, and still shaping the split:
+
+- **`claude-bridge` cannot address a workspace on its own.** It is application-scoped and keys by
+  `SessionId` while the conversation instances are keyed by `WorkspaceId`. With the bridge staying global,
+  it learns the pairing from the `WorkspaceSessionStarted` it already receives - done in `e96100b` for the
+  stream, to be extended to the lifecycle messages above.
 
 **Gate:** the marketplace compiles on every launch against the `Nucleus.Contracts.dll` beside the host exe.
 `ScopeOpened`, `ScopeClosed`, `SetActiveScope` and `IBus.Scope` are only on the host feature branch, so any
